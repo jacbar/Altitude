@@ -1,0 +1,16 @@
+# Stowable Altitude config.
+# Copy to ~/.config/altitude/config.toml (or symlink via GNU Stow).
+
+version = 1
+
+[spaces]
+# When true, switches jump through Spaces as fast as the Dock allows instead of
+# playing a trackpad-like slide for each desktop crossed.
+disable_animations = false
+
+[hotkeys]
+# option+N switches to desktop N; option+shift+N moves the focused window.
+switch_enabled = true
+move_enabled = true
+# Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
+max_space = 9

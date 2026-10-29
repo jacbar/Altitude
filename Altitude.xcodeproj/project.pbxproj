@@ -1,0 +1,333 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B20000000000000000000000 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000000 /* main.swift */; };
+		B20000000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* AppDelegate.swift */; };
+		B20000000000000000000002 /* CGSPrivate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000002 /* CGSPrivate.swift */; };
+		B20000000000000000000003 /* DockSwipeSwitcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* DockSwipeSwitcher.swift */; };
+		B20000000000000000000004 /* SkyLightBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* SkyLightBackend.swift */; };
+		B20000000000000000000005 /* SkyLightBridgedSPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000005 /* SkyLightBridgedSPI.swift */; };
+		B20000000000000000000006 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* ConfigStore.swift */; };
+		B20000000000000000000007 /* FocusedWindowResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* FocusedWindowResolver.swift */; };
+		B20000000000000000000008 /* SpaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* SpaceModels.swift */; };
+		B20000000000000000000009 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
+		B20000000000000000000010 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* MenuBarController.swift */; };
+		B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* SpaceIndicatorRenderer.swift */; };
+		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
+		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
+		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
+		A10000000000000000000023 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* AppKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000000 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		B10000000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B10000000000000000000002 /* CGSPrivate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CGSPrivate.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* DockSwipeSwitcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSwipeSwitcher.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* SkyLightBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyLightBackend.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* SkyLightBridgedSPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyLightBridgedSPI.swift; sourceTree = "<group>"; };
+		B10000000000000000000006 /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
+		B10000000000000000000007 /* FocusedWindowResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusedWindowResolver.swift; sourceTree = "<group>"; };
+		B10000000000000000000008 /* SpaceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceModels.swift; sourceTree = "<group>"; };
+		B10000000000000000000009 /* HotkeyRegistrar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRegistrar.swift; sourceTree = "<group>"; };
+		B10000000000000000000010 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* SpaceIndicatorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceIndicatorRenderer.swift; sourceTree = "<group>"; };
+		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A10000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000000000000000000013 /* Altitude.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Altitude.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000019 /* config.example.toml */ = {isa = PBXFileReference; lastKnownFileType = text; name = config.example.toml; path = config/config.example.toml; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000020 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		A10000000000000000000022 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000023 /* AppKit.framework in Frameworks */,
+				A10000000000000000000021 /* Carbon.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000008 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000006 /* Altitude */,
+				A10000000000000000000007 /* Products */,
+				A10000000000000000000020 /* Carbon.framework */,
+				A10000000000000000000022 /* AppKit.framework */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000009 /* Altitude.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000006 /* Altitude */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000000 /* main.swift */,
+				B10000000000000000000001 /* AppDelegate.swift */,
+				A10000000000000000000014 /* Backend */,
+				A10000000000000000000015 /* Domain */,
+				A10000000000000000000016 /* Hotkeys */,
+				A10000000000000000000017 /* UI */,
+				A10000000000000000000018 /* Resources */,
+				A10000000000000000000012 /* Info.plist */,
+				A10000000000000000000013 /* Altitude.entitlements */,
+			);
+			path = Altitude;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000014 /* Backend */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000002 /* CGSPrivate.swift */,
+				B10000000000000000000003 /* DockSwipeSwitcher.swift */,
+				B10000000000000000000004 /* SkyLightBackend.swift */,
+				B10000000000000000000005 /* SkyLightBridgedSPI.swift */,
+			);
+			path = Backend;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000015 /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000006 /* ConfigStore.swift */,
+				B10000000000000000000007 /* FocusedWindowResolver.swift */,
+				B10000000000000000000008 /* SpaceModels.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000016 /* Hotkeys */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000009 /* HotkeyRegistrar.swift */,
+			);
+			path = Hotkeys;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000017 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000010 /* MenuBarController.swift */,
+				B10000000000000000000011 /* SpaceIndicatorRenderer.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000018 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000010 /* Assets.xcassets */,
+				A10000000000000000000019 /* config.example.toml */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000002 /* Altitude */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000000000000000000000F /* Build configuration list for PBXNativeTarget "Altitude" */;
+			buildPhases = (
+				A10000000000000000000003 /* Sources */,
+				A10000000000000000000005 /* Frameworks */,
+				A10000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Altitude;
+			productName = Altitude;
+			productReference = A10000000000000000000009 /* Altitude.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = A1000000000000000000000E /* Build configuration list for PBXProject "Altitude" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000008;
+			productRefGroup = A10000000000000000000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000002 /* Altitude */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000011 /* Assets.xcassets in Resources */,
+				A1000000000000000000001A /* config.example.toml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B20000000000000000000000 /* main.swift in Sources */,
+				B20000000000000000000001 /* AppDelegate.swift in Sources */,
+				B20000000000000000000002 /* CGSPrivate.swift in Sources */,
+				B20000000000000000000003 /* DockSwipeSwitcher.swift in Sources */,
+				B20000000000000000000004 /* SkyLightBackend.swift in Sources */,
+				B20000000000000000000005 /* SkyLightBridgedSPI.swift in Sources */,
+				B20000000000000000000006 /* ConfigStore.swift in Sources */,
+				B20000000000000000000007 /* FocusedWindowResolver.swift in Sources */,
+				B20000000000000000000008 /* SpaceModels.swift in Sources */,
+				B20000000000000000000009 /* HotkeyRegistrar.swift in Sources */,
+				B20000000000000000000010 /* MenuBarController.swift in Sources */,
+				B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A1000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Altitude/Altitude.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = F4DP6FX254;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Altitude/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Altitude/Altitude.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = F4DP6FX254;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Altitude/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1000000000000000000000E /* Build configuration list for PBXProject "Altitude" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000000000000000000000A /* Debug */,
+				A1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000000000000000000000F /* Build configuration list for PBXNativeTarget "Altitude" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000000000000000000000C /* Debug */,
+				A1000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000000000000000000001 /* Project object */;
+}

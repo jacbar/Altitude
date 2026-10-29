@@ -1,0 +1,15 @@
+.DS_Store
+.env
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+.swiftpm/
+.claude/
+.nvim/
+buildServer.json
