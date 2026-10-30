@@ -101,16 +101,32 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func toggleLaunchAtLogin() {
-        let desired = !LaunchAtLogin.isEnabled
+        let desired = LaunchAtLogin.toggledDesired
+        let previous = config.launchAtLogin
         do {
             try LaunchAtLogin.setEnabled(desired)
-            config.launchAtLogin = desired
-            ConfigStore.save(config)
-            buildMenu()
         } catch {
             log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
             NSSound.beep()
+            return
         }
+
+        config.launchAtLogin = desired
+        do {
+            try ConfigStore.save(config)
+        } catch {
+            log.error("Could not write launch_at_login: \(error.localizedDescription, privacy: .public)")
+            config.launchAtLogin = previous
+            do {
+                try LaunchAtLogin.setEnabled(previous)
+            } catch {
+                log.error("Could not roll back Launch at Login: \(error.localizedDescription, privacy: .public)")
+            }
+            NSSound.beep()
+            buildMenu()
+            return
+        }
+        buildMenu()
     }
 
     @objc private func openConfig() {

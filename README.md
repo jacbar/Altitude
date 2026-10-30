@@ -84,7 +84,7 @@ move_enabled = true
 max_space = 9
 ```
 
-Use **Reload Config** in the menu bar menu after editing, or **Open Config…** to edit the file. Toggling **Launch at Login** in the menu writes `launch_at_login` immediately; Reload / relaunch also reconciles the Login Item to the config value. If macOS requires approval in System Settings → General → Login Items, the menu item stays unchecked until registration succeeds.
+Use **Reload Config** in the menu bar menu after editing, or **Open Config…** to edit the file. Toggling **Launch at Login** writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item stays unchecked; clicking it cancels that pending registration.
 
 ## Permissions
 

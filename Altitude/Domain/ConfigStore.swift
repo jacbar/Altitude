@@ -71,7 +71,7 @@ enum ConfigStore {
     }
 
     /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
-    static func save(_ config: AppConfig) {
+    static func save(_ config: AppConfig) throws {
         let text = """
         version = \(config.version)
 
@@ -87,13 +87,9 @@ enum ConfigStore {
         move_enabled = \(tomlBool(config.moveEnabled))
         max_space = \(config.maxSpace)
         """
-        do {
-            try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
-            try text.write(to: configFileURL, atomically: true, encoding: .utf8)
-            log.info("Wrote config to \(configFileURL.path, privacy: .public)")
-        } catch {
-            log.error("Could not write config: \(error.localizedDescription, privacy: .public)")
-        }
+        try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
+        try text.write(to: configFileURL, atomically: true, encoding: .utf8)
+        log.info("Wrote config to \(configFileURL.path, privacy: .public)")
     }
 
     private static func tomlBool(_ value: Bool) -> String {

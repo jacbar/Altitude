@@ -15,6 +15,15 @@ enum LaunchAtLogin {
         SMAppService.mainApp.status == .requiresApproval
     }
 
+    /// Value to write when the user clicks the menu item.
+    /// A pending approval is cancelled so the click does not call `register()` again.
+    static var toggledDesired: Bool {
+        if isEnabled || requiresApproval {
+            return false
+        }
+        return true
+    }
+
     static func setEnabled(_ enabled: Bool) throws {
         let service = SMAppService.mainApp
         if enabled {
@@ -27,9 +36,11 @@ enum LaunchAtLogin {
     }
 
     /// Brings SMAppService in line with the desired config value. Logs and swallows failures.
+    /// Enabled and approval-pending both count as registered: pending stays while desired is true,
+    /// and is unregistered when desired is false.
     static func apply(desired: Bool) {
-        let currentlyEnabled = isEnabled
-        guard currentlyEnabled != desired else { return }
+        let registered = isEnabled || requiresApproval
+        guard registered != desired else { return }
         do {
             try setEnabled(desired)
         } catch {

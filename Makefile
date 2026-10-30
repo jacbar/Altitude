@@ -39,8 +39,6 @@ endif
 	-osascript -e 'tell application "Altitude" to quit' 2>/dev/null || true
 	@sleep 0.5
 	-pkill -x Altitude 2>/dev/null || true
-	-pkill -f '/Applications/Altitude.app/Contents/MacOS/Altitude' 2>/dev/null || true
-	-pkill -f 'Altitude.app/Contents/MacOS/Altitude' 2>/dev/null || true
 	@sleep 0.3
 	xcodebuild -project Altitude.xcodeproj -scheme Altitude -configuration Release -derivedDataPath $(DERIVED) CODE_SIGN_IDENTITY="-" CODE_SIGNING_ALLOWED=YES
 	@for bin in $(RELEASE_APP)/Contents/MacOS/*; do \
