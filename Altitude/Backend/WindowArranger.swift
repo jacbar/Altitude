@@ -19,7 +19,8 @@ enum ArrangeResult: Equatable {
 
 /// Resizes included windows on one Space via Accessibility. Does not beep, focus, or change z-order.
 final class WindowArranger {
-    private static let axTimeoutSeconds: Float = 0.25
+    /// Long enough for Electron / multi-window apps under a burst of AX traffic.
+    private static let axTimeoutSeconds: Float = 1.0
     private static let standardWindowSubrole = "AXStandardWindow"
     private static let fullScreenAttribute = "AXFullScreen"
 
@@ -92,21 +93,30 @@ final class WindowArranger {
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
             AXUIElementSetMessagingTimeout(appElement, Self.axTimeoutSeconds)
 
-            var windowsRef: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(
-                appElement,
-                kAXWindowsAttribute as CFString,
-                &windowsRef
-            ) == .success,
-                let windows = windowsRef as? [AXUIElement]
-            else { continue }
+            guard let windows = copyWindows(from: appElement) else { continue }
 
             for element in windows {
+                AXUIElementSetMessagingTimeout(element, Self.axTimeoutSeconds)
                 guard let candidate = include(element, on: spaceID) else { continue }
                 results.append(candidate)
             }
         }
         return results
+    }
+
+    private func copyWindows(from appElement: AXUIElement) -> [AXUIElement]? {
+        for _ in 0..<2 {
+            var windowsRef: CFTypeRef?
+            let status = AXUIElementCopyAttributeValue(
+                appElement,
+                kAXWindowsAttribute as CFString,
+                &windowsRef
+            )
+            if status == .success, let windows = windowsRef as? [AXUIElement] {
+                return windows
+            }
+        }
+        return nil
     }
 
     private func include(_ element: AXUIElement, on spaceID: CGSSpaceID) -> Candidate? {
@@ -130,26 +140,53 @@ final class WindowArranger {
     }
 
     private func setFrame(_ element: AXUIElement, to rect: CGRect, primaryMaxY: CGFloat) -> Bool {
+        AXUIElementSetMessagingTimeout(element, Self.axTimeoutSeconds)
         let axOrigin = CGPoint(x: rect.minX, y: primaryMaxY - rect.maxY)
         let size = rect.size
 
-        var sizeValue = size
-        guard let sizeAX = AXValueCreate(.cgSize, &sizeValue) else { return false }
-        let sizeStatus = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeAX)
-        guard sizeStatus == .success else {
-            log.error("AX size set failed: \(sizeStatus.rawValue)")
+        // Position first so growing a window near an edge is not rejected as off-screen.
+        // A second pass is needed for apps that clamp or ignore the first write.
+        let first = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
+        let second = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
+        if first || second { return true }
+
+        // Last resort: size then position (matches some older AX clients).
+        let fallback = applyFrame(element, origin: axOrigin, size: size, positionFirst: false)
+        if !fallback {
+            log.error("AX frame set failed for window at (\(rect.midX), \(rect.midY))")
+        }
+        return fallback
+    }
+
+    private func applyFrame(
+        _ element: AXUIElement,
+        origin: CGPoint,
+        size: CGSize,
+        positionFirst: Bool
+    ) -> Bool {
+        if positionFirst {
+            return setPosition(element, origin) && setSize(element, size)
+        }
+        return setSize(element, size) && setPosition(element, origin)
+    }
+
+    private func setPosition(_ element: AXUIElement, _ origin: CGPoint) -> Bool {
+        var value = origin
+        guard let ax = AXValueCreate(.cgPoint, &value) else { return false }
+        let status = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, ax)
+        if status != .success {
+            log.error("AX position set failed: \(status.rawValue)")
             return false
         }
+        return true
+    }
 
-        var originValue = axOrigin
-        guard let originAX = AXValueCreate(.cgPoint, &originValue) else { return false }
-        let positionStatus = AXUIElementSetAttributeValue(
-            element,
-            kAXPositionAttribute as CFString,
-            originAX
-        )
-        guard positionStatus == .success else {
-            log.error("AX position set failed: \(positionStatus.rawValue)")
+    private func setSize(_ element: AXUIElement, _ size: CGSize) -> Bool {
+        var value = size
+        guard let ax = AXValueCreate(.cgSize, &value) else { return false }
+        let status = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, ax)
+        if status != .success {
+            log.error("AX size set failed: \(status.rawValue)")
             return false
         }
         return true
