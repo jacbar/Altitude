@@ -666,19 +666,28 @@ final class SystemMotionSuppressor: NSObject {
     private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let ax = accessibilityWindows(for: app)
-        let cg = dedupe(cgWindows(pid: app.processIdentifier), appName: appName)
+        let cg = dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
         return mergeWindows(ax: ax, cg: cg, appName: appName)
     }
 
     private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow], appName: String) -> [ListedWindow] {
         var merged = ax
+        // Accessibility already omitted panels on this Space; CG still lists some (Rex Settings).
+        // Trust AX for the active Space; only append CG windows that live strictly elsewhere.
+        let activeSpace = ax.isEmpty ? nil : CGSPrivate.activeSpaceID()
         for window in cg {
             if let index = merged.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
                 // Keep AX order / main; absorb the stronger title and best id from CG.
                 merged[index] = collapseListed(merged[index], with: window, appName: appName)
-            } else {
-                merged.append(window)
+                continue
             }
+            if let activeSpace, let id = window.id {
+                let spaces = CGSPrivate.spaceIDs(forWindow: id)
+                if spaces.contains(activeSpace) {
+                    continue
+                }
+            }
+            merged.append(window)
         }
         return merged
     }
@@ -714,8 +723,8 @@ final class SystemMotionSuppressor: NSObject {
         .sorted { $0.main && !$1.main }
     }
 
-    /// Window-server list. Includes off-Space windows and drops Electron's untitled copies.
-    private func cgWindows(pid: pid_t) -> [ListedWindow] {
+    /// Window-server list. Includes off-Space windows and drops Electron's untitled / app-named copies.
+    private func cgWindows(pid: pid_t, appName: String) -> [ListedWindow] {
         guard let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return []
         }
@@ -738,13 +747,18 @@ final class SystemMotionSuppressor: NSObject {
             let title = ((dict[kCGWindowName as String] as? String) ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let onscreen = (dict[kCGWindowIsOnscreen as String] as? Bool) ?? false
-            if isHiddenHelper(width: width, height: height, title: title, onscreen: onscreen) { return nil }
-            if title.isEmpty, width < 480 || height < 320 { return nil }
+            if isHiddenHelper(width: width, height: height, title: title, onscreen: onscreen, appName: appName) {
+                return nil
+            }
+            // Prefs chrome some apps publish to CG without exposing it to Accessibility (Rex).
+            if !appName.isEmpty, title == "\(appName) Settings" { return nil }
+            // Tiny untitled / app-named surfaces are not user windows.
+            if isWeakTitle(title, appName: appName), width < 480 || height < 320 { return nil }
             return (ListedWindow(id: windowID, title: title, width: width, height: height, main: onscreen), onscreen)
         }
         let hasOnscreen = candidates.contains(where: \.1)
         return candidates.compactMap { window, onscreen in
-            if hasOnscreen, !onscreen, window.title.isEmpty { return nil }
+            if hasOnscreen, !onscreen, isWeakTitle(window.title, appName: appName) { return nil }
             return window
         }
     }
@@ -763,8 +777,15 @@ final class SystemMotionSuppressor: NSObject {
         return kept
     }
 
-    private func isHiddenHelper(width: Double, height: Double, title: String, onscreen: Bool) -> Bool {
-        guard title.isEmpty else { return false }
+    /// Arc/Teams keep offscreen 500×500 / 800×600 helpers; title is often empty or just the app name.
+    private func isHiddenHelper(
+        width: Double,
+        height: Double,
+        title: String,
+        onscreen: Bool,
+        appName: String
+    ) -> Bool {
+        guard isWeakTitle(title, appName: appName) else { return false }
         if onscreen { return false }
         return (width == 500 && height == 500) || (width == 800 && height == 600)
     }
