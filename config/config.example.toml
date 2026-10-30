@@ -3,6 +3,11 @@
 
 version = 1
 
+[app]
+# When true, Altitude registers with macOS Login Items (SMAppService) and starts at login.
+# The menu bar "Launch at Login" item toggles this and writes it back to this file.
+launch_at_login = false
+
 [spaces]
 # When true, switches jump through Spaces as fast as the Dock allows instead of
 # playing a trackpad-like slide for each desktop crossed.

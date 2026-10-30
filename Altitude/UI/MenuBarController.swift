@@ -42,6 +42,7 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = config.disableAnimations
+        LaunchAtLogin.apply(desired: config.launchAtLogin)
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         startPolling()
@@ -93,8 +94,38 @@ final class MenuBarController: NSObject {
     @objc private func refreshFromMenu() {
         config = ConfigStore.load()
         spaceService.instantSwitching = config.disableAnimations
+        LaunchAtLogin.apply(desired: config.launchAtLogin)
         updateSystemMotions()
         refreshSpacesAndHotkeys()
+        buildMenu()
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        let desired = LaunchAtLogin.toggledDesired
+        let previous = config.launchAtLogin
+        do {
+            try LaunchAtLogin.setEnabled(desired)
+        } catch {
+            log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
+            NSSound.beep()
+            return
+        }
+
+        config.launchAtLogin = desired
+        do {
+            try ConfigStore.save(config)
+        } catch {
+            log.error("Could not write launch_at_login: \(error.localizedDescription, privacy: .public)")
+            config.launchAtLogin = previous
+            do {
+                try LaunchAtLogin.setEnabled(previous)
+            } catch {
+                log.error("Could not roll back Launch at Login: \(error.localizedDescription, privacy: .public)")
+            }
+            NSSound.beep()
+            buildMenu()
+            return
+        }
         buildMenu()
     }
 
@@ -169,6 +200,17 @@ final class MenuBarController: NSObject {
         }
 
         menu.addItem(.separator())
+
+        let launchItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchItem.target = self
+        // Only show checked when fully enabled; requiresApproval stays unchecked honestly.
+        launchItem.state = LaunchAtLogin.isEnabled ? .on : .off
+        menu.addItem(launchItem)
+
         let quitItem = NSMenuItem(title: "Quit Altitude", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
