@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -67,4 +68,6 @@ protocol SpaceService: AnyObject {
     func moveOneSpaceInstantly(direction: SpaceHopDirection) -> InstantSwitchResult
     /// Call when macOS reports an active-space change (trackpad, Mission Control, etc.).
     func acknowledgeSystemSpaceChange()
+    /// Current Space on `screen`, preferring an in-flight swipe prediction when it applies.
+    func currentSpaceID(on screen: NSScreen) -> CGSSpaceID?
 }

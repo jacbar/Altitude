@@ -11,6 +11,7 @@ final class MenuBarController: NSObject {
     private let statusItem: NSStatusItem
     private let spaceService: SpaceService
     private let focusResolver: FocusedWindowResolver
+    private let arranger = WindowArranger()
     private var hotkeys: HotkeyRegistrar!
     private var config: AppConfig
     private var pollTimer: Timer?
@@ -71,12 +72,25 @@ final class MenuBarController: NSObject {
     // MARK: - Actions
 
     private func handle(action: HotkeyAction) {
+        switch action {
+        case .maximizeAll:
+            arrangeWindows(.maximize)
+            return
+        case .tileColumns:
+            arrangeWindows(.columns)
+            return
+        case .switchTo, .moveTo:
+            break
+        }
+
         do {
             switch action {
             case .switchTo(let index):
                 try spaceService.switchTo(index: index)
             case .moveTo(let index):
                 try spaceService.moveFocusedWindow(to: index)
+            case .maximizeAll, .tileColumns:
+                return
             }
             // Dock-swipe transitions settle after the gesture frames are posted.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
@@ -89,6 +103,26 @@ final class MenuBarController: NSObject {
             NSSound.beep()
         } catch {
             log.error("Hotkey action failed: \(error.localizedDescription, privacy: .public)")
+            NSSound.beep()
+        }
+    }
+
+    private func arrangeWindows(_ action: ArrangeAction) {
+        guard focusResolver.isAccessibilityTrusted else {
+            log.error("Accessibility required for window arrangement")
+            NSSound.beep()
+            return
+        }
+        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        guard let screen, let spaceID = spaceService.currentSpaceID(on: screen) else {
+            log.error("Could not resolve Space for window arrangement")
+            NSSound.beep()
+            return
+        }
+        switch arranger.arrange(action, margin: config.arrangeMargin, on: spaceID, screen: screen) {
+        case .applied(let count):
+            log.info("Arranged \(count) window(s)")
+        case .accessibilityDenied, .nothingToDo:
             NSSound.beep()
         }
     }

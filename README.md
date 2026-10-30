@@ -11,6 +11,7 @@ Menu bar agent for macOS that shows your Mission Control desktops and lets you j
 - **Menu bar space indicator** — numbered desktop boxes with the current Space highlighted
 - **Switch Spaces** — `⌥` + `1`…`N` jumps to desktop N
 - **Move focused window** — `⌥⇧` + `1`…`N` moves the frontmost window to desktop N
+- **Arrange windows** — `⌃⌥` + `F` maximizes every included window on the current Space of the display under the pointer to the same inset visible frame; `⌃⌥` + `A` tiles them in equal columns (full height, left to right)
 - **Menu actions** — pick a desktop from the status menu; reload config; open config; Launch at Login; open Accessibility settings
 - **Launch at Login** — checkable menu item (and `[app] launch_at_login` in TOML) registers via `SMAppService`; reload/relaunch reconciles the service to config
 - **TOML config** — hotkeys, launch-at-login, and animation behavior under `~/.config/altitude/config.toml` (stow-friendly)
@@ -89,6 +90,14 @@ switch_enabled = true
 move_enabled = true
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
+
+[arrange]
+# Control+Option+F maximizes every included window to the same inset visible frame.
+# Control+Option+A lays them out in equal columns. margin (points) is the outer inset
+# and the gap between columns. Both flags default true; a disabled chord is not registered.
+margin = 8
+maximize_enabled = true
+columns_enabled = true
 ```
 
 Use **Reload Config** in the menu bar menu after editing, or **Open Config…** to edit the file. Toggling **Launch at Login** writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item stays unchecked; clicking it cancels that pending registration.
@@ -101,6 +110,7 @@ Use **Reload Config** in the menu bar menu after editing, or **Open Config…** 
 
 ## Limitations (v1)
 
+- Window arrangement only targets the current Space of the display under the pointer. It skips minimized, fullscreen, and other-Space windows, hidden apps, panels/sheets, and Altitude itself. Apps that ignore Accessibility resize stay put. The chords are fixed; set `maximize_enabled` / `columns_enabled` false to release a chord. There is no restore. A non-positive layout (or no qualifying window) beeps and changes nothing.
 - Desktops are flattened into a single 1-based list in Mission Control order.
 - Switching to a Space on another display is not supported.
 - Hotkeys are limited to digits `1`–`9` (further capped by `max_space` and the number of Spaces).
