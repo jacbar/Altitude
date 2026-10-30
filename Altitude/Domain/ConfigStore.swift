@@ -6,6 +6,8 @@ private let log = Logger(subsystem: "com.altitude.app", category: "Config")
 struct AppConfig: Equatable, Sendable {
     var version: Int
     var disableAnimations: Bool
+    /// Skip the slide for trackpad Space swipes, Control-Left/Right, and Command-Tab.
+    var disableSystemMotions: Bool
     var switchEnabled: Bool
     var moveEnabled: Bool
     var maxSpace: Int
@@ -13,6 +15,7 @@ struct AppConfig: Equatable, Sendable {
     static let `default` = AppConfig(
         version: 1,
         disableAnimations: false,
+        disableSystemMotions: false,
         switchEnabled: true,
         moveEnabled: true,
         maxSpace: 9
@@ -99,6 +102,8 @@ enum MinimalTOML {
                 if let int = Int(value) { config.version = int } else { warnInvalid(qualifiedKey, value) }
             case ("spaces", "disable_animations"):
                 if let bool = parseBool(value) { config.disableAnimations = bool } else { warnInvalid(qualifiedKey, value) }
+            case ("spaces", "disable_system_motions"):
+                if let bool = parseBool(value) { config.disableSystemMotions = bool } else { warnInvalid(qualifiedKey, value) }
             case ("hotkeys", "switch_enabled"):
                 if let bool = parseBool(value) { config.switchEnabled = bool } else { warnInvalid(qualifiedKey, value) }
             case ("hotkeys", "move_enabled"):

@@ -15,6 +15,8 @@ sources = [
     "Altitude/Hotkeys/HotkeyRegistrar.swift",
     "Altitude/UI/MenuBarController.swift",
     "Altitude/UI/SpaceIndicatorRenderer.swift",
+    # Append new sources at the end so existing file IDs stay stable.
+    "Altitude/Backend/SystemMotionSuppressor.swift",
 ]
 
 ids = {

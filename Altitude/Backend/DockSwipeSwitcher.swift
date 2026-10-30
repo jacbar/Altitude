@@ -42,7 +42,67 @@ enum DockSwipeSwitcher {
         case right
     }
 
+    /// Stamped on events Altitude posts so the motion tap does not treat them as a finger swipe.
+    static let syntheticMarker: Int64 = 0x414C5444
+
     private static let gestureQueue = DispatchQueue(label: "com.altitude.dockswipe", qos: .userInteractive)
+
+    static func isOwnEvent(_ event: CGEvent) -> Bool {
+        event.getIntegerValueField(.eventSourceUserData) == syntheticMarker
+    }
+
+    struct HorizontalSwipe {
+        /// Signed travel already in Dock Space-switch coordinates (natural scrolling applied).
+        let progress: Double
+        let direction: Direction?
+        let began: Bool
+        let ended: Bool
+    }
+
+    /// Dock-control and gesture markers live in field 55; the public event type is not always set.
+    private static func kind(of event: CGEvent) -> UInt32 {
+        let stamped = UInt32(event.getDoubleValueField(eventTypeField))
+        if stamped == UInt32(dockControlEvent) || stamped == UInt32(gestureEvent) {
+            return stamped
+        }
+        return event.type.rawValue
+    }
+
+    /// A real or synthetic horizontal Space swipe, or nil for Mission Control and other gestures.
+    ///
+    /// Progress uses the Dock's effective Space direction, so natural scrolling is already
+    /// reflected — do not flip it again from the scroll-direction preference.
+    static func horizontalSwipe(in event: CGEvent) -> HorizontalSwipe? {
+        guard kind(of: event) == UInt32(dockControlEvent),
+              event.getDoubleValueField(gestureHIDTypeField) == dockSwipeHIDType,
+              event.getDoubleValueField(swipeMotionField) == horizontalAxis
+        else {
+            return nil
+        }
+        let phase = Int(event.getDoubleValueField(gesturePhaseField))
+        let progress = event.getDoubleValueField(swipeProgressField)
+        let velocity = event.getDoubleValueField(swipeVelocityXField)
+        // Prefer progress; fall back to velocity near the start when progress is still zero.
+        let sample = abs(progress) > 0.0001 ? progress : velocity
+        let direction: Direction?
+        if sample > 0.0001 {
+            direction = .right
+        } else if sample < -0.0001 {
+            direction = .left
+        } else {
+            direction = nil
+        }
+        return HorizontalSwipe(
+            progress: sample,
+            direction: direction,
+            began: phase & phaseBegan != 0,
+            ended: phase & phaseEnded != 0
+        )
+    }
+
+    static func isGestureCompanion(_ event: CGEvent) -> Bool {
+        kind(of: event) == UInt32(gestureEvent)
+    }
 
     private static let smoothFrameCount = 24
     private static let smoothFrameInterval: TimeInterval = 0.008
@@ -158,6 +218,9 @@ enum DockSwipeSwitcher {
             dock.setDoubleValueField(swipeVelocityXField, value: exitSpeed)
             dock.setDoubleValueField(swipeVelocityYField, value: 0)
         }
+
+        dock.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
+        companion.setIntegerValueField(.eventSourceUserData, value: syntheticMarker)
 
         // Dock control first, then companion gesture marker (dockswipe / MMF order).
         dock.post(tap: .cgSessionEventTap)

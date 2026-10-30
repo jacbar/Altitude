@@ -80,19 +80,41 @@ final class SkyLightBackend: SpaceService {
             return
         }
 
-        let steps = abs(to - from)
-        let direction: DockSwipeSwitcher.Direction = to > from ? .right : .left
-        log.info(
-            "Switching to desktop \(index) via dock-swipe (\(steps) step(s) \(direction == .right ? "right" : "left", privacy: .public))"
+        performSwipe(
+            on: display,
+            from: from,
+            to: to,
+            destinationID: target.id,
+            instant: instantSwitching
         )
+    }
 
-        DockSwipeSwitcher.swipe(direction, steps: steps, instant: instantSwitching)
-        let duration = DockSwipeSwitcher.estimatedDuration(steps: steps, instant: instantSwitching)
-        prediction = Prediction(
-            spaceID: target.id,
-            displayIdentifier: display.identifier,
-            expiry: Date().addingTimeInterval(duration + 1.0)
-        )
+    func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult {
+        guard focusResolver.isAccessibilityTrusted else { return .unavailable }
+        let layout = readLayout()
+        guard let activeDisplayID = activeDisplayIdentifier(in: layout),
+              let display = layout.displays.first(where: { $0.identifier == activeDisplayID }),
+              let currentID = currentSpaceID(on: display),
+              let from = display.spaceIDs.firstIndex(of: currentID)
+        else {
+            return .unavailable
+        }
+        if spaceIDs.isEmpty || spaceIDs.contains(currentID) {
+            return .alreadyThere
+        }
+
+        let ranked = spaceIDs.compactMap { id -> (CGSSpaceID, Int)? in
+            guard let index = display.spaceIDs.firstIndex(of: id) else { return nil }
+            return (id, index)
+        }
+        guard let target = ranked.min(by: { abs($0.1 - from) < abs($1.1 - from) }) else {
+            return .otherDisplay
+        }
+        if target.1 == from {
+            return .alreadyThere
+        }
+        performSwipe(on: display, from: from, to: target.1, destinationID: target.0, instant: true)
+        return .posted(steps: abs(target.1 - from))
     }
 
     func moveFocusedWindow(to index: Int) throws {
@@ -109,6 +131,27 @@ final class SkyLightBackend: SpaceService {
 
         log.info("Moving window \(windowID) to desktop \(index) (space \(target.id))")
         CGSPrivate.moveWindowsToManagedSpace(windowIDs: [windowID], spaceID: target.id)
+    }
+
+    private func performSwipe(
+        on display: Display,
+        from: Int,
+        to: Int,
+        destinationID: CGSSpaceID,
+        instant: Bool
+    ) {
+        let steps = abs(to - from)
+        let direction: DockSwipeSwitcher.Direction = to > from ? .right : .left
+        log.info(
+            "Switching via dock-swipe (\(steps) step(s) \(direction == .right ? "right" : "left", privacy: .public), instant=\(instant, privacy: .public))"
+        )
+        DockSwipeSwitcher.swipe(direction, steps: steps, instant: instant)
+        let duration = DockSwipeSwitcher.estimatedDuration(steps: steps, instant: instant)
+        prediction = Prediction(
+            spaceID: destinationID,
+            displayIdentifier: display.identifier,
+            expiry: Date().addingTimeInterval(duration + 1.0)
+        )
     }
 
     func acknowledgeSystemSpaceChange() {

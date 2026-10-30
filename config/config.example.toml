@@ -7,6 +7,13 @@ version = 1
 # When true, switches jump through Spaces as fast as the Dock allows instead of
 # playing a trackpad-like slide for each desktop crossed.
 disable_animations = false
+# When true, a trackpad Space swipe, Control-Left/Right, and Command-Tab cut straight across.
+# Command-Tab shows each open window, so two windows of the same app both appear
+# (including windows on other Spaces). Left and Right move the highlight while Command
+# is held; Command-Q quits and Command-H hides the highlighted app.
+# The highlighted name is that window's title.
+# Hotkey slides stay under disable_animations. Off by default — set true to enable.
+disable_system_motions = false
 
 [hotkeys]
 # option+N switches to desktop N; option+shift+N moves the focused window.

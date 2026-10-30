@@ -43,12 +43,24 @@ enum SpaceServiceError: Error, LocalizedError {
     }
 }
 
+enum InstantSwitchResult: Sendable {
+    /// The target is already the current Space, or there is nothing to move toward.
+    case alreadyThere
+    /// An instant dock-swipe was posted and has not settled yet.
+    case posted(steps: Int)
+    /// Every candidate Space is on another display.
+    case otherDisplay
+    case unavailable
+}
+
 protocol SpaceService: AnyObject {
     /// Skip the paced trackpad-like slide and jump through Spaces as fast as the Dock allows.
     var instantSwitching: Bool { get set }
     func snapshot() -> SpaceSnapshot
     func switchTo(index: Int) throws
     func moveFocusedWindow(to index: Int) throws
+    /// Jump the active display to the closest candidate Space with no slide.
+    func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult
     /// Call when macOS reports an active-space change (trackpad, Mission Control, etc.).
     func acknowledgeSystemSpaceChange()
 }
