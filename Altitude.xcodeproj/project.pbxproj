@@ -20,6 +20,7 @@
 		B20000000000000000000010 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* MenuBarController.swift */; };
 		B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* SpaceIndicatorRenderer.swift */; };
 		B20000000000000000000012 /* SystemMotionSuppressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* SystemMotionSuppressor.swift */; };
+		B20000000000000000000013 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* LaunchAtLogin.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -40,6 +41,7 @@
 		B10000000000000000000010 /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
 		B10000000000000000000011 /* SpaceIndicatorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceIndicatorRenderer.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* SystemMotionSuppressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionSuppressor.swift; sourceTree = "<group>"; };
+		B10000000000000000000013 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -114,6 +116,7 @@
 				B10000000000000000000006 /* ConfigStore.swift */,
 				B10000000000000000000007 /* FocusedWindowResolver.swift */,
 				B10000000000000000000008 /* SpaceModels.swift */,
+				B10000000000000000000013 /* LaunchAtLogin.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -222,6 +225,7 @@
 				B20000000000000000000010 /* MenuBarController.swift in Sources */,
 				B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */,
 				B20000000000000000000012 /* SystemMotionSuppressor.swift in Sources */,
+				B20000000000000000000013 /* LaunchAtLogin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

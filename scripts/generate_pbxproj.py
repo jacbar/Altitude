@@ -17,6 +17,7 @@ sources = [
     "Altitude/UI/SpaceIndicatorRenderer.swift",
     # Append new sources at the end so existing file IDs stay stable.
     "Altitude/Backend/SystemMotionSuppressor.swift",
+    "Altitude/Domain/LaunchAtLogin.swift",
 ]
 
 ids = {
