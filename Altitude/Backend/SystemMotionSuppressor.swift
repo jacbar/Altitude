@@ -527,11 +527,17 @@ final class SystemMotionSuppressor: NSObject {
                 return match.element
             }
         }
+        let appName = (target.app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let titled = described.filter { item in
             guard let size = item.size else { return false }
             let sizeMatches = abs(size.width - target.width) < 4 && abs(size.height - target.height) < 4
             let titleMatches = !target.title.isEmpty && item.title == target.title
-            return sizeMatches && (titleMatches || item.title.isEmpty || target.title == (target.app.localizedName ?? ""))
+            // After merge, the strip may keep a stronger CG title while AX still reports empty / app name.
+            return sizeMatches && (
+                titleMatches
+                    || isWeakTitle(item.title, appName: appName)
+                    || isWeakTitle(target.title, appName: appName)
+            )
         }
         if let exact = titled.first(where: { $0.title == target.title }) {
             return exact.element
@@ -610,26 +616,67 @@ final class SystemMotionSuppressor: NSObject {
         var main: Bool = false
     }
 
-    /// Accessibility covers the current Space; the window-server list adds windows on other Spaces.
-    private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
-        let ax = accessibilityWindows(for: app)
-        let cg = dedupe(cgWindows(pid: app.processIdentifier))
-        return mergeWindows(ax: ax, cg: cg)
+    /// Empty, or the app's localized name — too generic to treat as a distinct window identity.
+    private func isWeakTitle(_ title: String, appName: String) -> Bool {
+        if title.isEmpty { return true }
+        return !appName.isEmpty && title == appName
     }
 
-    private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow]) -> [ListedWindow] {
+    /// Prefer a specific title over empty / the bare app name when collapsing twins.
+    private func preferredTitle(_ a: String, _ b: String, appName: String) -> String {
+        let aWeak = isWeakTitle(a, appName: appName)
+        let bWeak = isWeakTitle(b, appName: appName)
+        if aWeak && !bWeak { return b }
+        if bWeak && !aWeak { return a }
+        if a.isEmpty, !b.isEmpty { return b }
+        return a
+    }
+
+    private func preferredWindowID(_ a: CGWindowID?, _ b: CGWindowID?) -> CGWindowID? {
+        if let a, a != 0 { return a }
+        if let b, b != 0 { return b }
+        return nil
+    }
+
+    private func sameListedSize(_ a: ListedWindow, _ b: ListedWindow) -> Bool {
+        abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
+    }
+
+    /// Same CG id, or same size with equal / weak titles — not two strong different titles.
+    private func isSameListedWindow(_ a: ListedWindow, _ b: ListedWindow, appName: String) -> Bool {
+        if let left = a.id, let right = b.id, left != 0, left == right {
+            return true
+        }
+        guard sameListedSize(a, b) else { return false }
+        if a.title == b.title { return true }
+        return isWeakTitle(a.title, appName: appName) || isWeakTitle(b.title, appName: appName)
+    }
+
+    private func collapseListed(_ existing: ListedWindow, with other: ListedWindow, appName: String) -> ListedWindow {
+        ListedWindow(
+            id: preferredWindowID(existing.id, other.id),
+            title: preferredTitle(existing.title, other.title, appName: appName),
+            width: existing.width,
+            height: existing.height,
+            main: existing.main || other.main
+        )
+    }
+
+    /// Accessibility covers the current Space; the window-server list adds windows on other Spaces.
+    private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
+        let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let ax = accessibilityWindows(for: app)
+        let cg = dedupe(cgWindows(pid: app.processIdentifier), appName: appName)
+        return mergeWindows(ax: ax, cg: cg, appName: appName)
+    }
+
+    private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow], appName: String) -> [ListedWindow] {
         var merged = ax
         for window in cg {
-            let duplicate = merged.contains { existing in
-                if let left = existing.id, let right = window.id, left != 0, left == right {
-                    return true
-                }
-                return abs(existing.width - window.width) < 2
-                    && abs(existing.height - window.height) < 2
-                    && existing.title == window.title
-                    && !existing.title.isEmpty
-            }
-            if !duplicate {
+            if let index = merged.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
+                // Keep AX order / main; absorb the stronger title and best id from CG.
+                merged[index] = collapseListed(merged[index], with: window, appName: appName)
+            } else {
                 merged.append(window)
             }
         }
@@ -702,16 +749,14 @@ final class SystemMotionSuppressor: NSObject {
         }
     }
 
-    /// Same title and size means one window on the window-server list. Teams publishes twice there.
-    private func dedupe(_ windows: [ListedWindow]) -> [ListedWindow] {
+    /// Same size with equal or weak titles means one window on the window-server list.
+    /// Teams (and similar) publish twins there — often one empty / app-named and one specific.
+    private func dedupe(_ windows: [ListedWindow], appName: String) -> [ListedWindow] {
         var kept: [ListedWindow] = []
         for window in windows {
-            let duplicate = kept.contains { existing in
-                abs(existing.width - window.width) < 2
-                    && abs(existing.height - window.height) < 2
-                    && (existing.title == window.title || existing.title.isEmpty || window.title.isEmpty)
-            }
-            if !duplicate {
+            if let index = kept.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
+                kept[index] = collapseListed(kept[index], with: window, appName: appName)
+            } else {
                 kept.append(window)
             }
         }
