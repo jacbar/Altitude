@@ -1,5 +1,7 @@
 # Altitude
 
+![Altitude](docs/branding/altitude-full.png)
+
 Menu bar agent for macOS that shows your Mission Control desktops and lets you jump between them (or move the focused window) with Option-digit hotkeys.
 
 **Version:** 0.1.0 · **License:** MIT
