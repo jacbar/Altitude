@@ -310,10 +310,17 @@ final class SystemMotionSuppressor: NSObject {
             return nil
         }
 
-        let targets = switchTargets()
+        let apps = orderedApps()
+        guard let front = apps.first else { return event }
+        let targets = switchTargets(apps: apps)
         guard targets.count >= 2 else { return event }
-        session = Session(targets: targets, index: 0)
-        moveSelection(by: shift ? -1 : 1)
+        let index = commandTabOpeningIndex(
+            appIDs: targets.map { Int64($0.app.processIdentifier) },
+            frontAppID: Int64(front.processIdentifier),
+            forward: !shift
+        )
+        session = Session(targets: targets, index: index)
+        hud.show(targets: targets, selectedIndex: index)
         return nil
     }
 
@@ -563,50 +570,27 @@ final class SystemMotionSuppressor: NSObject {
         return element
     }
 
-    /// Frontmost window first, then other apps in MRU order, then the rest of the
-    /// frontmost app's windows — so a single Command-Tab lands on the previous app.
-    private func switchTargets() -> [SwitchTarget] {
-        let apps = orderedApps()
-        guard let front = apps.first else { return [] }
-
-        var frontWindows = userWindows(for: front)
-        let primaryIndex = frontWindows.firstIndex(where: \.main) ?? frontWindows.startIndex
-        let primary = frontWindows.isEmpty ? nil : frontWindows.remove(at: primaryIndex)
-
-        var targets: [SwitchTarget] = []
-        var appsWithWindows = Set<pid_t>()
-
-        if let primary {
-            appsWithWindows.insert(front.processIdentifier)
-            targets.append(makeTarget(app: front, window: primary))
-        }
-
-        for app in apps.dropFirst() {
-            let windows = userWindows(for: app)
-            guard !windows.isEmpty else { continue }
-            appsWithWindows.insert(app.processIdentifier)
-            for window in windows {
-                targets.append(makeTarget(app: app, window: window))
+    /// Front app's windows as one block, then other apps in MRU order; empty apps trail.
+    private func switchTargets(apps: [NSRunningApplication]) -> [SwitchTarget] {
+        let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.processIdentifier, $0) })
+        let slots = commandTabRow(
+            apps: apps.map { app in
+                (appID: Int64(app.processIdentifier), windows: userWindows(for: app))
             }
-        }
-
-        if !frontWindows.isEmpty {
-            appsWithWindows.insert(front.processIdentifier)
-            for window in frontWindows {
-                targets.append(makeTarget(app: front, window: window))
+        )
+        return slots.compactMap { slot in
+            guard let app = byPID[pid_t(slot.appID)] else { return nil }
+            if let window = slot.window {
+                return makeTarget(app: app, window: window)
             }
-        }
-
-        for app in apps where !appsWithWindows.contains(app.processIdentifier) {
-            targets.append(SwitchTarget(
+            return SwitchTarget(
                 app: app,
                 windowID: nil,
                 title: app.localizedName ?? "Application",
                 width: 0,
                 height: 0
-            ))
+            )
         }
-        return targets
     }
 
     private func makeTarget(app: NSRunningApplication, window: ListedWindow) -> SwitchTarget {
@@ -620,7 +604,7 @@ final class SystemMotionSuppressor: NSObject {
         )
     }
 
-    private struct ListedWindow {
+    private struct ListedWindow: Equatable {
         let id: CGWindowID?
         let title: String
         let width: Double

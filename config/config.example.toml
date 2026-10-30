@@ -15,10 +15,11 @@ disable_animations = false
 # When true, a trackpad Space swipe, Control-Left/Right, and Command-Tab cut straight across.
 # Activating a running app on another same-display Space (Raycast, Spotlight, Dock, etc.)
 # also hops there with no slide; the window is not moved onto the current Space.
-# Command-Tab shows each open window, so two windows of the same app both appear
-# (including windows on other Spaces). Left and Right move the highlight while Command
-# is held; Command-Q quits and Command-H hides the highlighted app.
-# The highlighted name is that window's title.
+# Command-Tab shows each open window (including windows on other Spaces). Windows of
+# one app form one contiguous block with the front app leftmost; opening Tab highlights
+# the first window of the next app; later Tab and arrow moves step one window.
+# Left and Right move the highlight while Command is held; Command-Q quits and
+# Command-H hides the highlighted app. The highlighted name is that window's title.
 # Hotkey slides stay under disable_animations. Off by default — set true to enable.
 disable_system_motions = false
 

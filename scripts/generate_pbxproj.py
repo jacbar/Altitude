@@ -21,12 +21,14 @@ sources = [
     "Altitude/Domain/HotkeyBounds.swift",
     "Altitude/Domain/WindowArrangement.swift",
     "Altitude/Backend/WindowArranger.swift",
+    "Altitude/Domain/CommandTabOrder.swift",
 ]
 
 test_sources = [
     "AltitudeTests/ConfigStoreTests.swift",
     "AltitudeTests/HotkeyBoundsTests.swift",
     "AltitudeTests/WindowArrangementTests.swift",
+    "AltitudeTests/CommandTabOrderTests.swift",
 ]
 
 ids = {

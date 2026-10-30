@@ -24,9 +24,11 @@
 		B20000000000000000000014 /* HotkeyBounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* HotkeyBounds.swift */; };
 		B20000000000000000000015 /* WindowArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* WindowArrangement.swift */; };
 		B20000000000000000000016 /* WindowArranger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* WindowArranger.swift */; };
+		B20000000000000000000017 /* CommandTabOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* CommandTabOrder.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
+		D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* CommandTabOrderTests.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -62,9 +64,11 @@
 		B10000000000000000000014 /* HotkeyBounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBounds.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* WindowArrangement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangement.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* WindowArranger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArranger.swift; sourceTree = "<group>"; };
+		B10000000000000000000017 /* CommandTabOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabOrder.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000003 /* CommandTabOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabOrderTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000004 /* AltitudeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AltitudeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -156,6 +160,7 @@
 				B10000000000000000000013 /* LaunchAtLogin.swift */,
 				B10000000000000000000014 /* HotkeyBounds.swift */,
 				B10000000000000000000015 /* WindowArrangement.swift */,
+				B10000000000000000000017 /* CommandTabOrder.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -192,6 +197,7 @@
 				D10000000000000000000000 /* ConfigStoreTests.swift */,
 				D10000000000000000000001 /* HotkeyBoundsTests.swift */,
 				D10000000000000000000002 /* WindowArrangementTests.swift */,
+				D10000000000000000000003 /* CommandTabOrderTests.swift */,
 			);
 			path = AltitudeTests;
 			sourceTree = "<group>";
@@ -301,6 +307,7 @@
 				B20000000000000000000014 /* HotkeyBounds.swift in Sources */,
 				B20000000000000000000015 /* WindowArrangement.swift in Sources */,
 				B20000000000000000000016 /* WindowArranger.swift in Sources */,
+				B20000000000000000000017 /* CommandTabOrder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -311,6 +318,7 @@
 				D20000000000000000000000 /* ConfigStoreTests.swift in Sources */,
 				D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */,
 				D20000000000000000000002 /* WindowArrangementTests.swift in Sources */,
+				D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
