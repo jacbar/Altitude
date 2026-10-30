@@ -7,21 +7,14 @@ on:
 jobs:
   build-test:
     runs-on: macos-14
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build
-        run: |
-          xcodebuild build \
-            -project Altitude.xcodeproj \
-            -scheme Altitude \
-            -configuration Debug \
-            -derivedDataPath build \
-            -destination 'platform=macOS' \
-            CODE_SIGNING_ALLOWED=NO
-
-      - name: Test
+      # Single xcodebuild test invocation (builds dependencies). Avoids a long-lived
+      # unsigned app left from a separate build step that can stall the test host.
+      - name: Build and test
         run: |
           xcodebuild test \
             -project Altitude.xcodeproj \
@@ -29,4 +22,6 @@ jobs:
             -configuration Debug \
             -derivedDataPath build \
             -destination 'platform=macOS' \
+            -only-testing:AltitudeTests \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
