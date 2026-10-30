@@ -32,7 +32,7 @@ final class HotkeyRegistrar {
     }
 
     func apply(config: AppConfig, spaceCount: Int) {
-        let maxN = min(config.maxSpace, max(spaceCount, 1), 9)
+        let maxN = effectiveMaxHotkeySpace(maxSpace: config.maxSpace, spaceCount: spaceCount)
         if let applied, applied.config == config, applied.maxN == maxN {
             return
         }

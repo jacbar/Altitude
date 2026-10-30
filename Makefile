@@ -1,4 +1,4 @@
-.PHONY: build run install clean
+.PHONY: build run install clean test
 
 DERIVED=build
 APP=$(DERIVED)/Build/Products/Debug/Altitude.app
@@ -13,6 +13,10 @@ endif
 # A stable identity keeps the Accessibility grant across rebuilds.
 # Set SIGN_ID in .env, or override with `make SIGN_ID=...`.
 SIGN_ID ?=
+
+# Unsigned Domain XCTest suite (no SIGN_ID). Prefer this for local/CI verification.
+test:
+	xcodebuild test -project Altitude.xcodeproj -scheme Altitude -configuration Debug -derivedDataPath $(DERIVED) -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
 
 build:
 ifndef SIGN_ID
