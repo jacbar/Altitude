@@ -12,6 +12,10 @@ struct AppConfig: Equatable, Sendable {
     var switchEnabled: Bool
     var moveEnabled: Bool
     var maxSpace: Int
+    /// Outer inset and inter-column gap for window arrangement (points).
+    var arrangeMargin: Int
+    var arrangeMaximizeEnabled: Bool
+    var arrangeColumnsEnabled: Bool
 
     static let `default` = AppConfig(
         version: 1,
@@ -20,7 +24,10 @@ struct AppConfig: Equatable, Sendable {
         disableSystemMotions: false,
         switchEnabled: true,
         moveEnabled: true,
-        maxSpace: 9
+        maxSpace: 9,
+        arrangeMargin: 8,
+        arrangeMaximizeEnabled: true,
+        arrangeColumnsEnabled: true
     )
 }
 
@@ -101,6 +108,11 @@ enum ConfigStore {
         switch_enabled = \(tomlBool(config.switchEnabled))
         move_enabled = \(tomlBool(config.moveEnabled))
         max_space = \(config.maxSpace)
+
+        [arrange]
+        margin = \(config.arrangeMargin)
+        maximize_enabled = \(tomlBool(config.arrangeMaximizeEnabled))
+        columns_enabled = \(tomlBool(config.arrangeColumnsEnabled))
         """
         try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
         try text.write(to: configFileURL, atomically: true, encoding: .utf8)
@@ -170,6 +182,24 @@ enum MinimalTOML {
             case ("hotkeys", "max_space"):
                 if let int = Int(value) {
                     config.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
+                } else {
+                    warnInvalid(qualifiedKey, value)
+                }
+            case ("arrange", "margin"):
+                if let int = Int(value) {
+                    config.arrangeMargin = max(0, min(int, 256))
+                } else {
+                    warnInvalid(qualifiedKey, value)
+                }
+            case ("arrange", "maximize_enabled"):
+                if let bool = parseBool(value) {
+                    config.arrangeMaximizeEnabled = bool
+                } else {
+                    warnInvalid(qualifiedKey, value)
+                }
+            case ("arrange", "columns_enabled"):
+                if let bool = parseBool(value) {
+                    config.arrangeColumnsEnabled = bool
                 } else {
                     warnInvalid(qualifiedKey, value)
                 }

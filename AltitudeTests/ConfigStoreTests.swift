@@ -108,6 +108,53 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.launchAtLogin, AppConfig.default.launchAtLogin)
     }
 
+    func testMissingArrangeKeepsDefaults() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [hotkeys]
+        max_space = 4
+        """)
+        XCTAssertEqual(config.arrangeMargin, 8)
+        XCTAssertTrue(config.arrangeMaximizeEnabled)
+        XCTAssertTrue(config.arrangeColumnsEnabled)
+    }
+
+    func testArrangeMarginClamp() {
+        XCTAssertEqual(parseArrangeMargin(-1), 0)
+        XCTAssertEqual(parseArrangeMargin(0), 0)
+        XCTAssertEqual(parseArrangeMargin(8), 8)
+        XCTAssertEqual(parseArrangeMargin(256), 256)
+        XCTAssertEqual(parseArrangeMargin(257), 256)
+    }
+
+    func testInvalidArrangeMarginKeepsDefault() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [arrange]
+        margin = eight
+        """)
+        XCTAssertEqual(config.arrangeMargin, 8)
+    }
+
+    func testArrangeBoolFlags() {
+        for trueValue in ["true", "yes", "1", "TRUE", "Yes"] {
+            let config = MinimalTOML.parseAltitudeConfig("""
+            [arrange]
+            maximize_enabled = \(trueValue)
+            columns_enabled = \(trueValue)
+            """)
+            XCTAssertTrue(config.arrangeMaximizeEnabled, trueValue)
+            XCTAssertTrue(config.arrangeColumnsEnabled, trueValue)
+        }
+        for falseValue in ["false", "no", "0", "FALSE", "No"] {
+            let config = MinimalTOML.parseAltitudeConfig("""
+            [arrange]
+            maximize_enabled = \(falseValue)
+            columns_enabled = \(falseValue)
+            """)
+            XCTAssertFalse(config.arrangeMaximizeEnabled, falseValue)
+            XCTAssertFalse(config.arrangeColumnsEnabled, falseValue)
+        }
+    }
+
     func testSaveShapedTextRoundTrip() {
         let original = AppConfig(
             version: 1,
@@ -116,7 +163,10 @@ final class ConfigStoreTests: XCTestCase {
             disableSystemMotions: false,
             switchEnabled: true,
             moveEnabled: false,
-            maxSpace: 7
+            maxSpace: 7,
+            arrangeMargin: 12,
+            arrangeMaximizeEnabled: false,
+            arrangeColumnsEnabled: true
         )
         let text = """
         version = \(original.version)
@@ -132,6 +182,11 @@ final class ConfigStoreTests: XCTestCase {
         switch_enabled = true
         move_enabled = false
         max_space = \(original.maxSpace)
+
+        [arrange]
+        margin = \(original.arrangeMargin)
+        maximize_enabled = false
+        columns_enabled = true
         """
         XCTAssertEqual(MinimalTOML.parseAltitudeConfig(text), original)
     }
@@ -141,5 +196,12 @@ final class ConfigStoreTests: XCTestCase {
         [hotkeys]
         max_space = \(value)
         """).maxSpace
+    }
+
+    private func parseArrangeMargin(_ value: Int) -> Int {
+        MinimalTOML.parseAltitudeConfig("""
+        [arrange]
+        margin = \(value)
+        """).arrangeMargin
     }
 }
