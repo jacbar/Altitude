@@ -38,17 +38,20 @@ cp .env.example .env
 `.env` is gitignored — do not commit it.
 
 ```bash
+make test    # unsigned Domain XCTest suite (no SIGN_ID)
 make build   # Debug build into ./build, then codesign
 make run     # build and open Altitude.app
 make install # force-quit running Altitude, Release-build, install to /Applications, open
 make clean   # remove ./build
 ```
 
+`make test` runs the Altitude scheme’s XCTest target with `CODE_SIGNING_ALLOWED=NO` (no Apple Development identity required). Pull requests targeting `main` run the same unsigned build+test path in GitHub Actions (`.github/workflows/ci.yml`).
+
 `make install` force-quits every running Altitude instance (AppleScript quit, then `pkill` if needed), builds **Release**, codesigns with `SIGN_ID`, replaces `/Applications/Altitude.app`, and opens it. It does **not** fetch or check out git — you own the working tree before running it.
 
 You can also override without a file: `make SIGN_ID="Apple Development: …" run`.
 
-You can also open `Altitude.xcodeproj` in Xcode and run the **Altitude** scheme.
+You can also open `Altitude.xcodeproj` in Xcode and run the **Altitude** scheme (Product → Test exercises `AltitudeTests`).
 
 ## Configuration
 
@@ -116,7 +119,10 @@ Altitude/
 │   ├── Domain/               # Config, models, focus resolver
 │   ├── Hotkeys/              # Carbon global hotkeys
 │   └── UI/                   # Menu bar + space indicator
+├── AltitudeTests/            # Domain-first XCTest suite
 ├── config/config.example.toml
+├── docs/reviews/             # Security + code-quality baseline notes
+├── .github/workflows/ci.yml  # Unsigned build+test on PRs to main
 ├── scripts/generate_pbxproj.py
 ├── Makefile
 ├── .env.example              # Template for local SIGN_ID (copy to .env)

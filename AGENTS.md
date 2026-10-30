@@ -14,6 +14,10 @@ When you add, change, or remove user-facing behavior:
 
 Treat an incomplete README as incomplete work — same bar as unfinished code.
 
+## Testing (soft expectation)
+
+New features should include or update tests for testable logic (especially Domain parsers, pure helpers, and config round-trips). Accessibility, SkyLight/CGS SPI, Dock swipe, CGEvent taps, and UI may stay manual. Run `make test` locally; PRs to `main` also run unsigned build+test in GitHub Actions. This is guidance, not the hard “incomplete work” bar used for README documentation.
+
 ## Project notes
 
 - Native macOS menu bar app (Swift / AppKit), not a SwiftUI or SPM package app.
