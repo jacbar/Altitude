@@ -15,6 +15,7 @@ final class MenuBarController: NSObject {
     private var config: AppConfig
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
+    private var motionSuppressor: SystemMotionSuppressor?
 
     init(spaceService: SpaceService, focusResolver: FocusedWindowResolver) {
         self.spaceService = spaceService
@@ -41,6 +42,7 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = config.disableAnimations
+        updateSystemMotions()
         refreshSpacesAndHotkeys()
         startPolling()
         observeWorkspace()
@@ -60,6 +62,7 @@ final class MenuBarController: NSObject {
         }
         buildMenu()
         refreshIndicator()
+        updateSystemMotions()
     }
 
     // MARK: - Actions
@@ -90,6 +93,7 @@ final class MenuBarController: NSObject {
     @objc private func refreshFromMenu() {
         config = ConfigStore.load()
         spaceService.instantSwitching = config.disableAnimations
+        updateSystemMotions()
         refreshSpacesAndHotkeys()
         buildMenu()
     }
@@ -160,6 +164,9 @@ final class MenuBarController: NSObject {
         if config.disableAnimations {
             menu.addItem(NSMenuItem(title: "Instant switching (config)", action: nil, keyEquivalent: ""))
         }
+        if config.disableSystemMotions {
+            menu.addItem(NSMenuItem(title: "Trackpad, Control-arrows, and Command-Tab are instant (config)", action: nil, keyEquivalent: ""))
+        }
 
         menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit Altitude", action: #selector(quit), keyEquivalent: "q")
@@ -214,6 +221,18 @@ final class MenuBarController: NSObject {
             hotkeys.apply(config: config, spaceCount: snapshot.spaces.count)
             refreshIndicator()
             buildMenu()
+        }
+        updateSystemMotions()
+    }
+
+    private func updateSystemMotions() {
+        if config.disableSystemMotions {
+            if motionSuppressor == nil {
+                motionSuppressor = SystemMotionSuppressor(spaceService: spaceService)
+            }
+            motionSuppressor?.start()
+        } else {
+            motionSuppressor?.stop()
         }
     }
 

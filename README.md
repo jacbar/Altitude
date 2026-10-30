@@ -12,6 +12,7 @@ Menu bar agent for macOS that shows your Mission Control desktops and lets you j
 - **Menu actions** — pick a desktop from the status menu; reload config; open config; open Accessibility settings
 - **TOML config** — hotkeys and animation behavior under `~/.config/altitude/config.toml` (stow-friendly)
 - **Optional instant switching** — skip the paced trackpad-like slide and jump as fast as the Dock allows
+- **Instant trackpad, Control-arrows, and Command-Tab** — optional (`disable_system_motions`). A horizontal Space swipe, Control-Left/Right, and Command-Tab cut to the destination with no slide. Command-Tab shows a still row of open windows (including windows on other Spaces), so two windows of the same app both appear. While it is open, Left and Right move the highlight; Command-Q quits and Command-H hides the highlighted app. Escape cancels. Off by default so existing installs keep macOS motion
 - **Accessibility-aware** — prompts once for Accessibility; later launches use the menu if permission is missing
 
 ## Requirements
@@ -59,6 +60,12 @@ version = 1
 [spaces]
 # When true, switches jump as fast as the Dock allows instead of a slide per desktop.
 disable_animations = false
+# When true, trackpad Space swipes, Control-Left/Right, and Command-Tab cut straight across.
+# Command-Tab shows a still row of open windows instead of the system app switcher.
+# Two windows of the same app both appear, including windows on other Spaces.
+# Left and Right move the highlight while Command is held; Command-Q quits, Command-H hides.
+# The highlighted name is that window's title. Off by default — set true to enable.
+disable_system_motions = false
 
 [hotkeys]
 # option+N switches to desktop N; option+shift+N moves the focused window.
@@ -81,6 +88,10 @@ Use **Reload Config** in the menu bar menu after editing, or **Open Config…** 
 - Desktops are flattened into a single 1-based list in Mission Control order.
 - Switching to a Space on another display is not supported.
 - Hotkeys are limited to digits `1`–`9` (further capped by `max_space` and the number of Spaces).
+- With `disable_system_motions`, Command-Tab is handled by Altitude: hold Command, tap Tab or press Left/Right to move through windows (Shift-Tab reverses), release Command to land, Escape to cancel. Command-Q quits and Command-H hides the highlighted app; other keys are swallowed so they do not hit the app underneath. The first Tab after opening lands on the previous app (sibling windows of the frontmost app come later). Each open window is its own entry — including windows on other Spaces — and the highlighted one is the one that comes forward. The name is that window's title. Panels, tooltips, and the hidden helper windows some apps keep (Arc and Teams) are left out. The macOS app switcher does not appear. Menu-bar-only apps stay hidden, same as the system switcher.
+- Horizontal Space swipes and Control-Left/Right move one Space with no slide. A trackpad swipe commits when the finger lifts past a small travel threshold, so a reversed or aborted swipe cancels. Swipe direction follows the Dock's effective Space axis (natural scrolling already applied). Swipe-up Mission Control is unchanged. Control-Left/Right with Command, Option, or Shift is left to the app; key-repeat does not fire extra hops.
+- An app that lives only on another display still switches the way macOS does.
+- Trackpad, Control-arrow, and Command-Tab suppression needs the same Accessibility grant as hotkey switching. It uses the Dock gesture path that works on macOS 26.
 
 ## Project layout
 

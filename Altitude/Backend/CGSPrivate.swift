@@ -31,6 +31,22 @@ enum CGSPrivate {
     static func activeSpaceID() -> CGSSpaceID {
         CGSGetActiveSpace(connection)
     }
+
+    /// Spaces that contain `windowID`, including Spaces that are not visible.
+    static func spaceIDs(forWindow windowID: CGWindowID) -> [CGSSpaceID] {
+        let array = [NSNumber(value: windowID)] as CFArray
+        guard let raw = CGSCopySpacesForWindows(connection, allSpacesMask, array) else { return [] }
+        let numbers = raw as? [NSNumber] ?? []
+        var seen = Set<CGSSpaceID>()
+        var ids: [CGSSpaceID] = []
+        for number in numbers where seen.insert(number.uint64Value).inserted {
+            ids.append(number.uint64Value)
+        }
+        return ids
+    }
+
+    /// User, other, and currently visible Spaces. Matches the mask other Space tools pass here.
+    private static let allSpacesMask: Int32 = 0x7
 }
 
 @_silgen_name("CGSMainConnectionID")
@@ -55,6 +71,9 @@ func CGSMoveWindowsToManagedSpace(
 
 @_silgen_name("CGSGetActiveSpace")
 func CGSGetActiveSpace(_ cid: CGSConnectionID) -> CGSSpaceID
+
+@_silgen_name("CGSCopySpacesForWindows")
+func CGSCopySpacesForWindows(_ cid: CGSConnectionID, _ mask: Int32, _ windows: CFArray) -> CFArray?
 
 @_silgen_name("_AXUIElementGetWindow")
 func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
