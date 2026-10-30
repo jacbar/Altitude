@@ -13,6 +13,8 @@ launch_at_login = false
 # playing a trackpad-like slide for each desktop crossed.
 disable_animations = false
 # When true, a trackpad Space swipe, Control-Left/Right, and Command-Tab cut straight across.
+# Activating a running app on another same-display Space (Raycast, Spotlight, Dock, etc.)
+# also hops there with no slide; the window is not moved onto the current Space.
 # Command-Tab shows each open window, so two windows of the same app both appear
 # (including windows on other Spaces). Left and Right move the highlight while Command
 # is held; Command-Q quits and Command-H hides the highlighted app.
