@@ -121,7 +121,6 @@ Altitude/
 │   └── UI/                   # Menu bar + space indicator
 ├── AltitudeTests/            # Domain-first XCTest suite
 ├── config/config.example.toml
-├── docs/reviews/             # Security + code-quality baseline notes
 ├── .github/workflows/ci.yml  # Unsigned build+test on PRs to main
 ├── scripts/generate_pbxproj.py
 ├── Makefile

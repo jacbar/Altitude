@@ -2,12 +2,12 @@ import XCTest
 @testable import Altitude
 
 final class ConfigStoreTests: XCTestCase {
-    func testEmptyAndWhitespaceYieldDefaults() throws {
-        XCTAssertEqual(try MinimalTOML.parseAltitudeConfig(""), .default)
-        XCTAssertEqual(try MinimalTOML.parseAltitudeConfig("   \n\t\n  "), .default)
+    func testEmptyAndWhitespaceYieldDefaults() {
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(""), .default)
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig("   \n\t\n  "), .default)
     }
 
-    func testHappyPathAllKeys() throws {
+    func testHappyPathAllKeys() {
         let text = """
         version = 2
 
@@ -23,7 +23,7 @@ final class ConfigStoreTests: XCTestCase {
         move_enabled = false
         max_space = 5
         """
-        let config = try MinimalTOML.parseAltitudeConfig(text)
+        let config = MinimalTOML.parseAltitudeConfig(text)
         XCTAssertEqual(config.version, 2)
         XCTAssertTrue(config.launchAtLogin)
         XCTAssertTrue(config.disableAnimations)
@@ -33,24 +33,24 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.maxSpace, 5)
     }
 
-    func testMaxSpaceClamp() throws {
-        XCTAssertEqual(try parseMaxSpace(0), 1)
-        XCTAssertEqual(try parseMaxSpace(9), 9)
-        XCTAssertEqual(try parseMaxSpace(16), 16)
-        XCTAssertEqual(try parseMaxSpace(17), 16)
-        XCTAssertEqual(try parseMaxSpace(-3), 1)
+    func testMaxSpaceClamp() {
+        XCTAssertEqual(parseMaxSpace(0), 1)
+        XCTAssertEqual(parseMaxSpace(9), 9)
+        XCTAssertEqual(parseMaxSpace(16), 9)
+        XCTAssertEqual(parseMaxSpace(17), 9)
+        XCTAssertEqual(parseMaxSpace(-3), 1)
     }
 
-    func testBoolSynonyms() throws {
+    func testBoolSynonyms() {
         for trueValue in ["true", "yes", "1", "TRUE", "Yes"] {
-            let config = try MinimalTOML.parseAltitudeConfig("""
+            let config = MinimalTOML.parseAltitudeConfig("""
             [app]
             launch_at_login = \(trueValue)
             """)
             XCTAssertTrue(config.launchAtLogin, trueValue)
         }
         for falseValue in ["false", "no", "0", "FALSE", "No"] {
-            let config = try MinimalTOML.parseAltitudeConfig("""
+            let config = MinimalTOML.parseAltitudeConfig("""
             [hotkeys]
             switch_enabled = \(falseValue)
             """)
@@ -58,8 +58,8 @@ final class ConfigStoreTests: XCTestCase {
         }
     }
 
-    func testInvalidAndQuotedValuesKeepDefaults() throws {
-        let config = try MinimalTOML.parseAltitudeConfig("""
+    func testInvalidAndQuotedValuesKeepDefaults() {
+        let config = MinimalTOML.parseAltitudeConfig("""
         version = "two"
         [app]
         launch_at_login = "true"
@@ -73,8 +73,8 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config, .default)
     }
 
-    func testCommentsAreIgnored() throws {
-        let config = try MinimalTOML.parseAltitudeConfig("""
+    func testCommentsAreIgnored() {
+        let config = MinimalTOML.parseAltitudeConfig("""
         # top comment
         version = 3 # trailing
         [app] # section
@@ -84,8 +84,8 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertTrue(config.launchAtLogin)
     }
 
-    func testUnknownKeysAreIgnored() throws {
-        let config = try MinimalTOML.parseAltitudeConfig("""
+    func testUnknownKeysAreIgnored() {
+        let config = MinimalTOML.parseAltitudeConfig("""
         mystery = 1
         [app]
         launch_at_login = true
@@ -97,8 +97,8 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.maxSpace, AppConfig.default.maxSpace)
     }
 
-    func testPartialFileMergesDefaults() throws {
-        let config = try MinimalTOML.parseAltitudeConfig("""
+    func testPartialFileMergesDefaults() {
+        let config = MinimalTOML.parseAltitudeConfig("""
         [hotkeys]
         max_space = 4
         """)
@@ -108,7 +108,7 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.launchAtLogin, AppConfig.default.launchAtLogin)
     }
 
-    func testSaveShapedTextRoundTrip() throws {
+    func testSaveShapedTextRoundTrip() {
         let original = AppConfig(
             version: 1,
             launchAtLogin: true,
@@ -133,11 +133,11 @@ final class ConfigStoreTests: XCTestCase {
         move_enabled = false
         max_space = \(original.maxSpace)
         """
-        XCTAssertEqual(try MinimalTOML.parseAltitudeConfig(text), original)
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(text), original)
     }
 
-    private func parseMaxSpace(_ value: Int) throws -> Int {
-        try MinimalTOML.parseAltitudeConfig("""
+    private func parseMaxSpace(_ value: Int) -> Int {
+        MinimalTOML.parseAltitudeConfig("""
         [hotkeys]
         max_space = \(value)
         """).maxSpace

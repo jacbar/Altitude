@@ -25,6 +25,11 @@ struct AppConfig: Equatable, Sendable {
 }
 
 enum ConfigStore {
+    /// Hard cap matching Carbon digit hotkeys (1…9).
+    static let maxHotkeySpace = 9
+    /// Reject absurdly large config files (symlink / DoS guard).
+    static let maxConfigBytes: UInt64 = 64 * 1024
+
     static var configDirectoryURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home.appendingPathComponent(".config/altitude", isDirectory: true)
@@ -36,18 +41,27 @@ enum ConfigStore {
 
     static func load() -> AppConfig {
         let url = configFileURL
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: url.path) else {
             log.info("No config at \(url.path, privacy: .public); using defaults")
             return .default
         }
 
         do {
+            try validateConfigURL(url)
+            let attrs = try fm.attributesOfItem(atPath: url.path)
+            if let size = attrs[.size] as? UInt64, size > maxConfigBytes {
+                log.error(
+                    "Config at \(url.path, privacy: .public) is \(size) bytes (limit \(maxConfigBytes)); using defaults"
+                )
+                return .default
+            }
             let text = try String(contentsOf: url, encoding: .utf8)
-            let config = try MinimalTOML.parseAltitudeConfig(text)
+            let config = MinimalTOML.parseAltitudeConfig(text)
             log.info("Loaded config version \(config.version) from \(url.path, privacy: .public)")
             return config
         } catch {
-            log.error("Failed to parse config: \(error.localizedDescription, privacy: .public); using defaults")
+            log.error("Failed to load config: \(error.localizedDescription, privacy: .public); using defaults")
             return .default
         }
     }
@@ -72,6 +86,7 @@ enum ConfigStore {
 
     /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
     static func save(_ config: AppConfig) throws {
+        try validateConfigURL(configFileURL, allowMissing: true)
         let text = """
         version = \(config.version)
 
@@ -95,15 +110,29 @@ enum ConfigStore {
     private static func tomlBool(_ value: Bool) -> String {
         value ? "true" : "false"
     }
+
+    /// Allows Stow-style symlinks when the resolved target stays under the user's home.
+    private static func validateConfigURL(_ url: URL, allowMissing: Bool = false) throws {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser.resolvingSymlinksInPath().standardizedFileURL.path
+        if !fm.fileExists(atPath: url.path) {
+            if allowMissing { return }
+            throw CocoaError(.fileNoSuchFile)
+        }
+        let resolved = url.resolvingSymlinksInPath().standardizedFileURL.path
+        guard resolved == home || resolved.hasPrefix(home + "/") else {
+            log.error(
+                "Refusing config outside home (resolved \(resolved, privacy: .public))"
+            )
+            throw CocoaError(.fileReadNoPermission)
+        }
+    }
 }
 
 /// Tiny TOML subset parser for Altitude's schema (avoids an SPM dependency in v1).
 enum MinimalTOML {
-    enum ParseError: Error {
-        case invalid
-    }
-
-    static func parseAltitudeConfig(_ text: String) throws -> AppConfig {
+    /// Invalid typed values keep the field default and are logged; unknown keys are ignored.
+    static func parseAltitudeConfig(_ text: String) -> AppConfig {
         var config = AppConfig.default
         var section: String?
 
@@ -139,7 +168,11 @@ enum MinimalTOML {
             case ("hotkeys", "move_enabled"):
                 if let bool = parseBool(value) { config.moveEnabled = bool } else { warnInvalid(qualifiedKey, value) }
             case ("hotkeys", "max_space"):
-                if let int = Int(value) { config.maxSpace = max(1, min(int, 16)) } else { warnInvalid(qualifiedKey, value) }
+                if let int = Int(value) {
+                    config.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
+                } else {
+                    warnInvalid(qualifiedKey, value)
+                }
             default:
                 log.warning("Ignoring unknown config key \(qualifiedKey, privacy: .public)")
             }
