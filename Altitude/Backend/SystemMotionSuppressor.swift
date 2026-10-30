@@ -22,14 +22,17 @@ private struct SwitchTarget {
 
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
-/// Replaces animated Space changes from the trackpad, Control-Left/Right, and Command-Tab.
+/// Replaces animated Space changes from the trackpad, Control-Left/Right, Command-Tab,
+/// and external activation of an already-running app on another Space.
 ///
 /// macOS has no switch that turns off only those motions. A session tap drops the real
 /// horizontal swipe before the Dock can slide, then posts one instant hop via SpaceService.
 /// At the first or last Space on the active display the input is still swallowed but nothing
 /// is posted, so the Dock edge bounce never runs. Control-Left/Right is swallowed at the HID
 /// tap, before Mission Control's shortcut can start the slide. Command-Tab is handled here so
-/// releasing Command does not play the system switcher. Mission Control swipes are left alone.
+/// releasing Command does not play the system switcher. Activating a running app via Raycast,
+/// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
+/// there. Mission Control swipes are left alone.
 final class SystemMotionSuppressor: NSObject {
     private struct Session {
         var targets: [SwitchTarget]
@@ -54,6 +57,8 @@ final class SystemMotionSuppressor: NSObject {
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
+    /// True while our own activate(_:) is raising an app, so appActivated does not re-enter.
+    private var isActivatingInternally = false
 
     /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
     private let axTimeoutSeconds: Float = 0.1
@@ -131,6 +136,7 @@ final class SystemMotionSuppressor: NSObject {
         pendingActivation = nil
         activationFallback?.cancel()
         activationFallback = nil
+        isActivatingInternally = false
         swallowingSwipe = false
         postedForSwipe = false
         swipePeak = 0
@@ -459,13 +465,39 @@ final class SystemMotionSuppressor: NSObject {
     private func activate(_ target: SwitchTarget) {
         // Raise first, then again after activate(). Activation focuses the app's main
         // window on its own, which is why an Outlook message was opening the inbox.
+        isActivatingInternally = true
         focus(target)
         _ = target.app.activate(from: .current, options: [])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.isActivatingInternally = false
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
             self?.focus(target)
+        }
+    }
+
+    /// Main window if Accessibility marked one; otherwise the first listed window.
+    private func preferredTarget(for app: NSRunningApplication) -> SwitchTarget? {
+        let windows = userWindows(for: app)
+        guard let preferred = windows.first(where: \.main) ?? windows.first else { return nil }
+        return makeTarget(app: app, window: preferred)
+    }
+
+    /// Instant hop when an external activator focuses a running app on another same-display Space.
+    private func hopForExternalActivation(of app: NSRunningApplication) {
+        guard let target = preferredTarget(for: app) else { return }
+        let spaces = target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? []
+        switch spaceService.switchInstantly(toPreferredSpaceAmong: spaces) {
+        case .posted(let steps):
+            let delay = 0.08 + 0.06 * Double(max(steps, 1))
+            armActivation(of: target, after: delay)
+        case .alreadyThere:
+            activate(target)
+        case .otherDisplay, .unavailable:
+            break
         }
     }
 
@@ -754,6 +786,11 @@ final class SystemMotionSuppressor: NSObject {
         if app.bundleIdentifier == Bundle.main.bundleIdentifier { return }
         mru.removeAll { $0 == app.processIdentifier }
         mru.insert(app.processIdentifier, at: 0)
+
+        // Hop only while suppression is running. Skip Command-Tab and our own activates.
+        guard gestureTap != nil else { return }
+        if session != nil || isActivatingInternally || pendingActivation != nil { return }
+        hopForExternalActivation(of: app)
     }
 
     private func logTapFailure(_ message: StaticString) {
