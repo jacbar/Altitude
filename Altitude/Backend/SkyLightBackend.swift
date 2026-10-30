@@ -225,6 +225,40 @@ final class SkyLightBackend: SpaceService {
         return layout.displays.first { $0.spaceIDs.contains(activeID) }?.identifier
     }
 
+    func currentSpaceID(on screen: NSScreen) -> CGSSpaceID? {
+        let layout = readLayout()
+        guard !layout.displays.isEmpty else { return nil }
+
+        let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
+        guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
+            log.error("NSScreen missing NSScreenNumber")
+            return fallbackCurrentSpaceID(in: layout)
+        }
+        let displayID = CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
+              let uuidString = CFUUIDCreateString(nil, uuid) as String?
+        else {
+            log.error("Could not resolve display UUID for screen")
+            return fallbackCurrentSpaceID(in: layout)
+        }
+
+        if let display = layout.displays.first(where: {
+            $0.identifier.caseInsensitiveCompare(uuidString) == .orderedSame
+        }) {
+            return currentSpaceID(on: display)
+        }
+
+        return fallbackCurrentSpaceID(in: layout)
+    }
+
+    private func fallbackCurrentSpaceID(in layout: Layout) -> CGSSpaceID? {
+        if layout.displays.count == 1 {
+            return currentSpaceID(on: layout.displays[0])
+        }
+        log.error("Could not match NSScreen to a managed display among \(layout.displays.count)")
+        return nil
+    }
+
     private func currentSpaceID(on display: Display) -> CGSSpaceID? {
         if let prediction = livePrediction(activeID: CGSPrivate.activeSpaceID()),
            prediction.displayIdentifier == display.identifier

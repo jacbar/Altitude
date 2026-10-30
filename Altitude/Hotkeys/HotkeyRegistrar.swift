@@ -10,6 +10,8 @@ private let altitudeHotKeySignature: OSType = 0x414C5431 // 'ALT1'
 enum HotkeyAction: Equatable {
     case switchTo(Int)
     case moveTo(Int)
+    case maximizeAll
+    case tileColumns
 }
 
 /// Weak box so Carbon callbacks no-op after the registrar is released.
@@ -64,6 +66,23 @@ final class HotkeyRegistrar {
                     action: .moveTo(n)
                 )
             }
+        }
+
+        if config.arrangeMaximizeEnabled {
+            register(
+                keyCode: UInt32(kVK_ANSI_F),
+                modifiers: UInt32(controlKey | optionKey),
+                id: 200,
+                action: .maximizeAll
+            )
+        }
+        if config.arrangeColumnsEnabled {
+            register(
+                keyCode: UInt32(kVK_ANSI_A),
+                modifiers: UInt32(controlKey | optionKey),
+                id: 201,
+                action: .tileColumns
+            )
         }
 
         log.info("Registered hotkeys for desktops 1...\(maxN)")

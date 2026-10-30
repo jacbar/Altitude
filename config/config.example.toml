@@ -28,3 +28,11 @@ switch_enabled = true
 move_enabled = true
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
+
+[arrange]
+# Control+Option+F maximizes every included window to the same inset visible frame.
+# Control+Option+A lays them out in equal columns. margin (points) is the outer inset
+# and the gap between columns. Both flags default true; a disabled chord is not registered.
+margin = 8
+maximize_enabled = true
+columns_enabled = true

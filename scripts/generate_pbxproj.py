@@ -19,11 +19,14 @@ sources = [
     "Altitude/Backend/SystemMotionSuppressor.swift",
     "Altitude/Domain/LaunchAtLogin.swift",
     "Altitude/Domain/HotkeyBounds.swift",
+    "Altitude/Domain/WindowArrangement.swift",
+    "Altitude/Backend/WindowArranger.swift",
 ]
 
 test_sources = [
     "AltitudeTests/ConfigStoreTests.swift",
     "AltitudeTests/HotkeyBoundsTests.swift",
+    "AltitudeTests/WindowArrangementTests.swift",
 ]
 
 ids = {
