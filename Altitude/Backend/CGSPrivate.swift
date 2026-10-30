@@ -15,10 +15,6 @@ enum CGSPrivate {
         return array as? [[String: Any]]
     }
 
-    static func setCurrentSpace(displayIdentifier: String, spaceID: CGSSpaceID) {
-        CGSManagedDisplaySetCurrentSpace(connection, displayIdentifier as CFString, spaceID)
-    }
-
     static func moveWindowsToManagedSpace(windowIDs: [CGWindowID], spaceID: CGSSpaceID) {
         let windows = windowIDs.map { NSNumber(value: $0) } as NSArray
         // Prefer bridged WM operation on modern macOS; fall back to classic CGS.
@@ -54,13 +50,6 @@ func CGSMainConnectionID() -> CGSConnectionID
 
 @_silgen_name("CGSCopyManagedDisplaySpaces")
 func CGSCopyManagedDisplaySpaces(_ cid: CGSConnectionID) -> CFArray?
-
-@_silgen_name("CGSManagedDisplaySetCurrentSpace")
-func CGSManagedDisplaySetCurrentSpace(
-    _ cid: CGSConnectionID,
-    _ display: CFString,
-    _ space: CGSSpaceID
-)
 
 @_silgen_name("CGSMoveWindowsToManagedSpace")
 func CGSMoveWindowsToManagedSpace(

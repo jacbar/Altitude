@@ -22,7 +22,6 @@ enum SpaceServiceError: Error, LocalizedError {
     case invalidSpaceIndex(Int)
     case crossDisplaySwitch(Int)
     case noFocusedWindow
-    case moveFailed
     case accessibilityDenied
 
     var errorDescription: String? {
@@ -35,8 +34,6 @@ enum SpaceServiceError: Error, LocalizedError {
             return "Desktop \(index) is on another display; switching across displays is not supported"
         case .noFocusedWindow:
             return "No focused window to move"
-        case .moveFailed:
-            return "Failed to move window to the target Space"
         case .accessibilityDenied:
             return "Accessibility permission is required"
         }

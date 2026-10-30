@@ -39,7 +39,9 @@ final class SkyLightBackend: SpaceService {
 
     func snapshot() -> SpaceSnapshot {
         let layout = readLayout()
-        let activeID = activeSpaceID(in: layout)
+        // Indicator follows live CGS only. Dock-swipe prediction is for routing hops,
+        // not for painting the menu bar (prediction can desync from the true Space).
+        let activeID = liveActiveSpaceID(in: layout)
         let current = layout.desktops.first { $0.id == activeID }?.index
         let spaces = layout.desktops.map { space in
             DesktopSpace(
@@ -201,15 +203,21 @@ final class SkyLightBackend: SpaceService {
         return prediction
     }
 
+    private func liveActiveSpaceID(in layout: Layout) -> CGSSpaceID? {
+        let liveID = CGSPrivate.activeSpaceID()
+        if layout.displays.contains(where: { $0.spaceIDs.contains(liveID) }) {
+            return liveID
+        }
+        return layout.displays.first?.currentSpaceID
+    }
+
+    /// Prefers in-flight dock-swipe prediction so multi-step hops keep routing correctly.
     private func activeSpaceID(in layout: Layout) -> CGSSpaceID? {
         let liveID = CGSPrivate.activeSpaceID()
         if let prediction = livePrediction(activeID: liveID) {
             return prediction.spaceID
         }
-        if layout.displays.contains(where: { $0.spaceIDs.contains(liveID) }) {
-            return liveID
-        }
-        return layout.displays.first?.currentSpaceID
+        return liveActiveSpaceID(in: layout)
     }
 
     private func activeDisplayIdentifier(in layout: Layout) -> String? {

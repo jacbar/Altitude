@@ -35,18 +35,22 @@ enum LaunchAtLogin {
         }
     }
 
-    /// Brings SMAppService in line with the desired config value. Logs and swallows failures.
+    /// Brings SMAppService in line with the desired config value.
+    /// - Returns: `false` when registration/unregistration threw (caller should surface failure).
     /// Enabled and approval-pending both count as registered: pending stays while desired is true,
     /// and is unregistered when desired is false.
-    static func apply(desired: Bool) {
+    @discardableResult
+    static func apply(desired: Bool) -> Bool {
         let registered = isEnabled || requiresApproval
-        guard registered != desired else { return }
+        guard registered != desired else { return true }
         do {
             try setEnabled(desired)
+            return true
         } catch {
             log.error(
                 "Failed to reconcile launch-at-login to \(desired, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
+            return false
         }
     }
 }

@@ -33,6 +33,11 @@ private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion"
 /// releasing Command does not play the system switcher. Activating a running app via Raycast,
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
+/// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
+private final class MotionTapContext {
+    weak var suppressor: SystemMotionSuppressor?
+}
+
 final class SystemMotionSuppressor: NSObject {
     private struct Session {
         var targets: [SwitchTarget]
@@ -41,6 +46,7 @@ final class SystemMotionSuppressor: NSObject {
 
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
+    private let tapContext = MotionTapContext()
     private var gestureTap: CFMachPort?
     private var gestureSource: CFRunLoopSource?
     private var keyTap: CFMachPort?
@@ -75,6 +81,7 @@ final class SystemMotionSuppressor: NSObject {
     init(spaceService: SpaceService) {
         self.spaceService = spaceService
         super.init()
+        tapContext.suppressor = self
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appActivated(_:)),
@@ -86,6 +93,7 @@ final class SystemMotionSuppressor: NSObject {
     deinit {
         let center = NSWorkspace.shared.notificationCenter
         center.removeObserver(self)
+        tapContext.suppressor = nil
         tearDownTaps()
     }
 
@@ -96,7 +104,7 @@ final class SystemMotionSuppressor: NSObject {
             return
         }
 
-        let userInfo = Unmanaged.passUnretained(self).toOpaque()
+        let userInfo = Unmanaged.passUnretained(tapContext).toOpaque()
         guard let gesture = installTap(
             location: .cgSessionEventTap,
             events: [
@@ -180,6 +188,7 @@ final class SystemMotionSuppressor: NSObject {
         for tap in [gestureTap, keyTap] {
             if let tap {
                 CGEvent.tapEnable(tap: tap, enable: false)
+                CFMachPortInvalidate(tap)
             }
         }
         gestureTap = nil
@@ -192,7 +201,10 @@ final class SystemMotionSuppressor: NSObject {
 
     private static let callback: CGEventTapCallBack = { _, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
-        let suppressor = Unmanaged<SystemMotionSuppressor>.fromOpaque(userInfo).takeUnretainedValue()
+        let context = Unmanaged<MotionTapContext>.fromOpaque(userInfo).takeUnretainedValue()
+        guard let suppressor = context.suppressor else {
+            return Unmanaged.passUnretained(event)
+        }
         if let forwarded = suppressor.handle(type: type, event: event) {
             return Unmanaged.passUnretained(forwarded)
         }

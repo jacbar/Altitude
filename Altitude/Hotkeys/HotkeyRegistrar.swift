@@ -12,6 +12,11 @@ enum HotkeyAction: Equatable {
     case moveTo(Int)
 }
 
+/// Weak box so Carbon callbacks no-op after the registrar is released.
+private final class HotkeyCallbackContext {
+    weak var registrar: HotkeyRegistrar?
+}
+
 /// Registers global Option / Option+Shift + digit hotkeys via Carbon.
 final class HotkeyRegistrar {
     private var hotKeyRefs: [EventHotKeyRef?] = []
@@ -19,25 +24,24 @@ final class HotkeyRegistrar {
     private var actionByID: [UInt32: HotkeyAction] = [:]
     private var applied: (config: AppConfig, maxN: Int)?
     private let onAction: (HotkeyAction) -> Void
+    private let callbackContext = HotkeyCallbackContext()
 
     init(onAction: @escaping (HotkeyAction) -> Void) {
         self.onAction = onAction
+        callbackContext.registrar = self
     }
 
     deinit {
-        unregisterAll()
-        if let handlerRef {
-            RemoveEventHandler(handlerRef)
-        }
+        tearDownHandler()
     }
 
     func apply(config: AppConfig, spaceCount: Int) {
-        let maxN = min(config.maxSpace, max(spaceCount, 1), 9)
+        let maxN = effectiveMaxHotkeySpace(maxSpace: config.maxSpace, spaceCount: spaceCount)
         if let applied, applied.config == config, applied.maxN == maxN {
             return
         }
 
-        unregisterAll()
+        unregisterHotKeys()
         applied = (config, maxN)
         installHandlerIfNeeded()
 
@@ -92,12 +96,15 @@ final class HotkeyRegistrar {
             eventKind: UInt32(kEventHotKeyPressed)
         )
 
-        let userData = Unmanaged.passUnretained(self).toOpaque()
+        let userData = Unmanaged.passUnretained(callbackContext).toOpaque()
         let status = InstallEventHandler(
             GetApplicationEventTarget(),
             { (_, event, userData) -> OSStatus in
                 guard let userData, let event else { return OSStatus(eventNotHandledErr) }
-                let registrar = Unmanaged<HotkeyRegistrar>.fromOpaque(userData).takeUnretainedValue()
+                let context = Unmanaged<HotkeyCallbackContext>.fromOpaque(userData).takeUnretainedValue()
+                guard let registrar = context.registrar else {
+                    return OSStatus(eventNotHandledErr)
+                }
                 return registrar.handle(event: event)
             },
             1,
@@ -135,7 +142,7 @@ final class HotkeyRegistrar {
         return noErr
     }
 
-    private func unregisterAll() {
+    private func unregisterHotKeys() {
         for ref in hotKeyRefs {
             if let ref {
                 UnregisterEventHotKey(ref)
@@ -143,5 +150,14 @@ final class HotkeyRegistrar {
         }
         hotKeyRefs.removeAll()
         actionByID.removeAll()
+    }
+
+    private func tearDownHandler() {
+        unregisterHotKeys()
+        if let handlerRef {
+            RemoveEventHandler(handlerRef)
+            self.handlerRef = nil
+        }
+        callbackContext.registrar = nil
     }
 }

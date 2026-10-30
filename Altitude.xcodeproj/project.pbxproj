@@ -21,11 +21,25 @@
 		B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* SpaceIndicatorRenderer.swift */; };
 		B20000000000000000000012 /* SystemMotionSuppressor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* SystemMotionSuppressor.swift */; };
 		B20000000000000000000013 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* LaunchAtLogin.swift */; };
+		B20000000000000000000014 /* HotkeyBounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* HotkeyBounds.swift */; };
+		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
+		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
 		A10000000000000000000023 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* AppKit.framework */; };
+		C1000000000000000000000C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1000000000000000000000B /* XCTest.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C1000000000000000000000A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A10000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000002;
+			remoteInfo = Altitude;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000000 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -42,13 +56,18 @@
 		B10000000000000000000011 /* SpaceIndicatorRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceIndicatorRenderer.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* SystemMotionSuppressor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionSuppressor.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLogin.swift; sourceTree = "<group>"; };
+		B10000000000000000000014 /* HotkeyBounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBounds.swift; sourceTree = "<group>"; };
+		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000004 /* AltitudeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AltitudeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000000000000000000012 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000013 /* Altitude.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Altitude.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000019 /* config.example.toml */ = {isa = PBXFileReference; lastKnownFileType = text; name = config.example.toml; path = config/config.example.toml; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000020 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		A10000000000000000000022 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		C1000000000000000000000B /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,6 +80,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1000000000000000000000C /* XCTest.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -68,9 +95,11 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000006 /* Altitude */,
+				C10000000000000000000005 /* AltitudeTests */,
 				A10000000000000000000007 /* Products */,
 				A10000000000000000000020 /* Carbon.framework */,
 				A10000000000000000000022 /* AppKit.framework */,
+				C1000000000000000000000B /* XCTest.framework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -78,6 +107,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000009 /* Altitude.app */,
+				C10000000000000000000004 /* AltitudeTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -117,6 +147,7 @@
 				B10000000000000000000007 /* FocusedWindowResolver.swift */,
 				B10000000000000000000008 /* SpaceModels.swift */,
 				B10000000000000000000013 /* LaunchAtLogin.swift */,
+				B10000000000000000000014 /* HotkeyBounds.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -147,6 +178,15 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		C10000000000000000000005 /* AltitudeTests */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000000 /* ConfigStoreTests.swift */,
+				D10000000000000000000001 /* HotkeyBoundsTests.swift */,
+			);
+			path = AltitudeTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -167,6 +207,23 @@
 			productReference = A10000000000000000000009 /* Altitude.app */;
 			productType = "com.apple.product-type.application";
 		};
+		C10000000000000000000001 /* AltitudeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000008 /* Build configuration list for PBXNativeTarget "AltitudeTests" */;
+			buildPhases = (
+				C10000000000000000000002 /* Sources */,
+				C10000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C10000000000000000000009 /* PBXTargetDependency */,
+			);
+			name = AltitudeTests;
+			productName = AltitudeTests;
+			productReference = C10000000000000000000004 /* AltitudeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -176,6 +233,11 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					C10000000000000000000001 = {
+						TestTargetID = A10000000000000000000002;
+					};
+				};
 			};
 			buildConfigurationList = A1000000000000000000000E /* Build configuration list for PBXProject "Altitude" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -191,6 +253,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000002 /* Altitude */,
+				C10000000000000000000001 /* AltitudeTests */,
 			);
 		};
 /* End PBXProject section */
@@ -226,10 +289,28 @@
 				B20000000000000000000011 /* SpaceIndicatorRenderer.swift in Sources */,
 				B20000000000000000000012 /* SystemMotionSuppressor.swift in Sources */,
 				B20000000000000000000013 /* LaunchAtLogin.swift in Sources */,
+				B20000000000000000000014 /* HotkeyBounds.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C10000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D20000000000000000000000 /* ConfigStoreTests.swift in Sources */,
+				D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		C10000000000000000000009 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000002 /* Altitude */;
+			targetProxy = C1000000000000000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000000000000000000000A /* Debug */ = {
@@ -314,6 +395,54 @@
 			};
 			name = Release;
 		};
+		C10000000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";
+			};
+			name = Debug;
+		};
+		C10000000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -331,6 +460,15 @@
 			buildConfigurations = (
 				A1000000000000000000000C /* Debug */,
 				A1000000000000000000000D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10000000000000000000008 /* Build configuration list for PBXNativeTarget "AltitudeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000006 /* Debug */,
+				C10000000000000000000007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

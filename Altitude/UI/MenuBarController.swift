@@ -25,7 +25,7 @@ final class MenuBarController: NSObject {
         super.init()
 
         self.hotkeys = HotkeyRegistrar { [weak self] action in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.handle(action: action)
             }
         }
@@ -42,7 +42,9 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = config.disableAnimations
-        LaunchAtLogin.apply(desired: config.launchAtLogin)
+        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
+            log.error("Launch at Login reconcile failed during launch")
+        }
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         startPolling()
@@ -94,7 +96,10 @@ final class MenuBarController: NSObject {
     @objc private func refreshFromMenu() {
         config = ConfigStore.load()
         spaceService.instantSwitching = config.disableAnimations
-        LaunchAtLogin.apply(desired: config.launchAtLogin)
+        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
+            log.error("Launch at Login reconcile failed after reload")
+            NSSound.beep()
+        }
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         buildMenu()
@@ -245,7 +250,7 @@ final class MenuBarController: NSObject {
     private func startPolling() {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.pollSpaces()
             }
         }
