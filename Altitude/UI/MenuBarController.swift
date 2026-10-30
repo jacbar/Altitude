@@ -42,6 +42,7 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = config.disableAnimations
+        LaunchAtLogin.apply(desired: config.launchAtLogin)
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         startPolling()
@@ -93,9 +94,23 @@ final class MenuBarController: NSObject {
     @objc private func refreshFromMenu() {
         config = ConfigStore.load()
         spaceService.instantSwitching = config.disableAnimations
+        LaunchAtLogin.apply(desired: config.launchAtLogin)
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         buildMenu()
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        let desired = !LaunchAtLogin.isEnabled
+        do {
+            try LaunchAtLogin.setEnabled(desired)
+            config.launchAtLogin = desired
+            ConfigStore.save(config)
+            buildMenu()
+        } catch {
+            log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
+            NSSound.beep()
+        }
     }
 
     @objc private func openConfig() {
@@ -169,6 +184,17 @@ final class MenuBarController: NSObject {
         }
 
         menu.addItem(.separator())
+
+        let launchItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchItem.target = self
+        // Only show checked when fully enabled; requiresApproval stays unchecked honestly.
+        launchItem.state = LaunchAtLogin.isEnabled ? .on : .off
+        menu.addItem(launchItem)
+
         let quitItem = NSMenuItem(title: "Quit Altitude", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
