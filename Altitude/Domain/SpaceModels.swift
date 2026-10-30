@@ -53,6 +53,11 @@ enum InstantSwitchResult: Sendable {
     case unavailable
 }
 
+enum SpaceHopDirection: Sendable {
+    case previous
+    case next
+}
+
 protocol SpaceService: AnyObject {
     /// Skip the paced trackpad-like slide and jump through Spaces as fast as the Dock allows.
     var instantSwitching: Bool { get set }
@@ -61,6 +66,8 @@ protocol SpaceService: AnyObject {
     func moveFocusedWindow(to index: Int) throws
     /// Jump the active display to the closest candidate Space with no slide.
     func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult
+    /// Move one Space on the active display with no slide. At the first/last Space, returns `.alreadyThere` and posts nothing.
+    func moveOneSpaceInstantly(direction: SpaceHopDirection) -> InstantSwitchResult
     /// Call when macOS reports an active-space change (trackpad, Mission Control, etc.).
     func acknowledgeSystemSpaceChange()
 }
