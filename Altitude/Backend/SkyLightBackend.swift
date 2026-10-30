@@ -117,6 +117,37 @@ final class SkyLightBackend: SpaceService {
         return .posted(steps: abs(target.1 - from))
     }
 
+    func moveOneSpaceInstantly(direction: SpaceHopDirection) -> InstantSwitchResult {
+        guard focusResolver.isAccessibilityTrusted else { return .unavailable }
+        let layout = readLayout()
+        guard let activeDisplayID = activeDisplayIdentifier(in: layout),
+              let display = layout.displays.first(where: { $0.identifier == activeDisplayID }),
+              let currentID = currentSpaceID(on: display),
+              let from = display.spaceIDs.firstIndex(of: currentID),
+              !display.spaceIDs.isEmpty
+        else {
+            return .unavailable
+        }
+
+        let to: Int
+        switch direction {
+        case .previous:
+            guard from > 0 else { return .alreadyThere }
+            to = from - 1
+        case .next:
+            guard from < display.spaceIDs.count - 1 else { return .alreadyThere }
+            to = from + 1
+        }
+        performSwipe(
+            on: display,
+            from: from,
+            to: to,
+            destinationID: display.spaceIDs[to],
+            instant: true
+        )
+        return .posted(steps: 1)
+    }
+
     func moveFocusedWindow(to index: Int) throws {
         guard focusResolver.isAccessibilityTrusted else {
             throw SpaceServiceError.accessibilityDenied

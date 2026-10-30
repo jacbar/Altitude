@@ -25,10 +25,11 @@ private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion"
 /// Replaces animated Space changes from the trackpad, Control-Left/Right, and Command-Tab.
 ///
 /// macOS has no switch that turns off only those motions. A session tap drops the real
-/// horizontal swipe before the Dock can slide, then posts the same instant gesture
-/// hotkeys use. Control-Left/Right is swallowed at the HID tap, before Mission Control's
-/// shortcut can start the slide. Command-Tab is handled here so releasing Command does
-/// not play the system switcher. Mission Control swipes are left alone.
+/// horizontal swipe before the Dock can slide, then posts one instant hop via SpaceService.
+/// At the first or last Space on the active display the input is still swallowed but nothing
+/// is posted, so the Dock edge bounce never runs. Control-Left/Right is swallowed at the HID
+/// tap, before Mission Control's shortcut can start the slide. Command-Tab is handled here so
+/// releasing Command does not play the system switcher. Mission Control swipes are left alone.
 final class SystemMotionSuppressor: NSObject {
     private struct Session {
         var targets: [SwitchTarget]
@@ -247,7 +248,7 @@ final class SystemMotionSuppressor: NSObject {
                let direction = swipeDirection
             {
                 postedForSwipe = true
-                DockSwipeSwitcher.swipe(direction, steps: 1, instant: true)
+                _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
             }
             postedForSwipe = false
             swallowingSwipe = false
@@ -272,7 +273,7 @@ final class SystemMotionSuppressor: NSObject {
 
         if let direction = controlArrowDirection(type: type, event: event) {
             if type == .keyDown, event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
-                DockSwipeSwitcher.swipe(direction, steps: 1, instant: true)
+                _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
             }
             return nil
         }
@@ -389,6 +390,15 @@ final class SystemMotionSuppressor: NSObject {
             return .right
         default:
             return nil
+        }
+    }
+
+    private func hopDirection(_ direction: DockSwipeSwitcher.Direction) -> SpaceHopDirection {
+        switch direction {
+        case .left:
+            return .previous
+        case .right:
+            return .next
         }
     }
 
