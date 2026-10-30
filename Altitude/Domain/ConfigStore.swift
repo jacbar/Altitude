@@ -5,6 +5,7 @@ private let log = Logger(subsystem: "com.altitude.app", category: "Config")
 
 struct AppConfig: Equatable, Sendable {
     var version: Int
+    var launchAtLogin: Bool
     var disableAnimations: Bool
     /// Skip the slide for trackpad Space swipes, Control-Left/Right, and Command-Tab.
     var disableSystemMotions: Bool
@@ -14,6 +15,7 @@ struct AppConfig: Equatable, Sendable {
 
     static let `default` = AppConfig(
         version: 1,
+        launchAtLogin: false,
         disableAnimations: false,
         disableSystemMotions: false,
         switchEnabled: true,
@@ -67,6 +69,36 @@ enum ConfigStore {
             log.error("Could not write starter config: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
+    static func save(_ config: AppConfig) {
+        let text = """
+        version = \(config.version)
+
+        [app]
+        launch_at_login = \(tomlBool(config.launchAtLogin))
+
+        [spaces]
+        disable_animations = \(tomlBool(config.disableAnimations))
+        disable_system_motions = \(tomlBool(config.disableSystemMotions))
+
+        [hotkeys]
+        switch_enabled = \(tomlBool(config.switchEnabled))
+        move_enabled = \(tomlBool(config.moveEnabled))
+        max_space = \(config.maxSpace)
+        """
+        do {
+            try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
+            try text.write(to: configFileURL, atomically: true, encoding: .utf8)
+            log.info("Wrote config to \(configFileURL.path, privacy: .public)")
+        } catch {
+            log.error("Could not write config: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private static func tomlBool(_ value: Bool) -> String {
+        value ? "true" : "false"
+    }
 }
 
 /// Tiny TOML subset parser for Altitude's schema (avoids an SPM dependency in v1).
@@ -100,6 +132,8 @@ enum MinimalTOML {
             switch (section, key) {
             case (nil, "version"), ("", "version"):
                 if let int = Int(value) { config.version = int } else { warnInvalid(qualifiedKey, value) }
+            case ("app", "launch_at_login"):
+                if let bool = parseBool(value) { config.launchAtLogin = bool } else { warnInvalid(qualifiedKey, value) }
             case ("spaces", "disable_animations"):
                 if let bool = parseBool(value) { config.disableAnimations = bool } else { warnInvalid(qualifiedKey, value) }
             case ("spaces", "disable_system_motions"):
