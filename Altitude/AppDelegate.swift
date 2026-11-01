@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Defense in depth: unit tests must never bootstrap the menu-bar agent.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return
+        }
         log.info("Altitude launching")
         ConfigStore.ensureExampleIfMissing()
 

@@ -1,5 +1,4 @@
 import XCTest
-@testable import Altitude
 
 final class ConfigStoreTests: XCTestCase {
     func testEmptyAndWhitespaceYieldDefaults() {
