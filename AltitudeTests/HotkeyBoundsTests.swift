@@ -1,5 +1,5 @@
-import XCTest
 @testable import Altitude
+import XCTest
 
 final class HotkeyBoundsTests: XCTestCase {
     func testEffectiveMaxHotkeySpace() {
@@ -7,5 +7,7 @@ final class HotkeyBoundsTests: XCTestCase {
         XCTAssertEqual(effectiveMaxHotkeySpace(maxSpace: 5, spaceCount: 12), 5)
         XCTAssertEqual(effectiveMaxHotkeySpace(maxSpace: 9, spaceCount: 0), 1)
         XCTAssertEqual(effectiveMaxHotkeySpace(maxSpace: 9, spaceCount: 3), 3)
+        XCTAssertEqual(effectiveMaxHotkeySpace(maxSpace: 0, spaceCount: 5), 1)
+        XCTAssertEqual(effectiveMaxHotkeySpace(maxSpace: -3, spaceCount: 5), 1)
     }
 }
