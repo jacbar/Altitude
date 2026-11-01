@@ -603,8 +603,8 @@ final class SystemMotionSuppressor: NSObject {
             // After merge, the strip may keep a stronger CG title while AX still reports empty / app name.
             return sizeMatches && (
                 titleMatches
-                    || isWeakTitle(item.title, appName: appName)
-                    || isWeakTitle(target.title, appName: appName)
+                    || WindowCatalog.isWeakTitle(item.title, appName: appName)
+                    || WindowCatalog.isWeakTitle(target.title, appName: appName)
             )
         }
         if let exact = titled.first(where: { $0.title == target.title }) {
@@ -653,24 +653,10 @@ final class SystemMotionSuppressor: NSObject {
         )
     }
 
-    private struct ListedWindow: Equatable {
-        let id: CGWindowID?
-        let title: String
-        let width: Double
-        let height: Double
-        var main: Bool = false
-    }
-
-    /// Empty, or the app's localized name — too generic to treat as a distinct window identity.
-    private func isWeakTitle(_ title: String, appName: String) -> Bool {
-        if title.isEmpty { return true }
-        return !appName.isEmpty && title == appName
-    }
-
     /// Prefer a specific title over empty / the bare app name when collapsing twins.
     private func preferredTitle(_ a: String, _ b: String, appName: String) -> String {
-        let aWeak = isWeakTitle(a, appName: appName)
-        let bWeak = isWeakTitle(b, appName: appName)
+        let aWeak = WindowCatalog.isWeakTitle(a, appName: appName)
+        let bWeak = WindowCatalog.isWeakTitle(b, appName: appName)
         if aWeak && !bWeak { return b }
         if bWeak && !aWeak { return a }
         if a.isEmpty, !b.isEmpty { return b }
@@ -694,7 +680,8 @@ final class SystemMotionSuppressor: NSObject {
         }
         guard sameListedSize(a, b) else { return false }
         if a.title == b.title { return true }
-        return isWeakTitle(a.title, appName: appName) || isWeakTitle(b.title, appName: appName)
+        return WindowCatalog.isWeakTitle(a.title, appName: appName)
+            || WindowCatalog.isWeakTitle(b.title, appName: appName)
     }
 
     private func collapseListed(_ existing: ListedWindow, with other: ListedWindow, appName: String) -> ListedWindow {
@@ -712,7 +699,8 @@ final class SystemMotionSuppressor: NSObject {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let ax = accessibilityWindows(for: app)
         let cg = dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
-        return mergeWindows(ax: ax, cg: cg, appName: appName)
+        let merged = mergeWindows(ax: ax, cg: cg, appName: appName)
+        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
     }
 
     private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow], appName: String) -> [ListedWindow] {
@@ -798,12 +786,14 @@ final class SystemMotionSuppressor: NSObject {
             // Prefs chrome some apps publish to CG without exposing it to Accessibility (Rex).
             if !appName.isEmpty, title == "\(appName) Settings" { return nil }
             // Tiny untitled / app-named surfaces are not user windows.
-            if isWeakTitle(title, appName: appName), width < 480 || height < 320 { return nil }
+            if WindowCatalog.isWeakTitle(title, appName: appName), width < 480 || height < 320 { return nil }
             return (ListedWindow(id: windowID, title: title, width: width, height: height, main: onscreen), onscreen)
         }
         let hasOnscreen = candidates.contains(where: \.1)
         return candidates.compactMap { window, onscreen in
-            if hasOnscreen, !onscreen, isWeakTitle(window.title, appName: appName) { return nil }
+            if hasOnscreen, !onscreen, WindowCatalog.isWeakTitle(window.title, appName: appName) {
+                return nil
+            }
             return window
         }
     }
@@ -830,7 +820,7 @@ final class SystemMotionSuppressor: NSObject {
         onscreen: Bool,
         appName: String
     ) -> Bool {
-        guard isWeakTitle(title, appName: appName) else { return false }
+        guard WindowCatalog.isWeakTitle(title, appName: appName) else { return false }
         if onscreen { return false }
         return (width == 500 && height == 500) || (width == 800 && height == 600)
     }
