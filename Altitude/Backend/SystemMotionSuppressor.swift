@@ -871,7 +871,8 @@ final class SystemMotionSuppressor: NSObject {
         var seen = Set<pid_t>()
         func consider(_ app: NSRunningApplication) {
             guard app.activationPolicy == .regular, !app.isTerminated else { return }
-            if app.bundleIdentifier == Bundle.main.bundleIdentifier { return }
+            // Include Altitude only while it is regular (Settings open). As an
+            // accessory agent it fails the policy check above and stays out.
             guard seen.insert(app.processIdentifier).inserted else { return }
             ordered.append(app)
         }

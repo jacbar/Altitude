@@ -1,7 +1,8 @@
 import AppKit
+import ApplicationServices
 
 @MainActor
-final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
+final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowDelegate {
     private enum Tab: String, CaseIterable {
         case general = "General"
         case desktop = "Desktop"
@@ -21,6 +22,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     private weak var menuBar: MenuBarController?
     private var suppressActions = false
     private var selectedTab: Tab = .general
+    private static let frameAutosaveName = "AltitudeSettings"
+    private static let frameAutosaveDefaultsKey = "NSWindow Frame AltitudeSettings"
 
     private let container = NSView()
     private var panes: [Tab: NSView] = [:]
@@ -61,18 +64,17 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     init(menuBar: MenuBarController) {
         self.menuBar = menuBar
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 520),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
         window.title = "Settings"
         window.toolbarStyle = .preference
-        window.setContentSize(NSSize(width: 440, height: 460))
         window.styleMask.remove(.resizable)
-        window.setFrameAutosaveName("AltitudeSettings")
         window.isReleasedWhenClosed = false
         super.init(window: window)
+        window.delegate = self
 
         buildPanes()
         installToolbar()
@@ -86,9 +88,83 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
     }
 
     func show() {
+        // Status-item menus track the mouse on a nested run-loop turn. Policy and
+        // activation changes made mid-tracking are ignored; present after dismiss.
+        DispatchQueue.main.async { [weak self] in
+            self?.presentSettings()
+        }
+    }
+
+    private func presentSettings() {
         guard let window else { return }
-        NSApp.activate()
+
+        becomeForegroundApp()
+        window.collectionBehavior.insert(.moveToActiveSpace)
         window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
+
+        // setFrameAutosaveName(_:) restores any saved frame when assigned — that was
+        // undoing centering when called after setFrame. Restore first if usable;
+        // otherwise center, bind autosave, then re-center (bind can re-apply a save).
+        let restored = window.setFrameUsingName(Self.frameAutosaveName)
+            && isUsablePlacedFrame(window.frame)
+        if !restored {
+            UserDefaults.standard.removeObject(forKey: Self.frameAutosaveDefaultsKey)
+            centerOnActiveScreen(window)
+        }
+        window.setFrameAutosaveName(Self.frameAutosaveName)
+        if !restored {
+            centerOnActiveScreen(window)
+        }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        window?.saveFrame(usingName: Self.frameAutosaveName)
+        becomeAccessoryApp()
+    }
+
+    /// Rejects the default bottom-left origin, off-screen frames, and oversized frames
+    /// (unconstrained stack fittingSize can match the display and clamp to 0,0).
+    private func isUsablePlacedFrame(_ frame: NSRect) -> Bool {
+        if frame.origin.x < 2, frame.origin.y < 2 { return false }
+        if frame.width > 700 || frame.height > 800 { return false }
+        return NSScreen.screens.contains { screen in
+            screen.visibleFrame.intersection(frame).width > 80
+                && screen.visibleFrame.intersection(frame).height > 80
+        }
+    }
+
+    private func centerOnActiveScreen(_ window: NSWindow) {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main
+            ?? NSScreen.screens.first
+        guard let screen else {
+            window.center()
+            return
+        }
+        let visible = screen.visibleFrame
+        let size = NSSize(width: 480, height: 520)
+        let frame = NSRect(
+            x: visible.midX - size.width / 2,
+            y: visible.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+        window.setFrame(frame, display: true)
+    }
+
+    private func becomeForegroundApp() {
+        _ = NSApp.setActivationPolicy(.regular)
+        var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
+        _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToForegroundApplication))
+    }
+
+    private func becomeAccessoryApp() {
+        var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
+        _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToUIElementApplication))
+        _ = NSApp.setActivationPolicy(.accessory)
     }
 
     func display(_ config: AppConfig) {
@@ -145,11 +221,16 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         panes[.commandTab] = makeCommandTabPane()
         panes[.windows] = makeWindowsPane()
 
-        // Size the window to the Desktop pane (largest).
+        // Size to the Desktop pane (largest). Cap width: horizontal stacks use a
+        // flexible spacer whose fittingSize can match the full display width.
         if let desktop = panes[.desktop] {
             desktop.layoutSubtreeIfNeeded()
             let size = desktop.fittingSize
-            window?.setContentSize(NSSize(width: max(440, size.width + 40), height: max(size.height + 24, 360)))
+            let width = min(max(440, size.width + 40), 560)
+            let height = min(max(360, size.height + 24), 640)
+            window?.setContentSize(NSSize(width: width, height: height))
+        } else {
+            window?.setContentSize(NSSize(width: 480, height: 520))
         }
     }
 
@@ -292,11 +373,13 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate {
         row.orientation = .horizontal
         row.spacing = 10
         row.alignment = .centerY
+        row.distribution = .fill
         let titleLabel = label(title)
-        row.addArrangedSubview(titleLabel)
-        row.addArrangedSubview(NSView()) // spacer
-        row.addArrangedSubview(switchControl)
         titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        switchControl.setContentHuggingPriority(.required, for: .horizontal)
+        row.addArrangedSubview(titleLabel)
+        row.addArrangedSubview(switchControl)
         return row
     }
 
