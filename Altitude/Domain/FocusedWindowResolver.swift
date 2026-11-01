@@ -61,10 +61,9 @@ final class FocusedWindowResolver {
         }
 
         let window = focusedWindowObject as! AXUIElement
-        var windowID: CGWindowID = 0
-        let error = _AXUIElementGetWindow(window, &windowID)
-        guard error == .success, windowID != 0 else {
-            log.error("_AXUIElementGetWindow failed: \(String(describing: error))")
+        let windowID = AXRead.windowID(window)
+        guard windowID != 0 else {
+            log.error("_AXUIElementGetWindow failed")
             return nil
         }
         return windowID
