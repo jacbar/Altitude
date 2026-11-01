@@ -2,28 +2,50 @@
 
 ![Altitude](docs/branding/altitude-full.png)
 
-Menu bar agent for macOS that shows your Mission Control desktops and lets you jump between them (or move the focused window) with Option-digit hotkeys.
+Menu bar agent for macOS with three independent modules: desktops, Command-Tab, and window management. A module that is off does nothing. The status item stays visible either way.
 
 **Version:** 0.1.0 · **License:** MIT
 
 ## Features
 
-- **Menu bar space indicator** — numbered desktop boxes with the current Space highlighted
-- **Switch Spaces** — `⌥` + `1`…`N` jumps to desktop N
-- **Move focused window** — `⌥⇧` + `1`…`N` moves the frontmost window to desktop N
-- **Arrange windows** — `⌃⌥` + `F` maximizes every included window on the current Space of the display under the pointer to the same inset visible frame; `⌃⌥` + `A` tiles them in equal columns (full height, left to right)
-- **Menu actions** — pick a desktop from the status menu; reload config; open config; Launch at Login; open Accessibility settings
+### Desktop
+
+Switch Mission Control desktops and move the focused window with digit hotkeys. The menu bar shows numbered desktop boxes with the current Space highlighted, and the status menu lists desktops when this module is on.
+
+- **Switch** — default `⌥` + `1`…`N` jumps to desktop N
+- **Move focused window** — default `⌥⇧` + `1`…`N` moves the frontmost window to desktop N
+- **`enabled = false`** — no digit bindings; the menu does not list desktops; Space-motion suppression for this module is off
+- **`disable_motion`** — applies only while desktop is enabled. Makes these instant (no slide, no edge bounce): hotkey space switches, trackpad space swipes, Control-Left/Right, and activating an app that already has a window on another space of the same display
+- **`max_space`** — highest desktop number that gets a hotkey (default 9); clamped to 1…9 and to the number of Spaces
+
+### Command-Tab
+
+- **`enabled = false` (default)** — leave the system app switcher alone
+- **`enabled = true`** — Altitude window switcher: a still row of open windows (including windows on other Spaces). Tab / Shift-Tab / arrows move the highlight; Command-Q quits and Command-H hides the highlighted app; Escape cancels; release Command to land
+- **`disable_motion`** — applies only while Command-Tab is enabled, and only skips the slide when landing on the highlighted window. It does not change trackpad, Control-arrow, or hotkey motion
+
+Both `disable_motion` flags may be on together.
+
+### Window management
+
+Arrange windows on the desktop under the pointer.
+
+- **Maximize** — default `⌃⌥` + `F` maximizes every included window to the same inset visible frame
+- **Equal split** — default `⌃⌥` + `A` tiles them in equal columns (full height, left to right)
+- **`enabled = false`** — neither chord is registered and nothing is arranged
+- **`margin`** — outer inset and gap between columns (default 8, clamped 0…256)
+
+### Always available
+
+- **Menu actions** — reload config; open config; Launch at Login; open Accessibility settings
 - **Launch at Login** — checkable menu item (and `[app] launch_at_login` in TOML) registers via `SMAppService`; reload/relaunch reconciles the service to config
-- **TOML config** — hotkeys, launch-at-login, and animation behavior under `~/.config/altitude/config.toml` (stow-friendly)
-- **Optional instant switching** — skip the paced trackpad-like slide and jump as fast as the Dock allows
-- **Instant trackpad, Control-arrows, Command-Tab, and external app activation** — optional (`disable_system_motions`). A horizontal Space swipe, Control-Left/Right, and Command-Tab cut to the destination with no slide. Activating an already-running app whose windows are on another Space on the same display (Raycast, Spotlight, Dock, Finder, `open`, etc.) hops to that Space with no slide and focuses the preferred window — the window stays on that Space. At the first or last Space on the active display, Control-Left/Right and swipe-previous/next do nothing (no edge bounce animation). Command-Tab shows a still row of open windows (including windows on other Spaces), grouped so one app's windows form one contiguous block with the front app leftmost; opening Tab highlights the first window of the next app, and later Tab and arrow moves step one window. While it is open, Left and Right move the highlight; Command-Q quits and Command-H hides the highlighted app. Escape cancels. Off by default so existing installs keep macOS motion
 - **Accessibility-aware** — prompts once for Accessibility; later launches use the menu if permission is missing
 
 ## Requirements
 
 - macOS (built as an `LSUIElement` accessory app)
 - Xcode / `xcodebuild`
-- **Accessibility** permission for Space switching and window moves (Dock-swipe / AX path)
+- **Accessibility** permission for Space switching, window moves, and window arrangement
 - Apple Development identity for codesigning if you use `make` (keeps the Accessibility grant stable across rebuilds)
 
 ## Build & run
@@ -65,41 +87,68 @@ On first launch, if no config exists, Altitude copies the bundled example to:
 Example (`config/config.example.toml`):
 
 ```toml
-version = 1
+version = 2
 
 [app]
 # When true, Altitude registers with macOS Login Items and starts at login.
 # The menu bar "Launch at Login" item toggles this and writes it back to this file.
 launch_at_login = false
 
-[spaces]
-# When true, switches jump as fast as the Dock allows instead of a slide per desktop.
-disable_animations = false
-# When true, trackpad Space swipes, Control-Left/Right, and Command-Tab cut straight across.
-# Activating a running app on another same-display Space (Raycast, Spotlight, Dock, etc.)
-# also hops there with no slide; the window is not moved onto the current Space.
-# Command-Tab shows a still row of open windows instead of the system app switcher.
-# Windows of one app form one contiguous block (front app leftmost); opening Tab
-# highlights the first window of the next app; later Tab/arrows step one window.
-# Left and Right move the highlight while Command is held; Command-Q quits, Command-H hides.
-# The highlighted name is that window's title. Off by default — set true to enable.
-disable_system_motions = false
-
-[hotkeys]
-# option+N switches to desktop N; option+shift+N moves the focused window.
-switch_enabled = true
-move_enabled = true
+[desktop]
+# Switch and move desktops with digit hotkeys; optionally skip Space slides.
+enabled = true
+# When true (and desktop is enabled), hotkey switches, trackpad Space swipes,
+# Control-Left/Right, and activating an app already on another same-display Space
+# jump with no slide and no edge bounce.
+disable_motion = false
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
 
-[arrange]
-# Control+Option+F maximizes every included window to the same inset visible frame.
-# Control+Option+A lays them out in equal columns. margin (points) is the outer inset
-# and the gap between columns. Both flags default true; a disabled chord is not registered.
+[desktop.switch]
+# Default: Option+digit.
+alt = true
+shift = false
+ctrl = false
+cmd = false
+
+[desktop.move]
+# Default: Option+Shift+digit.
+alt = true
+shift = true
+ctrl = false
+cmd = false
+
+[command_tab]
+# When false, macOS keeps the system app switcher. When true, Altitude shows a
+# still row of open windows (Tab / Shift-Tab / arrows, Command-Q, Command-H, Escape).
+enabled = false
+# When true (and Command-Tab is enabled), landing on the highlighted window skips the slide.
+disable_motion = false
+
+[window_management]
+# Maximize and equal-split chords for windows on the desktop under the pointer.
+enabled = true
+# Outer inset and gap between equal-split columns (points).
 margin = 8
-maximize_enabled = true
-columns_enabled = true
+
+[window_management.maximize]
+# Default: Control+Option+F.
+alt = true
+shift = false
+ctrl = true
+cmd = false
+key = f
+
+[window_management.equal_split]
+# Default: Control+Option+A.
+alt = true
+shift = false
+ctrl = true
+cmd = false
+key = a
 ```
+
+A missing or empty shortcut uses the default chord. A missing modifier flag keeps that flag's default. If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used. A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used. Unquoted key letters are case-insensitive; a quoted key is invalid. Invalid bools/ints keep the field default. Unknown keys are ignored. Old `[spaces]`, `[hotkeys]`, and `[arrange]` keys are not read.
 
 Use **Reload Config** in the menu bar menu after editing, or **Open Config…** to edit the file. Toggling **Launch at Login** writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item stays unchecked; clicking it cancels that pending registration.
 
@@ -109,37 +158,12 @@ Use **Reload Config** in the menu bar menu after editing, or **Open Config…** 
 2. Prefer a stable codesign identity (`make` default) so macOS keeps the same trust entry across rebuilds.
 3. If hotkeys beep and nothing happens, open the status menu and use the Accessibility item.
 
-## Limitations (v1)
+## Good to know
 
-- Window arrangement only targets the current Space of the display under the pointer. It skips minimized, fullscreen, and other-Space windows, hidden apps, panels/sheets, and Altitude itself. Apps that ignore Accessibility resize stay put. The chords are fixed; set `maximize_enabled` / `columns_enabled` false to release a chord. There is no restore. A non-positive layout (or no qualifying window) beeps and changes nothing.
-- Desktops are flattened into a single 1-based list in Mission Control order.
-- Switching to a Space on another display is not supported.
-- Hotkeys are limited to digits `1`–`9` (further capped by `max_space` and the number of Spaces).
-- With `disable_system_motions`, Command-Tab is handled by Altitude: hold Command, tap Tab or press Left/Right to move through windows (Shift-Tab reverses), release Command to land, Escape to cancel. Command-Q quits and Command-H hides the highlighted app; other keys are swallowed so they do not hit the app underneath. Windows of one app form one contiguous block with the front app leftmost; opening Tab highlights the first window of the next app, and later Tab and arrow moves step one window. Each open window is its own entry — including windows on other Spaces — and the highlighted one is the one that comes forward. Accessibility (current Space) and the window-server list (other Spaces) are merged; when both describe the same window under different titles, they collapse to one entry and the more specific title wins. Accessibility is authoritative for the current Space, so CG-only panels on that Space (and offscreen 500×500 / 800×600 helpers titled with the app name) are left out. The name is that window's title. Panels, tooltips, and the hidden helper windows some apps keep (Arc, Teams, Rex) are left out. The macOS app switcher does not appear. Menu-bar-only apps stay hidden, same as the system switcher.
-- Horizontal Space swipes and Control-Left/Right move one Space with no slide. At the first Space, Left / swipe-previous is a no-op (no animation); at the last Space, Right / swipe-next is the same. A trackpad swipe commits when the finger lifts past a small travel threshold, so a reversed or aborted swipe cancels. Swipe direction follows the Dock's effective Space axis (natural scrolling already applied). Swipe-up Mission Control is unchanged. Control-Left/Right with Command, Option, or Shift is left to the app; key-repeat does not fire extra hops.
-- With `disable_system_motions`, activating an already-running app on another Space on the same display (Raycast, Spotlight, Dock, Finder, `open`, and similar) hops to that Space with no slide and focuses the preferred window; the window is not moved onto the current Space. Cold launch (no windows yet), apps that live only on another display, Command-Tab sessions, and Altitude activating itself are left to macOS / the existing Command-Tab path. Stage Manager, Mission Control, and fullscreen are unchanged.
-- An app that lives only on another display still switches the way macOS does.
-- Trackpad, Control-arrow, Command-Tab, and external-activation suppression needs the same Accessibility grant as hotkey switching. It uses the Dock gesture path that works on macOS 26.
-
-## Project layout
-
-```text
-Altitude/
-├── Altitude/                 # App sources
-│   ├── Backend/              # SkyLight / CGS / Dock-swipe switching
-│   ├── Domain/               # Config, models, focus resolver
-│   ├── Hotkeys/              # Carbon global hotkeys
-│   └── UI/                   # Menu bar + space indicator
-├── AltitudeTests/            # Domain-first XCTest suite
-├── config/config.example.toml
-├── .github/workflows/ci.yml  # Unsigned build+test on PRs to main
-├── scripts/generate_pbxproj.py
-├── Makefile
-├── .env.example              # Template for local SIGN_ID (copy to .env)
-├── AGENTS.md                 # Instructions for coding agents
-└── README.md
-```
-
+- Desktops are numbered 1–9 in Mission Control order.
+- Hotkeys and window arrangement need Accessibility.
+- Window arrangement affects the desktop under the pointer and skips minimized, fullscreen, and other-desktop windows.
+- Mission Control itself is unchanged when motion is turned off.
 
 ## License
 
