@@ -30,6 +30,15 @@ sources = [
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
+    # Append new sources at the end so existing file IDs stay stable.
+    "Altitude/Backend/AXRead.swift",
+    "Altitude/Domain/SpaceLayoutParser.swift",
+    "Altitude/Domain/SwipeGestureTracker.swift",
+    "Altitude/Domain/CommandTabSession.swift",
+    "Altitude/Domain/WindowCatalog.swift",
+    "Altitude/UI/AppSwitchHUD.swift",
+    "Altitude/Backend/EventTapHost.swift",
+    "Altitude/Domain/ConfigApply.swift",
     "Altitude/Backend/CGSSymbols.c",
 ]
 
@@ -45,6 +54,14 @@ test_sources = [
     "AltitudeTests/WindowArrangementTests.swift",
     "AltitudeTests/CommandTabOrderTests.swift",
     "AltitudeTests/ShortcutEditingTests.swift",
+    "AltitudeTests/SwipeGestureTrackerTests.swift",
+    "AltitudeTests/CommandTabSessionTests.swift",
+    "AltitudeTests/WindowCatalogTests.swift",
+    "AltitudeTests/SpaceLayoutParserTests.swift",
+    "AltitudeTests/WindowFrameTests.swift",
+    "AltitudeTests/DockSwipeTimingTests.swift",
+    "AltitudeTests/ConfigApplyTests.swift",
+    "AltitudeTests/HotkeyMappingTests.swift",
 ]
 
 # Sources also compiled into the test target (logic tests, no host app).
@@ -58,15 +75,23 @@ test_domain_sources = [
     "Altitude/Domain/CommandTabOrder.swift",
     "Altitude/Domain/ShortcutEditing.swift",
     "Altitude/Domain/SpaceModels.swift",
+    "Altitude/Domain/ConfigApply.swift",
+    "Altitude/Domain/SwipeGestureTracker.swift",
+    "Altitude/Domain/CommandTabSession.swift",
+    "Altitude/Domain/WindowCatalog.swift",
+    "Altitude/Domain/SpaceLayoutParser.swift",
     "Altitude/Features/Desktop/DesktopFeature.swift",
     "Altitude/Features/CommandTab/CommandTabFeature.swift",
     "Altitude/Features/WindowManagement/WindowManagementFeature.swift",
     "Altitude/Hotkeys/HotkeyRegistrar.swift",
     "Altitude/Backend/SystemMotionSuppressor.swift",
     "Altitude/Backend/DockSwipeSwitcher.swift",
+    "Altitude/Backend/EventTapHost.swift",
+    "Altitude/Backend/AXRead.swift",
     "Altitude/Backend/CGSPrivate.swift",
     "Altitude/Backend/SkyLightBridgedSPI.swift",
     "Altitude/Backend/CGSSymbols.c",
+    "Altitude/UI/AppSwitchHUD.swift",
 ]
 
 
