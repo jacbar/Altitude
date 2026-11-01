@@ -37,8 +37,9 @@ Arrange windows on the desktop under the pointer.
 
 ### Always available
 
-- **Menu actions** — reload config; open config; Launch at Login; open Accessibility settings
-- **Launch at Login** — checkable menu item (and `[app] launch_at_login` in TOML) registers via `SMAppService`; reload/relaunch reconciles the service to config
+- **Settings…** — Cmd+comma opens a Settings window (General, Desktop, Command-Tab, Windows) that edits every current knob and writes `config.toml` immediately
+- **Menu actions** — Settings…; Reload Config; Open Config…; Launch at Login; open Accessibility settings
+- **Launch at Login** — checkable menu item and General tab switch (and `[app] launch_at_login` in TOML) register via `SMAppService`; reload/relaunch reconciles the service to config
 - **Accessibility-aware** — prompts once for Accessibility; later launches use the menu if permission is missing
 
 ## Requirements
@@ -150,7 +151,7 @@ key = a
 
 A missing or empty shortcut uses the default chord. A missing modifier flag keeps that flag's default. If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used. A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used. Unquoted key letters are case-insensitive; a quoted key is invalid. Invalid bools/ints keep the field default. Unknown keys are ignored. Old `[spaces]`, `[hotkeys]`, and `[arrange]` keys are not read.
 
-Use **Reload Config** in the menu bar menu after editing, or **Open Config…** to edit the file. Toggling **Launch at Login** writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item stays unchecked; clicking it cancels that pending registration.
+**Settings…** (Cmd+comma) in the status menu — or Cmd+comma while an Altitude window is key — opens the Settings window. Changes there write `~/.config/altitude/config.toml` immediately and reapply hotkeys and motion. **Open Config…** and **Reload Config** remain for hand edits; Reload refreshes an open Settings window from disk. Toggling **Launch at Login** (menu or General tab) writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item and General switch stay unchecked; clicking the menu item cancels that pending registration.
 
 ## Permissions
 

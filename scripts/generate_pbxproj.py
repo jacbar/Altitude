@@ -26,6 +26,10 @@ sources = [
     "Altitude/Features/Desktop/DesktopFeature.swift",
     "Altitude/Features/CommandTab/CommandTabFeature.swift",
     "Altitude/Features/WindowManagement/WindowManagementFeature.swift",
+    "Altitude/Domain/ShortcutEditing.swift",
+    "Altitude/UI/AppMenu.swift",
+    "Altitude/UI/ShortcutRecorderControl.swift",
+    "Altitude/UI/SettingsWindowController.swift",
 ]
 
 test_sources = [
@@ -33,6 +37,7 @@ test_sources = [
     "AltitudeTests/HotkeyBoundsTests.swift",
     "AltitudeTests/WindowArrangementTests.swift",
     "AltitudeTests/CommandTabOrderTests.swift",
+    "AltitudeTests/ShortcutEditingTests.swift",
 ]
 
 ids = {
