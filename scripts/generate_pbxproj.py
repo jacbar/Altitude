@@ -38,7 +38,6 @@ sources = [
     "Altitude/Domain/WindowCatalog.swift",
     "Altitude/UI/AppSwitchHUD.swift",
     "Altitude/Backend/EventTapHost.swift",
-    "Altitude/Domain/ConfigApply.swift",
 ]
 
 test_sources = [
@@ -53,8 +52,6 @@ test_sources = [
     "AltitudeTests/SpaceLayoutParserTests.swift",
     "AltitudeTests/WindowFrameTests.swift",
     "AltitudeTests/DockSwipeTimingTests.swift",
-    "AltitudeTests/ConfigApplyTests.swift",
-    "AltitudeTests/HotkeyMappingTests.swift",
 ]
 
 ids = {

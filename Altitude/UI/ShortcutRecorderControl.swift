@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 
 /// Button that displays a shortcut and records the next press.
 final class ShortcutRecorderControl: NSButton {
@@ -106,7 +105,7 @@ final class ShortcutRecorderControl: NSButton {
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
                 guard let self else { return event }
                 if event.type == .keyDown {
-                    if event.keyCode == UInt16(kVK_Escape) {
+                    if event.keyCode == 53 { // Escape
                         self.cancelRecording()
                         return nil
                     }
@@ -140,7 +139,7 @@ final class ShortcutRecorderControl: NSButton {
     }
 
     private func handleLetterKey(_ event: NSEvent) {
-        if event.keyCode == UInt16(kVK_Escape) {
+        if event.keyCode == 53 { // Escape
             cancelRecording()
             return
         }

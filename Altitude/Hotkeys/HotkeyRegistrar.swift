@@ -14,14 +14,6 @@ enum HotkeyAction: Equatable {
     case tileColumns
 }
 
-/// Stable Carbon hotkey ids for feature bindings.
-enum HotkeyID {
-    static func switchSpace(_ n: Int) -> UInt32 { UInt32(n) }
-    static func moveSpace(_ n: Int) -> UInt32 { UInt32(100 + n) }
-    static let maximize: UInt32 = 200
-    static let tileColumns: UInt32 = 201
-}
-
 /// One registered Carbon hotkey.
 struct HotkeyBinding: Equatable {
     let keyCode: UInt32
@@ -40,7 +32,6 @@ final class HotkeyRegistrar {
     private var hotKeyRefs: [EventHotKeyRef?] = []
     private var handlerRef: EventHandlerRef?
     private var actionByID: [UInt32: HotkeyAction] = [:]
-    private var lastRequested: [HotkeyBinding]?
     private var applied: [HotkeyBinding]?
     private let onAction: (HotkeyAction) -> Void
     private let callbackContext = HotkeyCallbackContext()
@@ -54,37 +45,28 @@ final class HotkeyRegistrar {
         tearDownHandler()
     }
 
-    /// Registers bindings, retrying previous failures. Returns bindings that failed to register.
-    @discardableResult
-    func apply(_ bindings: [HotkeyBinding]) -> [HotkeyBinding] {
-        if lastRequested == bindings, let applied, applied == bindings {
-            return []
+    func apply(_ bindings: [HotkeyBinding]) {
+        if applied == bindings {
+            return
         }
 
         unregisterHotKeys()
-        lastRequested = bindings
+        applied = bindings
         installHandlerIfNeeded()
 
-        var succeeded: [HotkeyBinding] = []
-        var failed: [HotkeyBinding] = []
         for binding in bindings {
-            if register(
+            register(
                 keyCode: binding.keyCode,
                 modifiers: binding.modifiers,
                 id: binding.id,
                 action: binding.action
-            ) {
-                succeeded.append(binding)
-            } else {
-                failed.append(binding)
-            }
+            )
         }
-        applied = succeeded
-        log.info("Registered \(succeeded.count)/\(bindings.count) hotkey(s)")
-        return failed
+
+        log.info("Registered \(bindings.count) hotkey(s)")
     }
 
-    private func register(keyCode: UInt32, modifiers: UInt32, id: UInt32, action: HotkeyAction) -> Bool {
+    private func register(keyCode: UInt32, modifiers: UInt32, id: UInt32, action: HotkeyAction) {
         var hotKeyRef: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: altitudeHotKeySignature, id: id)
         let status = RegisterEventHotKey(
@@ -98,10 +80,9 @@ final class HotkeyRegistrar {
         if status == noErr {
             hotKeyRefs.append(hotKeyRef)
             actionByID[id] = action
-            return true
+        } else {
+            log.error("RegisterEventHotKey failed for id \(id): \(status)")
         }
-        log.error("RegisterEventHotKey failed for id \(id): \(status)")
-        return false
     }
 
     private func installHandlerIfNeeded() {
@@ -152,12 +133,8 @@ final class HotkeyRegistrar {
             return OSStatus(eventNotHandledErr)
         }
 
-        if Thread.isMainThread {
+        DispatchQueue.main.async { [onAction] in
             onAction(action)
-        } else {
-            DispatchQueue.main.async { [onAction] in
-                onAction(action)
-            }
         }
         return noErr
     }
@@ -203,20 +180,36 @@ enum HotkeyChordMapping {
         return codes[n - 1]
     }
 
-    private static let letterCodes: [Character: UInt32] = [
-        "a": UInt32(kVK_ANSI_A), "b": UInt32(kVK_ANSI_B), "c": UInt32(kVK_ANSI_C),
-        "d": UInt32(kVK_ANSI_D), "e": UInt32(kVK_ANSI_E), "f": UInt32(kVK_ANSI_F),
-        "g": UInt32(kVK_ANSI_G), "h": UInt32(kVK_ANSI_H), "i": UInt32(kVK_ANSI_I),
-        "j": UInt32(kVK_ANSI_J), "k": UInt32(kVK_ANSI_K), "l": UInt32(kVK_ANSI_L),
-        "m": UInt32(kVK_ANSI_M), "n": UInt32(kVK_ANSI_N), "o": UInt32(kVK_ANSI_O),
-        "p": UInt32(kVK_ANSI_P), "q": UInt32(kVK_ANSI_Q), "r": UInt32(kVK_ANSI_R),
-        "s": UInt32(kVK_ANSI_S), "t": UInt32(kVK_ANSI_T), "u": UInt32(kVK_ANSI_U),
-        "v": UInt32(kVK_ANSI_V), "w": UInt32(kVK_ANSI_W), "x": UInt32(kVK_ANSI_X),
-        "y": UInt32(kVK_ANSI_Y), "z": UInt32(kVK_ANSI_Z),
-    ]
-
     /// ANSI letter key codes are layout-based, not alphabetical.
     static func letterKeyCode(_ key: Character) -> UInt32? {
-        letterCodes[key]
+        switch key {
+        case "a": return UInt32(kVK_ANSI_A)
+        case "b": return UInt32(kVK_ANSI_B)
+        case "c": return UInt32(kVK_ANSI_C)
+        case "d": return UInt32(kVK_ANSI_D)
+        case "e": return UInt32(kVK_ANSI_E)
+        case "f": return UInt32(kVK_ANSI_F)
+        case "g": return UInt32(kVK_ANSI_G)
+        case "h": return UInt32(kVK_ANSI_H)
+        case "i": return UInt32(kVK_ANSI_I)
+        case "j": return UInt32(kVK_ANSI_J)
+        case "k": return UInt32(kVK_ANSI_K)
+        case "l": return UInt32(kVK_ANSI_L)
+        case "m": return UInt32(kVK_ANSI_M)
+        case "n": return UInt32(kVK_ANSI_N)
+        case "o": return UInt32(kVK_ANSI_O)
+        case "p": return UInt32(kVK_ANSI_P)
+        case "q": return UInt32(kVK_ANSI_Q)
+        case "r": return UInt32(kVK_ANSI_R)
+        case "s": return UInt32(kVK_ANSI_S)
+        case "t": return UInt32(kVK_ANSI_T)
+        case "u": return UInt32(kVK_ANSI_U)
+        case "v": return UInt32(kVK_ANSI_V)
+        case "w": return UInt32(kVK_ANSI_W)
+        case "x": return UInt32(kVK_ANSI_X)
+        case "y": return UInt32(kVK_ANSI_Y)
+        case "z": return UInt32(kVK_ANSI_Z)
+        default: return nil
+        }
     }
 }
