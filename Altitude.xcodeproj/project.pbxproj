@@ -33,11 +33,14 @@
 		B20000000000000000000023 /* AppMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* AppMenu.swift */; };
 		B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* ShortcutRecorderControl.swift */; };
 		B20000000000000000000025 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* SettingsWindowController.swift */; };
+		B20000000000000000000026 /* ConfigApply.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* ConfigApply.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
 		D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* CommandTabOrderTests.swift */; };
 		D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* ShortcutEditingTests.swift */; };
+		D20000000000000000000005 /* ConfigApplyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000005 /* ConfigApplyTests.swift */; };
+		D20000000000000000000006 /* HotkeyMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000006 /* HotkeyMappingTests.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -82,11 +85,14 @@
 		B10000000000000000000023 /* AppMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMenu.swift; sourceTree = "<group>"; };
 		B10000000000000000000024 /* ShortcutRecorderControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderControl.swift; sourceTree = "<group>"; };
 		B10000000000000000000025 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* ConfigApply.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigApply.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000003 /* CommandTabOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabOrderTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000004 /* ShortcutEditingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutEditingTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000005 /* ConfigApplyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigApplyTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000006 /* HotkeyMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMappingTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000004 /* AltitudeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AltitudeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -182,6 +188,7 @@
 				B10000000000000000000017 /* CommandTabOrder.swift */,
 				B10000000000000000000018 /* ShortcutChord.swift */,
 				B10000000000000000000022 /* ShortcutEditing.swift */,
+				B10000000000000000000026 /* ConfigApply.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -257,6 +264,8 @@
 				D10000000000000000000002 /* WindowArrangementTests.swift */,
 				D10000000000000000000003 /* CommandTabOrderTests.swift */,
 				D10000000000000000000004 /* ShortcutEditingTests.swift */,
+				D10000000000000000000005 /* ConfigApplyTests.swift */,
+				D10000000000000000000006 /* HotkeyMappingTests.swift */,
 			);
 			path = AltitudeTests;
 			sourceTree = "<group>";
@@ -375,6 +384,7 @@
 				B20000000000000000000023 /* AppMenu.swift in Sources */,
 				B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */,
 				B20000000000000000000025 /* SettingsWindowController.swift in Sources */,
+				B20000000000000000000026 /* ConfigApply.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -387,6 +397,8 @@
 				D20000000000000000000002 /* WindowArrangementTests.swift in Sources */,
 				D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */,
 				D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */,
+				D20000000000000000000005 /* ConfigApplyTests.swift in Sources */,
+				D20000000000000000000006 /* HotkeyMappingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
