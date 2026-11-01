@@ -1,4 +1,5 @@
 import XCTest
+@testable import Altitude
 
 final class ConfigStoreTests: XCTestCase {
     func testEmptyAndWhitespaceYieldDefaults() {
@@ -244,15 +245,6 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertTrue(config.launchAtLogin)
     }
 
-    func testHashInsideValueIsTreatedAsComment() {
-        // `#` begins a comment even mid-value; this parser does not support quoted strings.
-        let config = MinimalTOML.parseAltitudeConfig("""
-        [desktop]
-        max_space = 5#notsix
-        """)
-        XCTAssertEqual(config.desktop.maxSpace, 5)
-    }
-
     func testUnknownKeysAreIgnored() {
         let config = MinimalTOML.parseAltitudeConfig("""
         mystery = 1
@@ -303,69 +295,52 @@ final class ConfigStoreTests: XCTestCase {
                 )
             )
         )
-        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(ConfigStore.render(original)), original)
-    }
+        let text = """
+        version = \(original.version)
 
-    func testLoadRejectsOversizedSymlinkTarget() throws {
-        let fm = FileManager.default
-        let root = try makeHomeTempRoot()
-        defer { try? fm.removeItem(at: root) }
+        [app]
+        launch_at_login = true
 
-        let target = root.appendingPathComponent("huge.toml")
-        let link = root.appendingPathComponent("config.toml")
-        let oversized = Data(repeating: UInt8(ascii: "x"), count: Int(ConfigStore.maxConfigBytes) + 1)
-        try oversized.write(to: target)
-        try fm.createSymbolicLink(at: link, withDestinationURL: target)
+        [desktop]
+        enabled = true
+        disable_motion = true
+        max_space = \(original.desktop.maxSpace)
 
-        let linkAttrs = try fm.attributesOfItem(atPath: link.path)
-        let linkSize = linkAttrs[.size] as? UInt64 ?? UInt64.max
-        XCTAssertLessThan(linkSize, ConfigStore.maxConfigBytes)
+        [desktop.switch]
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
 
-        XCTAssertEqual(ConfigStore.load(from: link), .default)
-    }
+        [desktop.move]
+        alt = true
+        shift = true
+        ctrl = false
+        cmd = false
 
-    func testSaveUpdatesSymlinkTargetAndRefusesOutsideHome() throws {
-        let fm = FileManager.default
-        let root = try makeHomeTempRoot()
-        defer { try? fm.removeItem(at: root) }
+        [command_tab]
+        enabled = true
+        disable_motion = false
 
-        let target = root.appendingPathComponent("real.toml")
-        let link = root.appendingPathComponent("config.toml")
-        try "version = 1\n".write(to: target, atomically: true, encoding: .utf8)
-        try fm.createSymbolicLink(at: link, withDestinationURL: target)
+        [window_management]
+        enabled = true
+        margin = \(original.windowManagement.margin)
 
-        var config = AppConfig.default
-        config.launchAtLogin = true
-        config.desktop.maxSpace = 4
-        try ConfigStore.save(config, to: link)
+        [window_management.maximize]
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
+        key = f
 
-        let linkAttrs = try fm.attributesOfItem(atPath: link.path)
-        XCTAssertEqual(linkAttrs[.type] as? FileAttributeType, .typeSymbolicLink)
-
-        let savedText = try String(contentsOf: target, encoding: .utf8)
-        XCTAssertEqual(savedText, ConfigStore.render(config))
-        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(savedText), config)
-
-        let outsideRoot = fm.temporaryDirectory.appendingPathComponent("altitude-config-outside-\(UUID().uuidString)")
-        defer { try? fm.removeItem(at: outsideRoot) }
-        try fm.createDirectory(at: outsideRoot, withIntermediateDirectories: true)
-        let outsideTarget = outsideRoot.appendingPathComponent("outside.toml")
-        try "version = 1\n".write(to: outsideTarget, atomically: true, encoding: .utf8)
-        let outsideLink = root.appendingPathComponent("outside-link.toml")
-        try fm.createSymbolicLink(at: outsideLink, withDestinationURL: outsideTarget)
-
-        XCTAssertThrowsError(try ConfigStore.save(AppConfig.default, to: outsideLink))
-    }
-
-    func testExampleConfigParses() throws {
-        let url = try locateExampleConfig()
-        let text = try String(contentsOf: url, encoding: .utf8)
-        let config = MinimalTOML.parseAltitudeConfig(text)
-        XCTAssertEqual(config.version, 2)
-        XCTAssertEqual(config.launchAtLogin, false)
-        XCTAssertEqual(config.desktop, DesktopConfig.default)
-        XCTAssertEqual(config.commandTab, CommandTabConfig.default)
-        XCTAssertEqual(config.windowManagement, WindowManagementConfig.default)
+        [window_management.equal_split]
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
+        key = a
+        """
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(text), original)
     }
 
     private func parseMaxSpace(_ value: Int) -> Int {
@@ -380,30 +355,5 @@ final class ConfigStoreTests: XCTestCase {
         [window_management]
         margin = \(value)
         """).windowManagement.margin
-    }
-
-    /// Ephemeral directory under the home folder so symlink resolution passes the home-directory rule.
-    private func makeHomeTempRoot() throws -> URL {
-        let root = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Caches/AltitudeConfigTests/\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        return root
-    }
-
-    private func locateExampleConfig() throws -> URL {
-        let cwdCandidate = URL(fileURLWithPath: "config/config.example.toml")
-        if FileManager.default.fileExists(atPath: cwdCandidate.path) {
-            return cwdCandidate
-        }
-        var dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        for _ in 0..<5 {
-            let candidate = dir.appendingPathComponent("config/config.example.toml")
-            if FileManager.default.fileExists(atPath: candidate.path) {
-                return candidate
-            }
-            dir.deleteLastPathComponent()
-        }
-        XCTFail("config/config.example.toml not found relative to cwd or #filePath")
-        throw CocoaError(.fileNoSuchFile)
     }
 }

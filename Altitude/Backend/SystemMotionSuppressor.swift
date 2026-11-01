@@ -1,12 +1,11 @@
-@preconcurrency import AppKit
+import AppKit
 import ApplicationServices
-import Carbon.HIToolbox
-@preconcurrency import CoreGraphics
+import CoreGraphics
 import Foundation
 import os.log
 
 /// One Command-Tab entry. An app with two windows produces two of these.
-struct SwitchTarget {
+private struct SwitchTarget {
     let app: NSRunningApplication
     let windowID: CGWindowID?
     let title: String
@@ -52,46 +51,56 @@ struct SystemMotionMode: Equatable, Sendable {
 /// releasing Command does not play the system switcher. Activating a running app via Raycast,
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
-@MainActor
-final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
+/// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
+private final class MotionTapContext {
+    weak var suppressor: SystemMotionSuppressor?
+}
+
+final class SystemMotionSuppressor: NSObject {
+    private struct Session {
+        var targets: [SwitchTarget]
+        var index: Int
+    }
+
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
-    private let taps = EventTapHost()
+    private let tapContext = MotionTapContext()
+    private var gestureTap: CFMachPort?
+    private var gestureSource: CFRunLoopSource?
+    private var keyTap: CFMachPort?
+    private var keySource: CFRunLoopSource?
     private var didLogTapFailure = false
     private var mode: SystemMotionMode = .off
 
-    private var swipeTracker = SwipeGestureTracker()
+    private var swallowingSwipe = false
+    private var postedForSwipe = false
+    private var swipeDeadline = Date.distantPast
+    private var swipePeak: Double = 0
+    private var swipeDirection: DockSwipeSwitcher.Direction?
 
-    private var session: CommandTabSession<SwitchTarget>?
-    private var sessionIdleDeadline = Date.distantPast
+    private var session: Session?
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
     /// True while our own activate(_:) is raising an app, so appActivated does not re-enter.
     private var isActivatingInternally = false
-    private var activatingPID: pid_t?
-    private var activatingClearWork: DispatchWorkItem?
 
     /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
     private let axTimeoutSeconds: Float = 0.1
     /// Finger must travel at least this far before a released swipe commits a Space change.
     private let swipeCommitThreshold: Double = 0.08
-    private let sessionIdleInterval: TimeInterval = 10
+
+    private let tabKeyCode: Int64 = 48
+    private let escapeKeyCode: Int64 = 53
+    private let leftArrowKeyCode: Int64 = 123
+    private let rightArrowKeyCode: Int64 = 124
+    private let qKeyCode: Int64 = 12
+    private let hKeyCode: Int64 = 4
 
     init(spaceService: SpaceService) {
         self.spaceService = spaceService
         super.init()
-        taps.handler = { [weak self] type, event in
-            guard let self else { return event }
-            return MainActor.assumeIsolated {
-                self.handle(type: type, event: event)
-            }
-        }
-        taps.onTapDisabled = { [weak self] in
-            MainActor.assumeIsolated {
-                self?.cancelSession()
-            }
-        }
+        tapContext.suppressor = self
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appActivated(_:)),
@@ -101,13 +110,10 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
     }
 
     deinit {
-        MainActor.assumeIsolated {
-            let center = NSWorkspace.shared.notificationCenter
-            center.removeObserver(self)
-            taps.handler = nil
-            taps.onTapDisabled = nil
-            taps.stop()
-        }
+        let center = NSWorkspace.shared.notificationCenter
+        center.removeObserver(self)
+        tapContext.suppressor = nil
+        tearDownTaps()
     }
 
     func apply(_ newMode: SystemMotionMode) {
@@ -123,18 +129,53 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             return
         }
 
+        if gestureTap != nil || keyTap != nil {
+            // Taps already installed; mode flags update in place.
+            return
+        }
+        startTaps()
+    }
+
+    private func startTaps() {
+        guard gestureTap == nil, keyTap == nil else { return }
         guard AXIsProcessTrusted() else {
             logTapFailure("Accessibility is required to disable trackpad, Control-arrow, and Command-Tab motion")
             return
         }
 
-        taps.start(mode: newMode)
-        if taps.isRunning {
-            didLogTapFailure = false
-            log.info("System motion taps are on")
-        } else {
+        let userInfo = Unmanaged.passUnretained(tapContext).toOpaque()
+        guard let gesture = installTap(
+            location: .cgSessionEventTap,
+            events: [
+                CGEventType.keyDown.rawValue,
+                CGEventType.keyUp.rawValue,
+                CGEventType.flagsChanged.rawValue,
+                29,
+                30,
+            ],
+            userInfo: userInfo
+        ) else {
             logTapFailure("Could not create the event tap that disables system motion")
+            return
         }
+        gestureTap = gesture.tap
+        gestureSource = gesture.source
+
+        // Mission Control handles Control-Left/Right before a session tap runs.
+        // The HID tap sees the key first and can drop it before that shortcut starts the slide.
+        if let keys = installTap(
+            location: .cghidEventTap,
+            events: [CGEventType.keyDown.rawValue, CGEventType.keyUp.rawValue],
+            userInfo: userInfo
+        ) {
+            keyTap = keys.tap
+            keySource = keys.source
+        } else {
+            logTapFailure("Could not create the keyboard tap for Control-Left/Right")
+        }
+
+        didLogTapFailure = false
+        log.info("System motion taps are on")
     }
 
     private func stop() {
@@ -142,16 +183,82 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         pendingActivation = nil
         activationFallback?.cancel()
         activationFallback = nil
-        clearActivatingFlag()
-        swipeTracker = SwipeGestureTracker()
-        taps.stop()
+        isActivatingInternally = false
+        swallowingSwipe = false
+        postedForSwipe = false
+        swipePeak = 0
+        swipeDirection = nil
+        tearDownTaps()
+    }
+
+    private func installTap(
+        location: CGEventTapLocation,
+        events: [UInt32],
+        userInfo: UnsafeMutableRawPointer
+    ) -> (tap: CFMachPort, source: CFRunLoopSource)? {
+        var mask: CGEventMask = 0
+        for raw in events {
+            mask |= CGEventMask(1) << CGEventMask(raw)
+        }
+        guard let tap = CGEvent.tapCreate(
+            tap: location,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: Self.callback,
+            userInfo: userInfo
+        ) else {
+            return nil
+        }
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            return nil
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        return (tap, source)
+    }
+
+    private func tearDownTaps() {
+        for source in [gestureSource, keySource] {
+            if let source {
+                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+            }
+        }
+        for tap in [gestureTap, keyTap] {
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: false)
+                CFMachPortInvalidate(tap)
+            }
+        }
+        gestureTap = nil
+        gestureSource = nil
+        keyTap = nil
+        keySource = nil
     }
 
     // MARK: - Tap
 
+    private static let callback: CGEventTapCallBack = { _, type, event, userInfo in
+        guard let userInfo else { return Unmanaged.passUnretained(event) }
+        let context = Unmanaged<MotionTapContext>.fromOpaque(userInfo).takeUnretainedValue()
+        guard let suppressor = context.suppressor else {
+            return Unmanaged.passUnretained(event)
+        }
+        if let forwarded = suppressor.handle(type: type, event: event) {
+            return Unmanaged.passUnretained(forwarded)
+        }
+        return nil
+    }
+
     private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {
-        if session != nil, Date() > sessionIdleDeadline {
-            cancelSession()
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let gestureTap {
+                CGEvent.tapEnable(tap: gestureTap, enable: true)
+            }
+            if let keyTap {
+                CGEvent.tapEnable(tap: keyTap, enable: true)
+            }
+            log.error("Event tap was disabled (\(type.rawValue, privacy: .public)); re-enabled")
             return event
         }
 
@@ -159,20 +266,54 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             return event
         }
         if mode.suppressDesktopMotion {
-            let now = Date()
-            swipeTracker.clearIfExpired(now: now)
+            if swallowingSwipe, Date() > swipeDeadline {
+                swallowingSwipe = false
+                postedForSwipe = false
+                swipePeak = 0
+                swipeDirection = nil
+            }
 
             if let swipe = DockSwipeSwitcher.horizontalSwipe(in: event) {
-                if let hop = swipeTracker.consume(swipe, now: now, commitThreshold: swipeCommitThreshold) {
-                    _ = spaceService.moveOneSpaceInstantly(direction: hop)
-                }
+                consume(swipe)
                 return nil
             }
-            if swipeTracker.isSwallowing, DockSwipeSwitcher.isGestureCompanion(event) {
+            if swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
                 return nil
             }
         }
         return handleKeyboard(type: type, event: event)
+    }
+
+    /// Swallow the live gesture and only jump when the finger lifts past the commit threshold.
+    /// That lets a reversed or aborted swipe cancel, matching Mission Control's habit.
+    private func consume(_ swipe: DockSwipeSwitcher.HorizontalSwipe) {
+        if swipe.began {
+            postedForSwipe = false
+            swipePeak = 0
+            swipeDirection = nil
+        }
+        swallowingSwipe = !swipe.ended
+        swipeDeadline = Date().addingTimeInterval(1.5)
+
+        let magnitude = abs(swipe.progress)
+        if magnitude >= abs(swipePeak), let direction = swipe.direction {
+            swipePeak = swipe.progress
+            swipeDirection = direction
+        }
+
+        if swipe.ended {
+            if !postedForSwipe,
+               abs(swipePeak) >= swipeCommitThreshold,
+               let direction = swipeDirection
+            {
+                postedForSwipe = true
+                _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
+            }
+            postedForSwipe = false
+            swallowingSwipe = false
+            swipePeak = 0
+            swipeDirection = nil
+        }
     }
 
     // MARK: - Command-Tab
@@ -203,85 +344,87 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         let shift = event.flags.contains(.maskShift)
         let extra = event.flags.contains(.maskAlternate) || event.flags.contains(.maskControl)
 
-        guard command, !extra, keyCode == Int64(kVK_Tab) else { return event }
+        guard command, !extra, keyCode == tabKeyCode else { return event }
         if type == .keyUp {
             return nil
         }
+        guard type == .keyDown else { return event }
         if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
             return nil
         }
-        guard type == .keyDown else { return event }
 
-        // Build the row after the tap returns so Accessibility / window-list work
-        // never runs inside the callback.
-        let forward = !shift
-        DispatchQueue.main.async { [weak self] in
-            self?.openSession(forward: forward)
-        }
-        // Mark idle so a stuck open cannot swallow forever if Command never returns.
-        refreshSessionIdleDeadline()
+        let apps = orderedApps()
+        guard let front = apps.first else { return event }
+        let targets = switchTargets(apps: apps)
+        guard targets.count >= 2 else { return event }
+        let index = commandTabOpeningIndex(
+            appIDs: targets.map { Int64($0.app.processIdentifier) },
+            frontAppID: Int64(front.processIdentifier),
+            forward: !shift
+        )
+        session = Session(targets: targets, index: index)
+        hud.show(targets: targets, selectedIndex: index)
         return nil
     }
 
     /// While the switcher is open, keys go to Altitude — not the frontmost app.
     /// Tab / arrows move, Escape cancels, Q quits and H hides the highlighted app.
     private func handleSwitcherKey(type: CGEventType, event: CGEvent) -> CGEvent? {
-        refreshSessionIdleDeadline()
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-        let action = commandTabKeyAction(keyCode: keyCode, flags: event.flags)
 
-        switch action {
-        case .move(let step):
+        if let step = switcherArrowStep(keyCode: keyCode) {
             if type == .keyDown, !isRepeat {
                 moveSelection(by: step)
             }
             return nil
-        case .cancel:
+        }
+
+        if keyCode == escapeKeyCode {
             if type == .keyDown, !isRepeat {
                 cancelSession()
             }
             return nil
-        case .commit:
-            if type == .keyDown || type == .keyUp {
-                commitSession()
+        }
+
+        let command = event.flags.contains(.maskCommand)
+        let shift = event.flags.contains(.maskShift)
+        let extra = event.flags.contains(.maskAlternate) || event.flags.contains(.maskControl)
+
+        if command, !extra, keyCode == tabKeyCode {
+            if type == .keyDown, !isRepeat {
+                moveSelection(by: shift ? -1 : 1)
             }
             return nil
-        case .quit:
+        }
+
+        if command, !extra, keyCode == qKeyCode {
             if type == .keyDown, !isRepeat {
                 quitHighlighted()
             }
             return nil
-        case .hide:
+        }
+
+        if command, !extra, keyCode == hKeyCode {
             if type == .keyDown, !isRepeat {
                 hideHighlighted()
             }
             return nil
-        case .drop:
+        }
+
+        // Drop every other key so Command-Q / Command-W cannot hit the app underneath.
+        return nil
+    }
+
+    private func switcherArrowStep(keyCode: Int64) -> Int? {
+        switch keyCode {
+        case leftArrowKeyCode:
+            return -1
+        case rightArrowKeyCode:
+            return 1
+        default:
             return nil
         }
-    }
-
-    private func openSession(forward: Bool) {
-        guard mode.commandTabEnabled, session == nil else { return }
-        // Command may have been released before this async work ran.
-        guard NSEvent.modifierFlags.contains(.command) else { return }
-        let apps = orderedApps()
-        guard let front = apps.first else { return }
-        let targets = switchTargets(apps: apps)
-        guard targets.count >= 2 else { return }
-        let index = commandTabOpeningIndex(
-            appIDs: targets.map { Int64($0.app.processIdentifier) },
-            frontAppID: Int64(front.processIdentifier),
-            forward: forward
-        )
-        session = CommandTabSession(targets: targets, index: index)
-        refreshSessionIdleDeadline()
-        hud.show(targets: targets, selectedIndex: index)
-    }
-
-    private func refreshSessionIdleDeadline() {
-        sessionIdleDeadline = Date().addingTimeInterval(sessionIdleInterval)
     }
 
     private func moveSelection(by delta: Int) {
@@ -291,9 +434,9 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             if count < 2 { cancelSession() }
             return
         }
-        current.move(by: delta)
+        let wrapped = (current.index + delta % count + count) % count
+        current.index = wrapped
         session = current
-        refreshSessionIdleDeadline()
         hud.show(targets: current.targets, selectedIndex: current.index)
     }
 
@@ -309,9 +452,9 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             return nil
         }
         switch event.getIntegerValueField(.keyboardEventKeycode) {
-        case Int64(kVK_LeftArrow):
+        case leftArrowKeyCode:
             return .left
-        case Int64(kVK_RightArrow):
+        case rightArrowKeyCode:
             return .right
         default:
             return nil
@@ -391,31 +534,17 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         // Raise first, then again after activate(). Activation focuses the app's main
         // window on its own, which is why an Outlook message was opening the inbox.
         isActivatingInternally = true
-        activatingPID = target.app.processIdentifier
-        activatingClearWork?.cancel()
-        let clear = DispatchWorkItem { [weak self] in
-            guard let self, self.activatingPID == target.app.processIdentifier else { return }
-            self.clearActivatingFlag()
-        }
-        activatingClearWork = clear
-        // Fallback if didActivateApplicationNotification never arrives for this PID.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: clear)
-
         focus(target)
         _ = target.app.activate(from: .current, options: [])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.isActivatingInternally = false
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
             self?.focus(target)
         }
-    }
-
-    private func clearActivatingFlag() {
-        isActivatingInternally = false
-        activatingPID = nil
-        activatingClearWork?.cancel()
-        activatingClearWork = nil
     }
 
     /// Main window if Accessibility marked one; otherwise the first listed window.
@@ -459,10 +588,10 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             return nil
         }
         let described = windows.map { element in
-            (element: element, title: AXRead.string(element, kAXTitleAttribute as String), size: AXRead.size(element))
+            (element: element, title: axString(element, kAXTitleAttribute as String), size: axSize(element))
         }
         if let windowID = target.windowID, windowID != 0 {
-            if let match = described.first(where: { AXRead.windowID($0.element) == windowID }) {
+            if let match = described.first(where: { axWindowID($0.element) == windowID }) {
                 return match.element
             }
         }
@@ -474,8 +603,8 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             // After merge, the strip may keep a stronger CG title while AX still reports empty / app name.
             return sizeMatches && (
                 titleMatches
-                    || WindowCatalog.isWeakTitle(item.title, appName: appName)
-                    || WindowCatalog.isWeakTitle(target.title, appName: appName)
+                    || isWeakTitle(item.title, appName: appName)
+                    || isWeakTitle(target.title, appName: appName)
             )
         }
         if let exact = titled.first(where: { $0.title == target.title }) {
@@ -524,19 +653,88 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         )
     }
 
+    private struct ListedWindow: Equatable {
+        let id: CGWindowID?
+        let title: String
+        let width: Double
+        let height: Double
+        var main: Bool = false
+    }
+
+    /// Empty, or the app's localized name — too generic to treat as a distinct window identity.
+    private func isWeakTitle(_ title: String, appName: String) -> Bool {
+        if title.isEmpty { return true }
+        return !appName.isEmpty && title == appName
+    }
+
+    /// Prefer a specific title over empty / the bare app name when collapsing twins.
+    private func preferredTitle(_ a: String, _ b: String, appName: String) -> String {
+        let aWeak = isWeakTitle(a, appName: appName)
+        let bWeak = isWeakTitle(b, appName: appName)
+        if aWeak && !bWeak { return b }
+        if bWeak && !aWeak { return a }
+        if a.isEmpty, !b.isEmpty { return b }
+        return a
+    }
+
+    private func preferredWindowID(_ a: CGWindowID?, _ b: CGWindowID?) -> CGWindowID? {
+        if let a, a != 0 { return a }
+        if let b, b != 0 { return b }
+        return nil
+    }
+
+    private func sameListedSize(_ a: ListedWindow, _ b: ListedWindow) -> Bool {
+        abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
+    }
+
+    /// Same CG id, or same size with equal / weak titles — not two strong different titles.
+    private func isSameListedWindow(_ a: ListedWindow, _ b: ListedWindow, appName: String) -> Bool {
+        if let left = a.id, let right = b.id, left != 0, left == right {
+            return true
+        }
+        guard sameListedSize(a, b) else { return false }
+        if a.title == b.title { return true }
+        return isWeakTitle(a.title, appName: appName) || isWeakTitle(b.title, appName: appName)
+    }
+
+    private func collapseListed(_ existing: ListedWindow, with other: ListedWindow, appName: String) -> ListedWindow {
+        ListedWindow(
+            id: preferredWindowID(existing.id, other.id),
+            title: preferredTitle(existing.title, other.title, appName: appName),
+            width: existing.width,
+            height: existing.height,
+            main: existing.main || other.main
+        )
+    }
+
     /// Accessibility covers the current Space; the window-server list adds windows on other Spaces.
     private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let ax = accessibilityWindows(for: app)
-        let cg = WindowCatalog.dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
+        let cg = dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
+        return mergeWindows(ax: ax, cg: cg, appName: appName)
+    }
+
+    private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow], appName: String) -> [ListedWindow] {
+        var merged = ax
+        // Accessibility already omitted panels on this Space; CG still lists some (Rex Settings).
+        // Trust AX for the active Space; only append CG windows that live strictly elsewhere.
         let activeSpace = ax.isEmpty ? nil : CGSPrivate.activeSpaceID()
-        return WindowCatalog.mergeWindows(
-            ax: ax,
-            cg: cg,
-            appName: appName,
-            activeSpaceID: activeSpace,
-            spaceIDsForWindow: { CGSPrivate.spaceIDs(forWindow: $0) }
-        )
+        for window in cg {
+            if let index = merged.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
+                // Keep AX order / main; absorb the stronger title and best id from CG.
+                merged[index] = collapseListed(merged[index], with: window, appName: appName)
+                continue
+            }
+            if let activeSpace, let id = window.id {
+                let spaces = CGSPrivate.spaceIDs(forWindow: id)
+                if spaces.contains(activeSpace) {
+                    continue
+                }
+            }
+            merged.append(window)
+        }
+        return merged
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
@@ -551,20 +749,20 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         // Do not apply the Electron helper filter here: Accessibility already omits most of
         // those, and an untitled real window of 500×500 would look the same.
         return windows.compactMap { element in
-            let role = AXRead.string(element, kAXRoleAttribute as String)
+            let role = axString(element, kAXRoleAttribute as String)
             guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
-            let subrole = AXRead.string(element, kAXSubroleAttribute as String)
+            let subrole = axString(element, kAXSubroleAttribute as String)
             if subrole == "AXUnknown" || subrole == "AXSystemDialog" { return nil }
-            guard let size = AXRead.size(element) else { return nil }
+            guard let size = axSize(element) else { return nil }
             guard size.width >= 160, size.height >= 100 else { return nil }
-            let title = AXRead.string(element, kAXTitleAttribute as String)
-            let id = AXRead.windowID(element)
+            let title = axString(element, kAXTitleAttribute as String)
+            let id = axWindowID(element)
             return ListedWindow(
                 id: id == 0 ? nil : id,
                 title: title,
                 width: size.width,
                 height: size.height,
-                main: AXRead.bool(element, kAXMainAttribute as String)
+                main: axBool(element, kAXMainAttribute as String)
             )
         }
         .sorted { $0.main && !$1.main }
@@ -594,26 +792,78 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
             let title = ((dict[kCGWindowName as String] as? String) ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let onscreen = (dict[kCGWindowIsOnscreen as String] as? Bool) ?? false
-            if WindowCatalog.isHiddenHelper(
-                width: width,
-                height: height,
-                title: title,
-                onscreen: onscreen,
-                appName: appName
-            ) {
+            if isHiddenHelper(width: width, height: height, title: title, onscreen: onscreen, appName: appName) {
                 return nil
             }
             // Prefs chrome some apps publish to CG without exposing it to Accessibility (Rex).
             if !appName.isEmpty, title == "\(appName) Settings" { return nil }
             // Tiny untitled / app-named surfaces are not user windows.
-            if WindowCatalog.isWeakTitle(title, appName: appName), width < 480 || height < 320 { return nil }
+            if isWeakTitle(title, appName: appName), width < 480 || height < 320 { return nil }
             return (ListedWindow(id: windowID, title: title, width: width, height: height, main: onscreen), onscreen)
         }
         let hasOnscreen = candidates.contains(where: \.1)
         return candidates.compactMap { window, onscreen in
-            if hasOnscreen, !onscreen, WindowCatalog.isWeakTitle(window.title, appName: appName) { return nil }
+            if hasOnscreen, !onscreen, isWeakTitle(window.title, appName: appName) { return nil }
             return window
         }
+    }
+
+    /// Same size with equal or weak titles means one window on the window-server list.
+    /// Teams (and similar) publish twins there — often one empty / app-named and one specific.
+    private func dedupe(_ windows: [ListedWindow], appName: String) -> [ListedWindow] {
+        var kept: [ListedWindow] = []
+        for window in windows {
+            if let index = kept.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
+                kept[index] = collapseListed(kept[index], with: window, appName: appName)
+            } else {
+                kept.append(window)
+            }
+        }
+        return kept
+    }
+
+    /// Arc/Teams keep offscreen 500×500 / 800×600 helpers; title is often empty or just the app name.
+    private func isHiddenHelper(
+        width: Double,
+        height: Double,
+        title: String,
+        onscreen: Bool,
+        appName: String
+    ) -> Bool {
+        guard isWeakTitle(title, appName: appName) else { return false }
+        if onscreen { return false }
+        return (width == 500 && height == 500) || (width == 800 && height == 600)
+    }
+
+    private func axString(_ element: AXUIElement, _ attribute: String) -> String {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else { return "" }
+        return ((ref as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func axBool(_ element: AXUIElement, _ attribute: String) -> Bool {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else { return false }
+        return (ref as? Bool) ?? false
+    }
+
+    private func axSize(_ element: AXUIElement) -> CGSize? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &ref) == .success,
+              let ref,
+              CFGetTypeID(ref) == AXValueGetTypeID()
+        else {
+            return nil
+        }
+        var size = CGSize.zero
+        guard AXValueGetValue(ref as! AXValue, .cgSize, &size) else { return nil }
+        return size
+    }
+
+    private func axWindowID(_ element: AXUIElement) -> CGWindowID {
+        var id: CGWindowID = 0
+        guard _AXUIElementGetWindow(element, &id) == .success else { return 0 }
+        return id
     }
 
     private func orderedApps() -> [NSRunningApplication] {
@@ -649,12 +899,8 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         mru.removeAll { $0 == app.processIdentifier }
         mru.insert(app.processIdentifier, at: 0)
 
-        if isActivatingInternally, activatingPID == app.processIdentifier {
-            clearActivatingFlag()
-        }
-
         // Keep MRU while taps are running. Hop only when desktop motion is suppressed.
-        guard taps.isRunning else { return }
+        guard gestureTap != nil else { return }
         guard mode.suppressDesktopMotion else { return }
         if session != nil || isActivatingInternally || pendingActivation != nil { return }
         hopForExternalActivation(of: app)
@@ -664,5 +910,116 @@ final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
         guard !didLogTapFailure else { return }
         didLogTapFailure = true
         log.error("\(message, privacy: .public)")
+    }
+}
+
+/// Still row of running apps shown while Command is held. It does not fade or slide.
+private final class AppSwitchHUD {
+    private let panel: NSPanel
+    private let effect: NSVisualEffectView
+    private let nameField = NSTextField(labelWithString: "")
+    private let iconHost = NSView()
+
+    init() {
+        panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 120),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .popUpMenu
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
+        panel.animationBehavior = .none
+        panel.ignoresMouseEvents = true
+        panel.worksWhenModal = true
+
+        effect = NSVisualEffectView(frame: panel.contentRect(forFrameRect: panel.frame))
+        effect.autoresizingMask = [.width, .height]
+        effect.material = .hudWindow
+        effect.state = .active
+        effect.wantsLayer = true
+        effect.layer?.cornerRadius = 16
+        effect.layer?.masksToBounds = true
+        panel.contentView = effect
+
+        iconHost.wantsLayer = false
+        nameField.font = .systemFont(ofSize: 13, weight: .medium)
+        nameField.textColor = .labelColor
+        nameField.alignment = .center
+        nameField.lineBreakMode = .byTruncatingTail
+        nameField.drawsBackground = false
+        nameField.isBezeled = false
+        nameField.isEditable = false
+        effect.addSubview(iconHost)
+        effect.addSubview(nameField)
+    }
+
+    func show(targets: [SwitchTarget], selectedIndex: Int) {
+        guard !targets.isEmpty else {
+            hide()
+            return
+        }
+        let index = min(max(selectedIndex, 0), targets.count - 1)
+        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        let maxWidth = (screen?.visibleFrame.width ?? 1280) - 48
+        let paddingX: CGFloat = 16
+        let paddingTop: CGFloat = 14
+        let nameGap: CGFloat = 8
+        let nameHeight: CGFloat = 18
+        let paddingBottom: CGFloat = 12
+        let iconGap: CGFloat = 8
+        let count = CGFloat(targets.count)
+        let gaps = iconGap * max(count - 1, 0)
+        let available = max(maxWidth - paddingX * 2 - gaps, count)
+        let iconSide = min(64, floor(available / count))
+        let rowWidth = count * iconSide + gaps
+        let width = min(maxWidth, rowWidth + paddingX * 2)
+        let height = paddingTop + iconSide + nameGap + nameHeight + paddingBottom
+
+        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: width, height: height)
+        let origin = NSPoint(
+            x: visible.midX - width / 2,
+            y: visible.midY - height / 2
+        )
+        panel.setFrame(NSRect(x: origin.x, y: origin.y, width: width, height: height), display: true, animate: false)
+
+        let rowX = (width - rowWidth) / 2
+        iconHost.frame = NSRect(x: rowX, y: paddingBottom + nameHeight + nameGap, width: rowWidth, height: iconSide)
+        nameField.frame = NSRect(x: paddingX, y: paddingBottom, width: width - paddingX * 2, height: nameHeight)
+        nameField.stringValue = targets[index].title
+
+        iconHost.subviews.forEach { $0.removeFromSuperview() }
+        for (offset, target) in targets.enumerated() {
+            let originX = CGFloat(offset) * (iconSide + iconGap)
+            if offset == index {
+                let highlight = NSView(frame: NSRect(
+                    x: originX - 4,
+                    y: -4,
+                    width: iconSide + 8,
+                    height: iconSide + 8
+                ))
+                highlight.wantsLayer = true
+                highlight.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.28).cgColor
+                highlight.layer?.cornerRadius = 10
+                iconHost.addSubview(highlight)
+            }
+            let iconView = NSImageView(frame: NSRect(x: originX, y: 0, width: iconSide, height: iconSide))
+            iconView.imageScaling = .scaleProportionallyUpOrDown
+            let icon = target.app.icon ?? NSImage(named: NSImage.applicationIconName)
+            icon?.size = NSSize(width: iconSide, height: iconSide)
+            iconView.image = icon
+            iconHost.addSubview(iconView)
+        }
+
+        panel.orderFrontRegardless()
+    }
+
+    func hide() {
+        panel.orderOut(nil)
     }
 }

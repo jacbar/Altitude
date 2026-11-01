@@ -8,8 +8,18 @@ private let log = Logger(subsystem: "com.altitude.app", category: "SkyLightBacke
 /// SkyLight-backed implementation of `SpaceService`.
 /// v1: flattens user desktops across displays into a single 1-based index list.
 final class SkyLightBackend: SpaceService {
-    private typealias Display = ParsedDisplay
-    private typealias Layout = ParsedLayout
+    private struct Display {
+        let identifier: String
+        /// Every Space on the display in Mission Control order, fullscreen apps included,
+        /// because each one costs a dock-swipe step.
+        let spaceIDs: [CGSSpaceID]
+        let currentSpaceID: CGSSpaceID?
+    }
+
+    private struct Layout {
+        let displays: [Display]
+        let desktops: [DesktopSpace]
+    }
 
     /// Where a dock-swipe is headed; CGS lags behind until the Dock finishes.
     private struct Prediction {
@@ -18,16 +28,10 @@ final class SkyLightBackend: SpaceService {
         let expiry: Date
     }
 
-    /// Slack covering Dock animation after the posted gesture.
-    private static let predictionSlack: TimeInterval = 1.0
-    private static let layoutCacheTTL: TimeInterval = 0.05
-
     var instantSwitching = false
 
     private let focusResolver: FocusedWindowResolver
     private var prediction: Prediction?
-    private var cachedLayout: Layout?
-    private var cachedLayoutAt: Date?
 
     init(focusResolver: FocusedWindowResolver = FocusedWindowResolver()) {
         self.focusResolver = focusResolver
@@ -57,7 +61,6 @@ final class SkyLightBackend: SpaceService {
             throw SpaceServiceError.accessibilityDenied
         }
 
-        expirePrediction(activeID: CGSPrivate.activeSpaceID())
         let layout = readLayout()
         guard let target = layout.desktops.first(where: { $0.index == index }) else {
             throw SpaceServiceError.invalidSpaceIndex(index)
@@ -90,7 +93,6 @@ final class SkyLightBackend: SpaceService {
 
     func switchToPreferredSpace(among spaceIDs: [CGSSpaceID], instant: Bool) -> InstantSwitchResult {
         guard focusResolver.isAccessibilityTrusted else { return .unavailable }
-        expirePrediction(activeID: CGSPrivate.activeSpaceID())
         let layout = readLayout()
         guard let activeDisplayID = activeDisplayIdentifier(in: layout),
               let display = layout.displays.first(where: { $0.identifier == activeDisplayID }),
@@ -123,7 +125,6 @@ final class SkyLightBackend: SpaceService {
 
     func moveOneSpaceInstantly(direction: SpaceHopDirection) -> InstantSwitchResult {
         guard focusResolver.isAccessibilityTrusted else { return .unavailable }
-        expirePrediction(activeID: CGSPrivate.activeSpaceID())
         let layout = readLayout()
         guard let activeDisplayID = activeDisplayIdentifier(in: layout),
               let display = layout.displays.first(where: { $0.identifier == activeDisplayID }),
@@ -186,33 +187,24 @@ final class SkyLightBackend: SpaceService {
         prediction = Prediction(
             spaceID: destinationID,
             displayIdentifier: display.identifier,
-            expiry: Date().addingTimeInterval(duration + Self.predictionSlack)
+            expiry: Date().addingTimeInterval(duration + 1.0)
         )
     }
 
     func acknowledgeSystemSpaceChange() {
         // Intermediate hops of a multi-step switch also land here, so the prediction
         // survives until the system reaches it or it expires.
-        cachedLayout = nil
-        cachedLayoutAt = nil
-        expirePrediction(activeID: CGSPrivate.activeSpaceID())
+        _ = livePrediction(activeID: CGSPrivate.activeSpaceID())
     }
 
     // MARK: - Private
 
-    /// Pure lookup; does not clear `prediction`.
-    private func predictionIfValid(activeID: CGSSpaceID, now: Date) -> Prediction? {
-        guard let prediction, now < prediction.expiry, prediction.spaceID != activeID else {
+    private func livePrediction(activeID: CGSSpaceID) -> Prediction? {
+        guard let prediction, Date() < prediction.expiry, prediction.spaceID != activeID else {
+            prediction = nil
             return nil
         }
         return prediction
-    }
-
-    private func expirePrediction(activeID: CGSSpaceID, now: Date = Date()) {
-        guard let prediction else { return }
-        if now >= prediction.expiry || prediction.spaceID == activeID {
-            self.prediction = nil
-        }
     }
 
     private func liveActiveSpaceID(in layout: Layout) -> CGSSpaceID? {
@@ -226,7 +218,7 @@ final class SkyLightBackend: SpaceService {
     /// Prefers in-flight dock-swipe prediction so multi-step hops keep routing correctly.
     private func activeSpaceID(in layout: Layout) -> CGSSpaceID? {
         let liveID = CGSPrivate.activeSpaceID()
-        if let prediction = predictionIfValid(activeID: liveID, now: Date()) {
+        if let prediction = livePrediction(activeID: liveID) {
             return prediction.spaceID
         }
         return liveActiveSpaceID(in: layout)
@@ -238,7 +230,6 @@ final class SkyLightBackend: SpaceService {
     }
 
     func currentSpaceID(on screen: NSScreen) -> CGSSpaceID? {
-        expirePrediction(activeID: CGSPrivate.activeSpaceID())
         let layout = readLayout()
         guard !layout.displays.isEmpty else { return nil }
 
@@ -273,7 +264,7 @@ final class SkyLightBackend: SpaceService {
     }
 
     private func currentSpaceID(on display: Display) -> CGSSpaceID? {
-        if let prediction = predictionIfValid(activeID: CGSPrivate.activeSpaceID(), now: Date()),
+        if let prediction = livePrediction(activeID: CGSPrivate.activeSpaceID()),
            prediction.displayIdentifier == display.identifier
         {
             return prediction.spaceID
@@ -282,25 +273,69 @@ final class SkyLightBackend: SpaceService {
     }
 
     private func readLayout() -> Layout {
-        let now = Date()
-        if let cachedLayout, let cachedLayoutAt, now.timeIntervalSince(cachedLayoutAt) < Self.layoutCacheTTL {
-            return cachedLayout
-        }
-
         let rawDisplays = CGSPrivate.copyManagedDisplaySpaces()
             ?? (SkyLightBridgedSPI.copyManagedDisplaySpaces() as? [[String: Any]])
 
         guard let rawDisplays else {
             log.error("CGSCopyManagedDisplaySpaces returned nil")
-            let empty = Layout(displays: [], desktops: [])
-            self.cachedLayout = empty
-            self.cachedLayoutAt = now
-            return empty
+            return Layout(displays: [], desktops: [])
         }
 
-        let layout = SpaceLayoutParser.parse(rawDisplays)
-        self.cachedLayout = layout
-        self.cachedLayoutAt = now
-        return layout
+        var displays: [Display] = []
+        var desktops: [DesktopSpace] = []
+        var nextIndex = 1
+
+        for rawDisplay in rawDisplays {
+            guard let displayIdentifier = rawDisplay["Display Identifier"] as? String else { continue }
+            let currentSpaceID = spaceID(from: rawDisplay["Current Space"])
+            let spaces = (rawDisplay["Spaces"] as? [[String: Any]]) ?? []
+            var spaceIDs: [CGSSpaceID] = []
+
+            for rawSpace in spaces {
+                guard let id = spaceID(from: rawSpace) else { continue }
+                spaceIDs.append(id)
+
+                let type = (rawSpace["type"] as? NSNumber)?.intValue
+                    ?? (rawSpace["type"] as? Int)
+                    ?? 0
+                // type 0 = user desktop; fullscreen (4) / system spaces get no index
+                guard type == 0 else { continue }
+
+                desktops.append(
+                    DesktopSpace(
+                        index: nextIndex,
+                        id: id,
+                        displayIdentifier: displayIdentifier,
+                        uuid: rawSpace["uuid"] as? String,
+                        isCurrent: currentSpaceID == id
+                    )
+                )
+                nextIndex += 1
+            }
+
+            displays.append(
+                Display(identifier: displayIdentifier, spaceIDs: spaceIDs, currentSpaceID: currentSpaceID)
+            )
+        }
+
+        return Layout(displays: displays, desktops: desktops)
+    }
+
+    private func spaceID(from value: Any?) -> CGSSpaceID? {
+        if let dict = value as? [String: Any] {
+            if let number = dict["ManagedSpaceID"] as? NSNumber {
+                return number.uint64Value
+            }
+            if let number = dict["id64"] as? NSNumber {
+                return number.uint64Value
+            }
+            if let number = dict["id"] as? NSNumber {
+                return number.uint64Value
+            }
+        }
+        if let number = value as? NSNumber {
+            return number.uint64Value
+        }
+        return nil
     }
 }

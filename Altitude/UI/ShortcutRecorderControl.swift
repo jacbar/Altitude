@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 
 /// Button that displays a shortcut and records the next press.
 final class ShortcutRecorderControl: NSButton {
@@ -29,9 +28,9 @@ final class ShortcutRecorderControl: NSButton {
     var onRecordModifiers: ((ModifierFlags) -> Void)?
 
     private var isRecording = false
-    nonisolated(unsafe) private var monitor: Any?
+    private var monitor: Any?
     private var pendingModifiers: ModifierFlags?
-    nonisolated(unsafe) private var pollTimer: Timer?
+    private var pollTimer: Timer?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -106,7 +105,7 @@ final class ShortcutRecorderControl: NSButton {
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
                 guard let self else { return event }
                 if event.type == .keyDown {
-                    if event.keyCode == UInt16(kVK_Escape) {
+                    if event.keyCode == 53 { // Escape
                         self.cancelRecording()
                         return nil
                     }
@@ -116,10 +115,7 @@ final class ShortcutRecorderControl: NSButton {
                 return event
             }
             let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
-                guard let self else { return }
-                MainActor.assumeIsolated {
-                    self.pollModifierFlags()
-                }
+                self?.pollModifierFlags()
             }
             RunLoop.main.add(timer, forMode: .common)
             pollTimer = timer
@@ -133,7 +129,7 @@ final class ShortcutRecorderControl: NSButton {
         refreshTitle()
     }
 
-    nonisolated private func stopMonitoring() {
+    private func stopMonitoring() {
         pollTimer?.invalidate()
         pollTimer = nil
         if let monitor {
@@ -143,7 +139,7 @@ final class ShortcutRecorderControl: NSButton {
     }
 
     private func handleLetterKey(_ event: NSEvent) {
-        if event.keyCode == UInt16(kVK_Escape) {
+        if event.keyCode == 53 { // Escape
             cancelRecording()
             return
         }

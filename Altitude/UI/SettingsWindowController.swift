@@ -42,7 +42,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let moveDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
     private let switchConflictLabel = SettingsWindowController.conflictLabel()
     private let moveConflictLabel = SettingsWindowController.conflictLabel()
-    private let desktopRegistrationLabel = SettingsWindowController.conflictLabel()
     private var desktopDependentControls: [NSView] = []
 
     // Command-Tab
@@ -60,10 +59,10 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let equalSplitDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
     private let maximizeConflictLabel = SettingsWindowController.conflictLabel()
     private let equalSplitConflictLabel = SettingsWindowController.conflictLabel()
-    private let windowsRegistrationLabel = SettingsWindowController.conflictLabel()
     private var windowsDependentControls: [NSView] = []
 
-    init() {
+    init(menuBar: MenuBarController) {
+        self.menuBar = menuBar
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 520),
             styleMask: [.titled, .closable],
@@ -86,10 +85,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    func attach(menuBar: MenuBarController) {
-        self.menuBar = menuBar
     }
 
     func show() {
@@ -161,21 +156,18 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     }
 
     private func becomeForegroundApp() {
-        // Policy alone is not enough for an LSUIElement agent: the process type has to
-        // be transformed as well or the Settings window stays stuck behind other apps.
         _ = NSApp.setActivationPolicy(.regular)
         var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
         _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToForegroundApplication))
     }
 
     private func becomeAccessoryApp() {
-        // Mirror becomeForegroundApp: both policy and process-type transform are required.
         var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
         _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToUIElementApplication))
         _ = NSApp.setActivationPolicy(.accessory)
     }
 
-    func display(_ config: AppConfig, failedHotkeys: [HotkeyBinding] = []) {
+    func display(_ config: AppConfig) {
         suppressActions = true
         defer { suppressActions = false }
 
@@ -189,13 +181,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         moveRecorder.display(modifiers: config.desktop.moveModifiers)
         clearConflict(switchConflictLabel)
         clearConflict(moveConflictLabel)
-        let desktopRegistrationFailed = failedHotkeys.contains {
-            switch $0.action {
-            case .switchTo, .moveTo: return true
-            case .maximizeAll, .tileColumns: return false
-            }
-        }
-        setRegistrationLabel(desktopRegistrationLabel, visible: desktopRegistrationFailed)
         setEnabled(config.desktop.enabled, controls: desktopDependentControls)
 
         commandTabEnabledSwitch.state = config.commandTab.enabled ? .on : .off
@@ -209,13 +194,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         equalSplitRecorder.display(chord: config.windowManagement.equalSplit)
         clearConflict(maximizeConflictLabel)
         clearConflict(equalSplitConflictLabel)
-        let windowsRegistrationFailed = failedHotkeys.contains {
-            switch $0.action {
-            case .maximizeAll, .tileColumns: return true
-            case .switchTo, .moveTo: return false
-            }
-        }
-        setRegistrationLabel(windowsRegistrationLabel, visible: windowsRegistrationFailed)
         setEnabled(config.windowManagement.enabled, controls: windowsDependentControls)
     }
 
@@ -329,7 +307,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             conflictLabel: moveConflictLabel
         )
         stack.addArrangedSubview(moveRow)
-        stack.addArrangedSubview(desktopRegistrationLabel)
 
         desktopDependentControls = [
             motionRow, maxRow, switchRow, moveRow,
@@ -391,7 +368,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             conflictLabel: equalSplitConflictLabel
         )
         stack.addArrangedSubview(equalRow)
-        stack.addArrangedSubview(windowsRegistrationLabel)
 
         windowsDependentControls = [
             marginRow, maximizeRow, equalRow,
@@ -466,15 +442,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private func clearConflict(_ label: NSTextField) {
         label.stringValue = ""
         label.isHidden = true
-    }
-
-    private func setRegistrationLabel(_ label: NSTextField, visible: Bool) {
-        if visible {
-            label.stringValue = "Could not register (in use by another app)"
-            label.isHidden = false
-        } else {
-            clearConflict(label)
-        }
     }
 
     private func label(_ text: String) -> NSTextField {
@@ -554,6 +521,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedDesktopModifiers(
+            current: config.desktop.switchModifiers,
             other: config.desktop.moveModifiers,
             proposed: proposed
         ) {
@@ -575,6 +543,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedDesktopModifiers(
+            current: config.desktop.moveModifiers,
             other: config.desktop.switchModifiers,
             proposed: proposed
         ) {
@@ -627,6 +596,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedWindowChord(
+            current: config.windowManagement.maximize,
             other: config.windowManagement.equalSplit,
             proposed: proposed
         ) {
@@ -648,6 +618,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedWindowChord(
+            current: config.windowManagement.equalSplit,
             other: config.windowManagement.maximize,
             proposed: proposed
         ) {

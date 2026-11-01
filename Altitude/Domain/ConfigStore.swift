@@ -3,9 +3,6 @@ import os.log
 
 private let log = Logger(subsystem: "com.altitude.app", category: "Config")
 
-/// Log label used instead of absolute paths so the username never hits the system log.
-private let configPathLogLabel = "~/.config/altitude/config.toml"
-
 struct DesktopConfig: Equatable, Sendable {
     var enabled: Bool
     var disableMotion: Bool
@@ -75,38 +72,25 @@ enum ConfigStore {
     }
 
     static func load() -> AppConfig {
-        load(from: configFileURL)
-    }
-
-    static func load(from url: URL) -> AppConfig {
+        let url = configFileURL
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else {
-            log.info("No config at \(configPathLogLabel, privacy: .public); using defaults")
+            log.info("No config at \(url.path, privacy: .public); using defaults")
             return .default
         }
 
         do {
             try validateConfigURL(url)
-            let resolved = url.resolvingSymlinksInPath()
-            try validateConfigURL(resolved)
-
-            let handle = try FileHandle(forReadingFrom: resolved)
-            defer { try? handle.close() }
-
-            let limit = Int(maxConfigBytes) + 1
-            let data = try handle.read(upToCount: limit) ?? Data()
-            if UInt64(data.count) > maxConfigBytes {
+            let attrs = try fm.attributesOfItem(atPath: url.path)
+            if let size = attrs[.size] as? UInt64, size > maxConfigBytes {
                 log.error(
-                    "Config at \(configPathLogLabel, privacy: .public) exceeds \(maxConfigBytes) bytes; using defaults"
+                    "Config at \(url.path, privacy: .public) is \(size) bytes (limit \(maxConfigBytes)); using defaults"
                 )
                 return .default
             }
-            guard let text = String(data: data, encoding: .utf8) else {
-                log.error("Failed to load config: not valid UTF-8; using defaults")
-                return .default
-            }
+            let text = try String(contentsOf: url, encoding: .utf8)
             let config = MinimalTOML.parseAltitudeConfig(text)
-            log.info("Loaded config version \(config.version) from \(configPathLogLabel, privacy: .public)")
+            log.info("Loaded config version \(config.version) from \(url.path, privacy: .public)")
             return config
         } catch {
             log.error("Failed to load config: \(error.localizedDescription, privacy: .public); using defaults")
@@ -126,7 +110,7 @@ enum ConfigStore {
         do {
             try fm.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
             try fm.copyItem(at: template, to: url)
-            log.info("Wrote starter config to \(configPathLogLabel, privacy: .public)")
+            log.info("Wrote starter config to \(url.path, privacy: .public)")
         } catch {
             log.error("Could not write starter config: \(error.localizedDescription, privacy: .public)")
         }
@@ -134,37 +118,11 @@ enum ConfigStore {
 
     /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
     static func save(_ config: AppConfig) throws {
-        try save(config, to: configFileURL)
-    }
-
-    static func save(_ config: AppConfig, to url: URL) throws {
-        try validateConfigURL(url, allowMissing: true)
-        let text = render(config)
-        let fm = FileManager.default
-
-        let writeURL: URL
-        if fm.fileExists(atPath: url.path) {
-            let resolved = url.resolvingSymlinksInPath()
-            try validateConfigURL(resolved)
-            writeURL = resolved
-        } else {
-            writeURL = url
-        }
-
-        try fm.createDirectory(
-            at: writeURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try text.write(to: writeURL, atomically: true, encoding: .utf8)
-        log.info("Wrote config to \(configPathLogLabel, privacy: .public)")
-    }
-
-    /// Canonical TOML text for `AppConfig`. Shared by save and round-trip tests.
-    static func render(_ config: AppConfig) -> String {
+        try validateConfigURL(configFileURL, allowMissing: true)
         let d = config.desktop
         let c = config.commandTab
         let w = config.windowManagement
-        return """
+        let text = """
         version = \(config.version)
 
         [app]
@@ -209,6 +167,9 @@ enum ConfigStore {
         cmd = \(tomlBool(w.equalSplit.modifiers.cmd))
         key = \(w.equalSplit.key)
         """
+        try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
+        try text.write(to: configFileURL, atomically: true, encoding: .utf8)
+        log.info("Wrote config to \(configFileURL.path, privacy: .public)")
     }
 
     private static func tomlBool(_ value: Bool) -> String {
@@ -225,7 +186,9 @@ enum ConfigStore {
         }
         let resolved = url.resolvingSymlinksInPath().standardizedFileURL.path
         guard resolved == home || resolved.hasPrefix(home + "/") else {
-            log.error("Refusing config outside home")
+            log.error(
+                "Refusing config outside home (resolved \(resolved, privacy: .public))"
+            )
             throw CocoaError(.fileReadNoPermission)
         }
     }
@@ -245,7 +208,6 @@ enum MinimalTOML {
 
         for rawLine in text.components(separatedBy: .newlines) {
             var line = rawLine
-            // `#` starts a comment even mid-value; values are not quoted strings.
             if let hash = line.firstIndex(of: "#") {
                 line = String(line[..<hash])
             }

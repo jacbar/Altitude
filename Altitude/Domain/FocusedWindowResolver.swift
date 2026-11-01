@@ -16,8 +16,7 @@ final class FocusedWindowResolver {
     /// (or a one-time first-run bootstrap), never on every launch.
     @discardableResult
     func promptForAccessibilityIfNeeded() -> Bool {
-        // String form of kAXTrustedCheckOptionPrompt (CF global is not Sendable).
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 
@@ -62,9 +61,10 @@ final class FocusedWindowResolver {
         }
 
         let window = focusedWindowObject as! AXUIElement
-        let windowID = AXRead.windowID(window)
-        guard windowID != 0 else {
-            log.error("_AXUIElementGetWindow failed")
+        var windowID: CGWindowID = 0
+        let error = _AXUIElementGetWindow(window, &windowID)
+        guard error == .success, windowID != 0 else {
+            log.error("_AXUIElementGetWindow failed: \(String(describing: error))")
             return nil
         }
         return windowID

@@ -5,23 +5,19 @@ import os.log
 private let log = Logger(subsystem: "com.altitude.app", category: "MenuBar")
 
 @MainActor
-final class MenuBarController: NSObject, @unchecked Sendable {
+final class MenuBarController: NSObject {
     private static let didPromptForAccessibilityKey = "didPromptForAccessibility"
-
-    /// Waits for dock-swipe gesture frames to land before refreshing Spaces/hotkeys.
-    private let hotkeyRefreshDelay: TimeInterval = 0.45
 
     private let statusItem: NSStatusItem
     private let spaceService: SpaceService
     private let focusResolver: FocusedWindowResolver
     private let arranger = WindowArranger()
-    private let hotkeys: HotkeyRegistrar
+    private var hotkeys: HotkeyRegistrar!
     private var config: AppConfig
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
     private var motionSuppressor: SystemMotionSuppressor?
-    private let settings: SettingsWindowController
-    private var failedHotkeys: [HotkeyBinding] = []
+    private var settings: SettingsWindowController!
 
     var currentConfig: AppConfig { config }
 
@@ -30,18 +26,14 @@ final class MenuBarController: NSObject, @unchecked Sendable {
         self.focusResolver = focusResolver
         self.config = ConfigStore.load()
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        super.init()
 
-        nonisolated(unsafe) weak var controller: MenuBarController?
-        self.hotkeys = HotkeyRegistrar { action in
-            Task { @MainActor in
-                controller?.handle(action: action)
+        self.hotkeys = HotkeyRegistrar { [weak self] action in
+            Task { @MainActor [weak self] in
+                self?.handle(action: action)
             }
         }
-        self.settings = SettingsWindowController()
-        super.init()
-        controller = self
-        settings.attach(menuBar: self)
-
+        self.settings = SettingsWindowController(menuBar: self)
         AppMenu.install(target: self)
 
         // Avoid autosave-name hide bugs on Tahoe; keep the item always visible.
@@ -63,7 +55,7 @@ final class MenuBarController: NSObject, @unchecked Sendable {
         refreshSpacesAndHotkeys()
         startPolling()
         observeWorkspace()
-        settings.display(config, failedHotkeys: failedHotkeys)
+        settings.display(config)
         log.info("Status item created (visible=\(self.statusItem.isVisible, privacy: .public))")
     }
 
@@ -89,23 +81,25 @@ final class MenuBarController: NSObject, @unchecked Sendable {
         switch action {
         case .maximizeAll:
             arrangeWindows(.maximize)
+            return
         case .tileColumns:
             arrangeWindows(.columns)
-        case .switchTo(let index):
-            performSpaceAction {
-                try spaceService.switchTo(index: index)
-            }
-        case .moveTo(let index):
-            performSpaceAction {
-                try spaceService.moveFocusedWindow(to: index)
-            }
+            return
+        case .switchTo, .moveTo:
+            break
         }
-    }
 
-    private func performSpaceAction(_ body: () throws -> Void) {
         do {
-            try body()
-            DispatchQueue.main.asyncAfter(deadline: .now() + hotkeyRefreshDelay) { [weak self] in
+            switch action {
+            case .switchTo(let index):
+                try spaceService.switchTo(index: index)
+            case .moveTo(let index):
+                try spaceService.moveFocusedWindow(to: index)
+            case .maximizeAll, .tileColumns:
+                return
+            }
+            // Dock-swipe transitions settle after the gesture frames are posted.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
                 self?.refreshSpacesAndHotkeys()
             }
         } catch SpaceServiceError.accessibilityDenied {
@@ -150,46 +144,59 @@ final class MenuBarController: NSObject, @unchecked Sendable {
     }
 
     @objc func showSettings() {
-        settings.display(config, failedHotkeys: failedHotkeys)
+        settings.display(config)
         settings.show()
     }
 
     /// Updates Launch at Login via SMAppService, writes config, and rolls back on failure.
     func setLaunchAtLogin(_ desired: Bool) {
-        config = ConfigApply.setLaunchAtLogin(
-            desired: desired,
-            config: config,
-            setEnabled: LaunchAtLogin.setEnabled,
-            save: ConfigStore.save
-        )
-        if config.launchAtLogin != desired {
-            log.error("Launch at Login toggle failed or could not be saved")
+        let previous = config.launchAtLogin
+        do {
+            try LaunchAtLogin.setEnabled(desired)
+        } catch {
+            log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
             NSSound.beep()
+            settings.display(config)
+            buildMenu()
+            return
         }
-        settings.display(config, failedHotkeys: failedHotkeys)
+
+        config.launchAtLogin = desired
+        do {
+            try ConfigStore.save(config)
+        } catch {
+            log.error("Could not write launch_at_login: \(error.localizedDescription, privacy: .public)")
+            config.launchAtLogin = previous
+            do {
+                try LaunchAtLogin.setEnabled(previous)
+            } catch {
+                log.error("Could not roll back Launch at Login: \(error.localizedDescription, privacy: .public)")
+            }
+            NSSound.beep()
+            settings.display(config)
+            buildMenu()
+            return
+        }
+        settings.display(config)
         buildMenu()
     }
 
     /// Replaces in-memory config, optionally writes TOML, then reapplies hotkeys and motion.
     func apply(_ newConfig: AppConfig, write: Bool) {
         let previous = config
+        config = newConfig
 
         if write {
-            let saved = ConfigApply.saving(
-                previous: previous,
-                updated: newConfig,
-                save: ConfigStore.save
-            )
-            if saved != newConfig {
-                log.error("Could not write config")
+            do {
+                try ConfigStore.save(config)
+            } catch {
+                log.error("Could not write config: \(error.localizedDescription, privacy: .public)")
+                config = previous
                 NSSound.beep()
-                settings.display(config, failedHotkeys: failedHotkeys)
+                settings.display(config)
                 buildMenu()
                 return
             }
-            config = saved
-        } else {
-            config = newConfig
         }
 
         spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
@@ -200,7 +207,7 @@ final class MenuBarController: NSObject, @unchecked Sendable {
         }
         updateSystemMotions()
         refreshSpacesAndHotkeys()
-        settings.display(config, failedHotkeys: failedHotkeys)
+        settings.display(config)
         buildMenu()
     }
 
@@ -303,23 +310,11 @@ final class MenuBarController: NSObject, @unchecked Sendable {
 
     private func refreshSpacesAndHotkeys() {
         lastSnapshot = spaceService.snapshot()
-        applyHotkeyBindings(
-            DesktopFeature.bindings(config: config, spaceCount: lastSnapshot.spaces.count)
-                + WindowManagementFeature.bindings(config: config)
-        )
+        let bindings = DesktopFeature.bindings(config: config, spaceCount: lastSnapshot.spaces.count)
+            + WindowManagementFeature.bindings(config: config)
+        hotkeys.apply(bindings)
         refreshIndicator()
         buildMenu()
-    }
-
-    private func applyHotkeyBindings(_ bindings: [HotkeyBinding]) {
-        let failed = hotkeys.apply(bindings)
-        if failed != failedHotkeys {
-            if !failed.isEmpty {
-                NSSound.beep()
-            }
-            failedHotkeys = failed
-        }
-        settings.display(config, failedHotkeys: failedHotkeys)
     }
 
     private func refreshIndicator() {
@@ -357,14 +352,12 @@ final class MenuBarController: NSObject, @unchecked Sendable {
             || snapshot.currentIndex != lastSnapshot.currentIndex
         {
             lastSnapshot = snapshot
-            applyHotkeyBindings(
-                DesktopFeature.bindings(config: config, spaceCount: snapshot.spaces.count)
-                    + WindowManagementFeature.bindings(config: config)
-            )
+            let bindings = DesktopFeature.bindings(config: config, spaceCount: snapshot.spaces.count)
+                + WindowManagementFeature.bindings(config: config)
+            hotkeys.apply(bindings)
             refreshIndicator()
             buildMenu()
         }
-        // updateSystemMotions() every tick so taps install on the first poll after Accessibility is granted.
         updateSystemMotions()
     }
 

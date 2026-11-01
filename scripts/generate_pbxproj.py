@@ -30,22 +30,6 @@ sources = [
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
-    # Append new sources at the end so existing file IDs stay stable.
-    "Altitude/Backend/AXRead.swift",
-    "Altitude/Domain/SpaceLayoutParser.swift",
-    "Altitude/Domain/SwipeGestureTracker.swift",
-    "Altitude/Domain/CommandTabSession.swift",
-    "Altitude/Domain/WindowCatalog.swift",
-    "Altitude/UI/AppSwitchHUD.swift",
-    "Altitude/Backend/EventTapHost.swift",
-    "Altitude/Domain/ConfigApply.swift",
-    "Altitude/Backend/CGSSymbols.c",
-]
-
-# Headers appear in the project navigator / Backend group; not compiled alone.
-headers = [
-    "Altitude/Backend/CGSSymbols.h",
-    "Altitude/Backend/Altitude-Bridging-Header.h",
 ]
 
 test_sources = [
@@ -54,53 +38,7 @@ test_sources = [
     "AltitudeTests/WindowArrangementTests.swift",
     "AltitudeTests/CommandTabOrderTests.swift",
     "AltitudeTests/ShortcutEditingTests.swift",
-    "AltitudeTests/SwipeGestureTrackerTests.swift",
-    "AltitudeTests/CommandTabSessionTests.swift",
-    "AltitudeTests/WindowCatalogTests.swift",
-    "AltitudeTests/SpaceLayoutParserTests.swift",
-    "AltitudeTests/WindowFrameTests.swift",
-    "AltitudeTests/DockSwipeTimingTests.swift",
-    "AltitudeTests/ConfigApplyTests.swift",
-    "AltitudeTests/HotkeyMappingTests.swift",
 ]
-
-# Sources also compiled into the test target (logic tests, no host app).
-# Domain parsers plus Feature helpers referenced by ConfigStoreTests, and the
-# transitive types those Features need (HotkeyBinding / SystemMotionMode / CGS).
-test_domain_sources = [
-    "Altitude/Domain/ConfigStore.swift",
-    "Altitude/Domain/ShortcutChord.swift",
-    "Altitude/Domain/HotkeyBounds.swift",
-    "Altitude/Domain/WindowArrangement.swift",
-    "Altitude/Domain/CommandTabOrder.swift",
-    "Altitude/Domain/ShortcutEditing.swift",
-    "Altitude/Domain/SpaceModels.swift",
-    "Altitude/Domain/ConfigApply.swift",
-    "Altitude/Domain/SwipeGestureTracker.swift",
-    "Altitude/Domain/CommandTabSession.swift",
-    "Altitude/Domain/WindowCatalog.swift",
-    "Altitude/Domain/SpaceLayoutParser.swift",
-    "Altitude/Features/Desktop/DesktopFeature.swift",
-    "Altitude/Features/CommandTab/CommandTabFeature.swift",
-    "Altitude/Features/WindowManagement/WindowManagementFeature.swift",
-    "Altitude/Hotkeys/HotkeyRegistrar.swift",
-    "Altitude/Backend/SystemMotionSuppressor.swift",
-    "Altitude/Backend/DockSwipeSwitcher.swift",
-    "Altitude/Backend/EventTapHost.swift",
-    "Altitude/Backend/AXRead.swift",
-    "Altitude/Backend/CGSPrivate.swift",
-    "Altitude/Backend/SkyLightBridgedSPI.swift",
-    "Altitude/Backend/CGSSymbols.c",
-    "Altitude/UI/AppSwitchHUD.swift",
-]
-
-
-def last_known_file_type(path: str) -> str:
-    if path.endswith(".c"):
-        return "sourcecode.c.c"
-    if path.endswith(".h"):
-        return "sourcecode.c.h"
-    return "sourcecode.swift"
 
 ids = {
     "project": "A10000000000000000000001",
@@ -153,20 +91,11 @@ for i, src in enumerate(sources):
     file_ids[src] = f"B1{i:022d}"
     build_ids[src] = f"B2{i:022d}"
 
-header_file_ids = {}
-for i, src in enumerate(headers):
-    header_file_ids[src] = f"H1{i:022d}"
-
 test_file_ids = {}
 test_build_ids = {}
 for i, src in enumerate(test_sources):
     test_file_ids[src] = f"D1{i:022d}"
     test_build_ids[src] = f"D2{i:022d}"
-
-# Separate build-file IDs for domain sources compiled into the test target.
-test_domain_build_ids = {}
-for i, src in enumerate(test_domain_sources):
-    test_domain_build_ids[src] = f"E2{i:022d}"
 
 carbon_ref = "A10000000000000000000020"
 carbon_build = "A10000000000000000000021"
@@ -196,12 +125,6 @@ for src in test_sources:
     lines.append(
         f"\t\t{test_build_ids[src]} /* {name} in Sources */ = "
         f"{{isa = PBXBuildFile; fileRef = {test_file_ids[src]} /* {name} */; }};"
-    )
-for src in test_domain_sources:
-    name = Path(src).name
-    lines.append(
-        f"\t\t{test_domain_build_ids[src]} /* {name} in Sources */ = "
-        f"{{isa = PBXBuildFile; fileRef = {file_ids[src]} /* {name} */; }};"
     )
 lines.append(
     f"\t\t{ids['assets_build']} /* Assets.xcassets in Resources */ = "
@@ -238,18 +161,9 @@ lines.append("")
 lines.append("/* Begin PBXFileReference section */")
 for src in sources:
     name = Path(src).name
-    ftype = last_known_file_type(src)
     lines.append(
         f"\t\t{file_ids[src]} /* {name} */ = "
-        f"{{isa = PBXFileReference; lastKnownFileType = {ftype}; "
-        f'path = {name}; sourceTree = "<group>"; }};'
-    )
-for src in headers:
-    name = Path(src).name
-    ftype = last_known_file_type(src)
-    lines.append(
-        f"\t\t{header_file_ids[src]} /* {name} */ = "
-        f"{{isa = PBXFileReference; lastKnownFileType = {ftype}; "
+        f"{{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; "
         f'path = {name}; sourceTree = "<group>"; }};'
     )
 for src in test_sources:
@@ -389,14 +303,11 @@ altitude_children = (
     ]
 )
 emit_group(ids["altitude_group"], "Altitude", "Altitude", altitude_children)
-backend_children = [f"{file_ids[s]} /* {Path(s).name} */" for s in backend_srcs] + [
-    f"{header_file_ids[s]} /* {Path(s).name} */" for s in headers
-]
 emit_group(
     ids["backend_group"],
     "Backend",
     "Backend",
-    backend_children,
+    [f"{file_ids[s]} /* {Path(s).name} */" for s in backend_srcs],
 )
 emit_group(
     ids["domain_group"],
@@ -568,8 +479,6 @@ lines.append("\t\t\tbuildActionMask = 2147483647;")
 lines.append("\t\t\tfiles = (")
 for src in test_sources:
     lines.append(f"\t\t\t\t{test_build_ids[src]} /* {Path(src).name} in Sources */,")
-for src in test_domain_sources:
-    lines.append(f"\t\t\t\t{test_domain_build_ids[src]} /* {Path(src).name} in Sources */,")
 lines.append("\t\t\t);")
 lines.append("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
 lines.append("\t\t};")
@@ -650,11 +559,6 @@ for oid, name in [(ids["debug_tgt"], "Debug"), (ids["release_tgt"], "Release")]:
     lines.append("\t\t\t\tMARKETING_VERSION = 0.1.0;")
     lines.append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.altitude.app;")
     lines.append('\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";')
-    lines.append(
-        "\t\t\t\tSWIFT_OBJC_BRIDGING_HEADER = "
-        "Altitude/Backend/Altitude-Bridging-Header.h;"
-    )
-    lines.append("\t\t\t\tSWIFT_STRICT_CONCURRENCY = complete;")
     lines.append("\t\t\t\tSWIFT_VERSION = 5.0;")
     lines.append("\t\t\t};")
     lines.append(f"\t\t\tname = {name};")
@@ -664,6 +568,7 @@ for oid, name in [(ids["test_debug_tgt"], "Debug"), (ids["test_release_tgt"], "R
     lines.append(f"\t\t{oid} /* {name} */ = {{")
     lines.append("\t\t\tisa = XCBuildConfiguration;")
     lines.append("\t\t\tbuildSettings = {")
+    lines.append("\t\t\t\tBUNDLE_LOADER = \"$(TEST_HOST)\";")
     lines.append('\t\t\t\tCODE_SIGN_IDENTITY = "-";')
     lines.append("\t\t\t\tCODE_SIGN_STYLE = Manual;")
     lines.append("\t\t\t\tCODE_SIGNING_ALLOWED = NO;")
@@ -679,12 +584,10 @@ for oid, name in [(ids["test_debug_tgt"], "Debug"), (ids["test_release_tgt"], "R
     lines.append("\t\t\t\tMARKETING_VERSION = 0.1.0;")
     lines.append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;")
     lines.append('\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";')
-    lines.append(
-        "\t\t\t\tSWIFT_OBJC_BRIDGING_HEADER = "
-        "Altitude/Backend/Altitude-Bridging-Header.h;"
-    )
-    lines.append("\t\t\t\tSWIFT_STRICT_CONCURRENCY = complete;")
     lines.append("\t\t\t\tSWIFT_VERSION = 5.0;")
+    lines.append(
+        '\t\t\t\tTEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";'
+    )
     lines.append("\t\t\t};")
     lines.append(f"\t\t\tname = {name};")
     lines.append("\t\t};")
