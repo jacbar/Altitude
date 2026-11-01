@@ -17,6 +17,9 @@ final class MenuBarController: NSObject {
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
     private var motionSuppressor: SystemMotionSuppressor?
+    private var settings: SettingsWindowController!
+
+    var currentConfig: AppConfig { config }
 
     init(spaceService: SpaceService, focusResolver: FocusedWindowResolver) {
         self.spaceService = spaceService
@@ -30,6 +33,8 @@ final class MenuBarController: NSObject {
                 self?.handle(action: action)
             }
         }
+        self.settings = SettingsWindowController(menuBar: self)
+        AppMenu.install(target: self)
 
         // Avoid autosave-name hide bugs on Tahoe; keep the item always visible.
         statusItem.autosaveName = nil
@@ -50,6 +55,7 @@ final class MenuBarController: NSObject {
         refreshSpacesAndHotkeys()
         startPolling()
         observeWorkspace()
+        settings.display(config)
         log.info("Status item created (visible=\(self.statusItem.isVisible, privacy: .public))")
     }
 
@@ -129,25 +135,29 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func refreshFromMenu() {
-        config = ConfigStore.load()
-        spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
-        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
-            log.error("Launch at Login reconcile failed after reload")
-            NSSound.beep()
-        }
-        updateSystemMotions()
-        refreshSpacesAndHotkeys()
-        buildMenu()
+        let loaded = ConfigStore.load()
+        apply(loaded, write: false)
     }
 
     @objc private func toggleLaunchAtLogin() {
-        let desired = LaunchAtLogin.toggledDesired
+        setLaunchAtLogin(LaunchAtLogin.toggledDesired)
+    }
+
+    @objc func showSettings() {
+        settings.display(config)
+        settings.show()
+    }
+
+    /// Updates Launch at Login via SMAppService, writes config, and rolls back on failure.
+    func setLaunchAtLogin(_ desired: Bool) {
         let previous = config.launchAtLogin
         do {
             try LaunchAtLogin.setEnabled(desired)
         } catch {
             log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
             NSSound.beep()
+            settings.display(config)
+            buildMenu()
             return
         }
 
@@ -163,9 +173,41 @@ final class MenuBarController: NSObject {
                 log.error("Could not roll back Launch at Login: \(error.localizedDescription, privacy: .public)")
             }
             NSSound.beep()
+            settings.display(config)
             buildMenu()
             return
         }
+        settings.display(config)
+        buildMenu()
+    }
+
+    /// Replaces in-memory config, optionally writes TOML, then reapplies hotkeys and motion.
+    func apply(_ newConfig: AppConfig, write: Bool) {
+        let previous = config
+        config = newConfig
+
+        if write {
+            do {
+                try ConfigStore.save(config)
+            } catch {
+                log.error("Could not write config: \(error.localizedDescription, privacy: .public)")
+                config = previous
+                NSSound.beep()
+                settings.display(config)
+                buildMenu()
+                return
+            }
+        }
+
+        spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
+        // Login-item edits use setLaunchAtLogin; other apply paths reconcile here.
+        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
+            log.error("Launch at Login reconcile failed")
+            NSSound.beep()
+        }
+        updateSystemMotions()
+        refreshSpacesAndHotkeys()
+        settings.display(config)
         buildMenu()
     }
 
@@ -225,11 +267,15 @@ final class MenuBarController: NSObject {
             menu.addItem(.separator())
         }
 
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
         let reload = NSMenuItem(title: "Reload Config", action: #selector(refreshFromMenu), keyEquivalent: "r")
         reload.target = self
         menu.addItem(reload)
 
-        let configItem = NSMenuItem(title: "Open Config…", action: #selector(openConfig), keyEquivalent: ",")
+        let configItem = NSMenuItem(title: "Open Config…", action: #selector(openConfig), keyEquivalent: "")
         configItem.target = self
         menu.addItem(configItem)
 
