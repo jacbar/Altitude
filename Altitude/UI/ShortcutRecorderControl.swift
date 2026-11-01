@@ -1,7 +1,18 @@
 import AppKit
 
-/// Button that displays a chord and records the next letter-with-modifiers press.
+/// Button that displays a shortcut and records the next press.
 final class ShortcutRecorderControl: NSButton {
+    enum Mode {
+        /// Windows chords: modifiers + letter (a–z).
+        case letterChord
+        /// Desktop switch/move: modifiers only (⌥, ⌥⇧, …).
+        case modifiersOnly
+    }
+
+    var mode: Mode = .letterChord {
+        didSet { refreshTitle() }
+    }
+
     var modifiers: ModifierFlags = .optionOnly {
         didSet { refreshTitle() }
     }
@@ -10,10 +21,15 @@ final class ShortcutRecorderControl: NSButton {
         didSet { refreshTitle() }
     }
 
+    /// Letter-chord recording (Windows).
     var onRecord: ((KeyChord) -> Void)?
+
+    /// Modifiers-only recording (Desktop).
+    var onRecordModifiers: ((ModifierFlags) -> Void)?
 
     private var isRecording = false
     private var monitor: Any?
+    private var pendingModifiers: ModifierFlags?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -39,11 +55,21 @@ final class ShortcutRecorderControl: NSButton {
         key = chord.key
     }
 
+    func display(modifiers: ModifierFlags) {
+        cancelRecording()
+        self.modifiers = modifiers
+    }
+
     private func refreshTitle() {
         if isRecording {
             title = "Type shortcut"
         } else {
-            title = shortcutSymbols(modifiers: modifiers, key: key)
+            switch mode {
+            case .letterChord:
+                title = shortcutSymbols(modifiers: modifiers, key: key)
+            case .modifiersOnly:
+                title = shortcutSymbols(modifiers: modifiers, key: nil)
+            }
         }
     }
 
@@ -57,16 +83,27 @@ final class ShortcutRecorderControl: NSButton {
 
     private func beginRecording() {
         isRecording = true
+        pendingModifiers = nil
         refreshTitle()
         stopMonitoring()
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleKey(event)
-            return nil
+
+        switch mode {
+        case .letterChord:
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                self?.handleLetterKey(event)
+                return nil
+            }
+        case .modifiersOnly:
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
+                self?.handleModifiersEvent(event)
+                return nil
+            }
         }
     }
 
     private func cancelRecording() {
         isRecording = false
+        pendingModifiers = nil
         stopMonitoring()
         refreshTitle()
     }
@@ -78,7 +115,7 @@ final class ShortcutRecorderControl: NSButton {
         }
     }
 
-    private func handleKey(_ event: NSEvent) {
+    private func handleLetterKey(_ event: NSEvent) {
         if event.keyCode == 53 { // Escape
             cancelRecording()
             return
@@ -90,13 +127,7 @@ final class ShortcutRecorderControl: NSButton {
             return
         }
 
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let proposed = ModifierFlags(
-            alt: flags.contains(.option),
-            shift: flags.contains(.shift),
-            ctrl: flags.contains(.control),
-            cmd: flags.contains(.command)
-        )
+        let proposed = modifiersFromEvent(event)
         guard proposed.hasAny else {
             NSSound.beep()
             return
@@ -105,5 +136,39 @@ final class ShortcutRecorderControl: NSButton {
         isRecording = false
         stopMonitoring()
         onRecord?(KeyChord(modifiers: proposed, key: letter))
+    }
+
+    private func handleModifiersEvent(_ event: NSEvent) {
+        if event.type == .keyDown {
+            if event.keyCode == 53 { // Escape
+                cancelRecording()
+            }
+            return
+        }
+
+        guard event.type == .flagsChanged else { return }
+
+        let proposed = modifiersFromEvent(event)
+        if proposed.hasAny {
+            pendingModifiers = proposed
+            return
+        }
+
+        guard let pending = pendingModifiers, pending.hasAny else { return }
+
+        isRecording = false
+        pendingModifiers = nil
+        stopMonitoring()
+        onRecordModifiers?(pending)
+    }
+
+    private func modifiersFromEvent(_ event: NSEvent) -> ModifierFlags {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        return ModifierFlags(
+            alt: flags.contains(.option),
+            shift: flags.contains(.shift),
+            ctrl: flags.contains(.control),
+            cmd: flags.contains(.command)
+        )
     }
 }
