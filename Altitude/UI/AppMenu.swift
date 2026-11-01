@@ -1,5 +1,6 @@
 import AppKit
 
+@MainActor
 enum AppMenu {
     /// Installs the Altitude + Edit main menu used while an Altitude window is key.
     static func install(target: AnyObject) {

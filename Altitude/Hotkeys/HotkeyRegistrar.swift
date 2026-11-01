@@ -7,7 +7,7 @@ private let log = Logger(subsystem: "com.altitude.app", category: "Hotkeys")
 
 private let altitudeHotKeySignature: OSType = 0x414C5431 // 'ALT1'
 
-enum HotkeyAction: Equatable {
+enum HotkeyAction: Equatable, Sendable {
     case switchTo(Int)
     case moveTo(Int)
     case maximizeAll
@@ -33,10 +33,10 @@ final class HotkeyRegistrar {
     private var handlerRef: EventHandlerRef?
     private var actionByID: [UInt32: HotkeyAction] = [:]
     private var applied: [HotkeyBinding]?
-    private let onAction: (HotkeyAction) -> Void
+    private let onAction: @Sendable (HotkeyAction) -> Void
     private let callbackContext = HotkeyCallbackContext()
 
-    init(onAction: @escaping (HotkeyAction) -> Void) {
+    init(onAction: @escaping @Sendable (HotkeyAction) -> Void) {
         self.onAction = onAction
         callbackContext.registrar = self
     }

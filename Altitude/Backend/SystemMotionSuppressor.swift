@@ -1,6 +1,6 @@
-import AppKit
+@preconcurrency import AppKit
 import ApplicationServices
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import Foundation
 import os.log
 
@@ -56,7 +56,8 @@ private final class MotionTapContext {
     weak var suppressor: SystemMotionSuppressor?
 }
 
-final class SystemMotionSuppressor: NSObject {
+@MainActor
+final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
     private struct Session {
         var targets: [SwitchTarget]
         var index: Int
@@ -110,10 +111,12 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     deinit {
-        let center = NSWorkspace.shared.notificationCenter
-        center.removeObserver(self)
-        tapContext.suppressor = nil
-        tearDownTaps()
+        MainActor.assumeIsolated {
+            let center = NSWorkspace.shared.notificationCenter
+            center.removeObserver(self)
+            tapContext.suppressor = nil
+            tearDownTaps()
+        }
     }
 
     func apply(_ newMode: SystemMotionMode) {
@@ -244,10 +247,13 @@ final class SystemMotionSuppressor: NSObject {
         guard let suppressor = context.suppressor else {
             return Unmanaged.passUnretained(event)
         }
-        if let forwarded = suppressor.handle(type: type, event: event) {
-            return Unmanaged.passUnretained(forwarded)
+        // Tap sources are installed on the main run loop.
+        return MainActor.assumeIsolated {
+            if let forwarded = suppressor.handle(type: type, event: event) {
+                return Unmanaged.passUnretained(forwarded)
+            }
+            return nil
         }
-        return nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {
@@ -914,6 +920,7 @@ final class SystemMotionSuppressor: NSObject {
 }
 
 /// Still row of running apps shown while Command is held. It does not fade or slide.
+@MainActor
 private final class AppSwitchHUD {
     private let panel: NSPanel
     private let effect: NSVisualEffectView
