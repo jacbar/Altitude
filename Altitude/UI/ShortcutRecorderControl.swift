@@ -30,6 +30,7 @@ final class ShortcutRecorderControl: NSButton {
     private var isRecording = false
     private var monitor: Any?
     private var pendingModifiers: ModifierFlags?
+    private var pollTimer: Timer?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -62,7 +63,11 @@ final class ShortcutRecorderControl: NSButton {
 
     private func refreshTitle() {
         if isRecording {
-            title = "Type shortcut"
+            if mode == .modifiersOnly, let pending = pendingModifiers, pending.hasAny {
+                title = shortcutSymbols(modifiers: pending, key: nil)
+            } else {
+                title = "Type shortcut"
+            }
         } else {
             switch mode {
             case .letterChord:
@@ -94,10 +99,26 @@ final class ShortcutRecorderControl: NSButton {
                 return nil
             }
         case .modifiersOnly:
+            // Pass flagsChanged through so AppKit keeps modifier state coherent;
+            // also poll NSEvent.modifierFlags so multi-modifier chords still
+            // register if individual flagsChanged events are coalesced/missed.
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
-                self?.handleModifiersEvent(event)
-                return nil
+                guard let self else { return event }
+                if event.type == .keyDown {
+                    if event.keyCode == 53 { // Escape
+                        self.cancelRecording()
+                        return nil
+                    }
+                    return nil
+                }
+                self.captureModifiers(Self.modifiers(from: event.modifierFlags))
+                return event
             }
+            let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                self?.pollModifierFlags()
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            pollTimer = timer
         }
     }
 
@@ -109,6 +130,8 @@ final class ShortcutRecorderControl: NSButton {
     }
 
     private func stopMonitoring() {
+        pollTimer?.invalidate()
+        pollTimer = nil
         if let monitor {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
@@ -127,7 +150,7 @@ final class ShortcutRecorderControl: NSButton {
             return
         }
 
-        let proposed = modifiersFromEvent(event)
+        let proposed = Self.modifiers(from: event.modifierFlags)
         guard proposed.hasAny else {
             NSSound.beep()
             return
@@ -138,21 +161,17 @@ final class ShortcutRecorderControl: NSButton {
         onRecord?(KeyChord(modifiers: proposed, key: letter))
     }
 
-    private func handleModifiersEvent(_ event: NSEvent) {
-        if event.type == .keyDown {
-            if event.keyCode == 53 { // Escape
-                cancelRecording()
-            }
-            return
-        }
+    private func pollModifierFlags() {
+        guard isRecording, mode == .modifiersOnly else { return }
+        captureModifiers(Self.modifiers(from: NSEvent.modifierFlags))
+    }
 
-        guard event.type == .flagsChanged else { return }
+    private func captureModifiers(_ proposed: ModifierFlags) {
+        guard isRecording, mode == .modifiersOnly else { return }
 
-        let proposed = modifiersFromEvent(event)
         if proposed.hasAny {
-            // Union while keys are held so releasing ⌥⇧ one-at-a-time still
-            // records the full chord instead of collapsing to the last key.
-            pendingModifiers = union(pendingModifiers ?? proposed, proposed)
+            pendingModifiers = Self.union(pendingModifiers ?? proposed, proposed)
+            refreshTitle()
             return
         }
 
@@ -161,20 +180,21 @@ final class ShortcutRecorderControl: NSButton {
         isRecording = false
         pendingModifiers = nil
         stopMonitoring()
+        refreshTitle()
         onRecordModifiers?(pending)
     }
 
-    private func modifiersFromEvent(_ event: NSEvent) -> ModifierFlags {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    private static func modifiers(from flags: NSEvent.ModifierFlags) -> ModifierFlags {
+        let masked = flags.intersection([.option, .shift, .control, .command])
         return ModifierFlags(
-            alt: flags.contains(.option),
-            shift: flags.contains(.shift),
-            ctrl: flags.contains(.control),
-            cmd: flags.contains(.command)
+            alt: masked.contains(.option),
+            shift: masked.contains(.shift),
+            ctrl: masked.contains(.control),
+            cmd: masked.contains(.command)
         )
     }
 
-    private func union(_ a: ModifierFlags, _ b: ModifierFlags) -> ModifierFlags {
+    private static func union(_ a: ModifierFlags, _ b: ModifierFlags) -> ModifierFlags {
         ModifierFlags(
             alt: a.alt || b.alt,
             shift: a.shift || b.shift,
