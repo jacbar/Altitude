@@ -25,56 +25,56 @@ final class ShortcutEditingTests: XCTestCase {
         let proposed = ModifierFlags(alt: false, shift: false, ctrl: true, cmd: false)
         XCTAssertEqual(
             validatedDesktopModifiers(current: current, other: other, proposed: proposed),
-            proposed
+            .accepted(proposed)
         )
     }
 
-    func testValidatedDesktopModifiersRejectsEmpty() {
+    func testValidatedDesktopModifiersRejectsEmptyAsInvalid() {
         let current = ModifierFlags.optionOnly
         let other = ModifierFlags.optionShift
         let empty = ModifierFlags(alt: false, shift: false, ctrl: false, cmd: false)
         XCTAssertEqual(
             validatedDesktopModifiers(current: current, other: other, proposed: empty),
-            current
+            .invalid
         )
     }
 
-    func testValidatedDesktopModifiersRejectsIdentical() {
+    func testValidatedDesktopModifiersRejectsIdenticalAsConflict() {
         let current = ModifierFlags.optionOnly
         let other = ModifierFlags.optionShift
         XCTAssertEqual(
             validatedDesktopModifiers(current: current, other: other, proposed: other),
-            current
+            .conflict
         )
     }
 
-    func testValidatedWindowChordRejectsNonLetter() {
+    func testValidatedWindowChordRejectsNonLetterAsInvalid() {
         let current = KeyChord.maximizeDefault
         let other = KeyChord.equalSplitDefault
         let proposed = KeyChord(modifiers: .controlOption, key: "1")
         XCTAssertEqual(
             validatedWindowChord(current: current, other: other, proposed: proposed),
-            current
+            .invalid
         )
     }
 
-    func testValidatedWindowChordRejectsModifierFree() {
+    func testValidatedWindowChordRejectsModifierFreeAsInvalid() {
         let current = KeyChord.maximizeDefault
         let other = KeyChord.equalSplitDefault
         let none = ModifierFlags(alt: false, shift: false, ctrl: false, cmd: false)
         let proposed = KeyChord(modifiers: none, key: "f")
         XCTAssertEqual(
             validatedWindowChord(current: current, other: other, proposed: proposed),
-            current
+            .invalid
         )
     }
 
-    func testValidatedWindowChordRejectsDuplicate() {
+    func testValidatedWindowChordRejectsDuplicateAsConflict() {
         let current = KeyChord.maximizeDefault
         let other = KeyChord.equalSplitDefault
         XCTAssertEqual(
             validatedWindowChord(current: current, other: other, proposed: other),
-            current
+            .conflict
         )
     }
 
@@ -84,7 +84,7 @@ final class ShortcutEditingTests: XCTestCase {
         let proposed = KeyChord(modifiers: .controlOption, key: "X")
         XCTAssertEqual(
             validatedWindowChord(current: current, other: other, proposed: proposed),
-            KeyChord(modifiers: .controlOption, key: "x")
+            .accepted(KeyChord(modifiers: .controlOption, key: "x"))
         )
     }
 }
