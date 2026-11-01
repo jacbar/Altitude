@@ -22,6 +22,24 @@ private struct SwitchTarget {
 
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
+/// Which system-motion behaviors the event taps should drive.
+struct SystemMotionMode: Equatable, Sendable {
+    /// Swallow trackpad Space swipes, Control-Left/Right, and hop on external app activation.
+    var suppressDesktopMotion: Bool
+    /// Replace the system Command-Tab switcher with Altitude's window row.
+    var commandTabEnabled: Bool
+    /// Skip the slide when landing on the highlighted Command-Tab window.
+    var commandTabInstantLanding: Bool
+
+    var wantsTaps: Bool { suppressDesktopMotion || commandTabEnabled }
+
+    static let off = SystemMotionMode(
+        suppressDesktopMotion: false,
+        commandTabEnabled: false,
+        commandTabInstantLanding: false
+    )
+}
+
 /// Replaces animated Space changes from the trackpad, Control-Left/Right, Command-Tab,
 /// and external activation of an already-running app on another Space.
 ///
@@ -52,6 +70,7 @@ final class SystemMotionSuppressor: NSObject {
     private var keyTap: CFMachPort?
     private var keySource: CFRunLoopSource?
     private var didLogTapFailure = false
+    private var mode: SystemMotionMode = .off
 
     private var swallowingSwipe = false
     private var postedForSwipe = false
@@ -97,7 +116,27 @@ final class SystemMotionSuppressor: NSObject {
         tearDownTaps()
     }
 
-    func start() {
+    func apply(_ newMode: SystemMotionMode) {
+        let previous = mode
+        mode = newMode
+
+        if previous.commandTabEnabled, !newMode.commandTabEnabled {
+            cancelSession()
+        }
+
+        if !newMode.wantsTaps {
+            stop()
+            return
+        }
+
+        if gestureTap != nil || keyTap != nil {
+            // Taps already installed; mode flags update in place.
+            return
+        }
+        startTaps()
+    }
+
+    private func startTaps() {
         guard gestureTap == nil, keyTap == nil else { return }
         guard AXIsProcessTrusted() else {
             logTapFailure("Accessibility is required to disable trackpad, Control-arrow, and Command-Tab motion")
@@ -136,10 +175,10 @@ final class SystemMotionSuppressor: NSObject {
         }
 
         didLogTapFailure = false
-        log.info("System motion suppression is on")
+        log.info("System motion taps are on")
     }
 
-    func stop() {
+    private func stop() {
         cancelSession()
         pendingActivation = nil
         activationFallback?.cancel()
@@ -226,19 +265,21 @@ final class SystemMotionSuppressor: NSObject {
         if DockSwipeSwitcher.isOwnEvent(event) {
             return event
         }
-        if swallowingSwipe, Date() > swipeDeadline {
-            swallowingSwipe = false
-            postedForSwipe = false
-            swipePeak = 0
-            swipeDirection = nil
-        }
+        if mode.suppressDesktopMotion {
+            if swallowingSwipe, Date() > swipeDeadline {
+                swallowingSwipe = false
+                postedForSwipe = false
+                swipePeak = 0
+                swipeDirection = nil
+            }
 
-        if let swipe = DockSwipeSwitcher.horizontalSwipe(in: event) {
-            consume(swipe)
-            return nil
-        }
-        if swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
-            return nil
+            if let swipe = DockSwipeSwitcher.horizontalSwipe(in: event) {
+                consume(swipe)
+                return nil
+            }
+            if swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
+                return nil
+            }
         }
         return handleKeyboard(type: type, event: event)
     }
@@ -289,12 +330,14 @@ final class SystemMotionSuppressor: NSObject {
             return handleSwitcherKey(type: type, event: event)
         }
 
-        if let direction = controlArrowDirection(type: type, event: event) {
+        if mode.suppressDesktopMotion, let direction = controlArrowDirection(type: type, event: event) {
             if type == .keyDown, event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
                 _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
             }
             return nil
         }
+
+        guard mode.commandTabEnabled else { return event }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let command = event.flags.contains(.maskCommand)
@@ -434,10 +477,16 @@ final class SystemMotionSuppressor: NSObject {
         guard session.targets.indices.contains(session.index), session.index != 0 else { return }
         let target = session.targets[session.index]
         let spaces = target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? []
-        switch spaceService.switchInstantly(toPreferredSpaceAmong: spaces) {
+        let instant = mode.commandTabInstantLanding
+        switch spaceService.switchToPreferredSpace(among: spaces, instant: instant) {
         case .posted(let steps):
-            // Let the instant swipe land before activation, or macOS starts its own slide.
-            let delay = 0.08 + 0.06 * Double(max(steps, 1))
+            // Let the swipe land before activation, or macOS starts its own slide.
+            let delay: TimeInterval
+            if instant {
+                delay = 0.08 + 0.06 * Double(max(steps, 1))
+            } else {
+                delay = DockSwipeSwitcher.estimatedDuration(steps: steps, instant: false) + 0.08
+            }
             armActivation(of: target, after: delay)
         case .alreadyThere, .otherDisplay, .unavailable:
             activate(target)
@@ -849,8 +898,9 @@ final class SystemMotionSuppressor: NSObject {
         mru.removeAll { $0 == app.processIdentifier }
         mru.insert(app.processIdentifier, at: 0)
 
-        // Hop only while suppression is running. Skip Command-Tab and our own activates.
+        // Keep MRU while taps are running. Hop only when desktop motion is suppressed.
         guard gestureTap != nil else { return }
+        guard mode.suppressDesktopMotion else { return }
         if session != nil || isActivatingInternally || pendingActivation != nil { return }
         hopForExternalActivation(of: app)
     }

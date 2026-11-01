@@ -62,6 +62,8 @@ protocol SpaceService: AnyObject {
     func snapshot() -> SpaceSnapshot
     func switchTo(index: Int) throws
     func moveFocusedWindow(to index: Int) throws
+    /// Jump the active display to the closest candidate Space, optionally with no slide.
+    func switchToPreferredSpace(among spaceIDs: [CGSSpaceID], instant: Bool) -> InstantSwitchResult
     /// Jump the active display to the closest candidate Space with no slide.
     func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult
     /// Move one Space on the active display with no slide. At the first/last Space, returns `.alreadyThere` and posts nothing.
