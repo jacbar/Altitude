@@ -150,7 +150,9 @@ final class ShortcutRecorderControl: NSButton {
 
         let proposed = modifiersFromEvent(event)
         if proposed.hasAny {
-            pendingModifiers = proposed
+            // Union while keys are held so releasing ⌥⇧ one-at-a-time still
+            // records the full chord instead of collapsing to the last key.
+            pendingModifiers = union(pendingModifiers ?? proposed, proposed)
             return
         }
 
@@ -169,6 +171,15 @@ final class ShortcutRecorderControl: NSButton {
             shift: flags.contains(.shift),
             ctrl: flags.contains(.control),
             cmd: flags.contains(.command)
+        )
+    }
+
+    private func union(_ a: ModifierFlags, _ b: ModifierFlags) -> ModifierFlags {
+        ModifierFlags(
+            alt: a.alt || b.alt,
+            shift: a.shift || b.shift,
+            ctrl: a.ctrl || b.ctrl,
+            cmd: a.cmd || b.cmd
         )
     }
 }
