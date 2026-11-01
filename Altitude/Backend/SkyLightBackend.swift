@@ -91,7 +91,7 @@ final class SkyLightBackend: SpaceService {
         )
     }
 
-    func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult {
+    func switchToPreferredSpace(among spaceIDs: [CGSSpaceID], instant: Bool) -> InstantSwitchResult {
         guard focusResolver.isAccessibilityTrusted else { return .unavailable }
         let layout = readLayout()
         guard let activeDisplayID = activeDisplayIdentifier(in: layout),
@@ -115,8 +115,12 @@ final class SkyLightBackend: SpaceService {
         if target.1 == from {
             return .alreadyThere
         }
-        performSwipe(on: display, from: from, to: target.1, destinationID: target.0, instant: true)
+        performSwipe(on: display, from: from, to: target.1, destinationID: target.0, instant: instant)
         return .posted(steps: abs(target.1 - from))
+    }
+
+    func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult {
+        switchToPreferredSpace(among: spaceIDs, instant: true)
     }
 
     func moveOneSpaceInstantly(direction: SpaceHopDirection) -> InstantSwitchResult {

@@ -1,39 +1,62 @@
 # Stowable Altitude config.
 # Copy to ~/.config/altitude/config.toml (or symlink via GNU Stow).
 
-version = 1
+version = 2
 
 [app]
-# When true, Altitude registers with macOS Login Items (SMAppService) and starts at login.
+# When true, Altitude registers with macOS Login Items and starts at login.
 # The menu bar "Launch at Login" item toggles this and writes it back to this file.
 launch_at_login = false
 
-[spaces]
-# When true, switches jump through Spaces as fast as the Dock allows instead of
-# playing a trackpad-like slide for each desktop crossed.
-disable_animations = false
-# When true, a trackpad Space swipe, Control-Left/Right, and Command-Tab cut straight across.
-# Activating a running app on another same-display Space (Raycast, Spotlight, Dock, etc.)
-# also hops there with no slide; the window is not moved onto the current Space.
-# Command-Tab shows each open window (including windows on other Spaces). Windows of
-# one app form one contiguous block with the front app leftmost; opening Tab highlights
-# the first window of the next app; later Tab and arrow moves step one window.
-# Left and Right move the highlight while Command is held; Command-Q quits and
-# Command-H hides the highlighted app. The highlighted name is that window's title.
-# Hotkey slides stay under disable_animations. Off by default — set true to enable.
-disable_system_motions = false
-
-[hotkeys]
-# option+N switches to desktop N; option+shift+N moves the focused window.
-switch_enabled = true
-move_enabled = true
+[desktop]
+# Switch and move desktops with digit hotkeys; optionally skip Space slides.
+enabled = true
+# When true (and desktop is enabled), hotkey switches, trackpad Space swipes,
+# Control-Left/Right, and activating an app already on another same-display Space
+# jump with no slide and no edge bounce.
+disable_motion = false
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
 
-[arrange]
-# Control+Option+F maximizes every included window to the same inset visible frame.
-# Control+Option+A lays them out in equal columns. margin (points) is the outer inset
-# and the gap between columns. Both flags default true; a disabled chord is not registered.
+[desktop.switch]
+# Default: Option+digit.
+alt = true
+shift = false
+ctrl = false
+cmd = false
+
+[desktop.move]
+# Default: Option+Shift+digit.
+alt = true
+shift = true
+ctrl = false
+cmd = false
+
+[command_tab]
+# When false, macOS keeps the system app switcher. When true, Altitude shows a
+# still row of open windows (Tab / Shift-Tab / arrows, Command-Q, Command-H, Escape).
+enabled = false
+# When true (and Command-Tab is enabled), landing on the highlighted window skips the slide.
+disable_motion = false
+
+[window_management]
+# Maximize and equal-split chords for windows on the desktop under the pointer.
+enabled = true
+# Outer inset and gap between equal-split columns (points).
 margin = 8
-maximize_enabled = true
-columns_enabled = true
+
+[window_management.maximize]
+# Default: Control+Option+F.
+alt = true
+shift = false
+ctrl = true
+cmd = false
+key = f
+
+[window_management.equal_split]
+# Default: Control+Option+A.
+alt = true
+shift = false
+ctrl = true
+cmd = false
+key = a

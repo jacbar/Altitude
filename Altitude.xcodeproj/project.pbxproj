@@ -25,6 +25,10 @@
 		B20000000000000000000015 /* WindowArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* WindowArrangement.swift */; };
 		B20000000000000000000016 /* WindowArranger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* WindowArranger.swift */; };
 		B20000000000000000000017 /* CommandTabOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* CommandTabOrder.swift */; };
+		B20000000000000000000018 /* ShortcutChord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* ShortcutChord.swift */; };
+		B20000000000000000000019 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
+		B20000000000000000000020 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
+		B20000000000000000000021 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -65,6 +69,10 @@
 		B10000000000000000000015 /* WindowArrangement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangement.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* WindowArranger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArranger.swift; sourceTree = "<group>"; };
 		B10000000000000000000017 /* CommandTabOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabOrder.swift; sourceTree = "<group>"; };
+		B10000000000000000000018 /* ShortcutChord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutChord.swift; sourceTree = "<group>"; };
+		B10000000000000000000019 /* DesktopFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopFeature.swift; sourceTree = "<group>"; };
+		B10000000000000000000020 /* CommandTabFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabFeature.swift; sourceTree = "<group>"; };
+		B10000000000000000000021 /* WindowManagementFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManagementFeature.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -129,6 +137,7 @@
 				B10000000000000000000001 /* AppDelegate.swift */,
 				A10000000000000000000014 /* Backend */,
 				A10000000000000000000015 /* Domain */,
+				A10000000000000000000030 /* Features */,
 				A10000000000000000000016 /* Hotkeys */,
 				A10000000000000000000017 /* UI */,
 				A10000000000000000000018 /* Resources */,
@@ -161,8 +170,43 @@
 				B10000000000000000000014 /* HotkeyBounds.swift */,
 				B10000000000000000000015 /* WindowArrangement.swift */,
 				B10000000000000000000017 /* CommandTabOrder.swift */,
+				B10000000000000000000018 /* ShortcutChord.swift */,
 			);
 			path = Domain;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000030 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000031 /* Desktop */,
+				A10000000000000000000032 /* CommandTab */,
+				A10000000000000000000033 /* WindowManagement */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000031 /* Desktop */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000019 /* DesktopFeature.swift */,
+			);
+			path = Desktop;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000032 /* CommandTab */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000020 /* CommandTabFeature.swift */,
+			);
+			path = CommandTab;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000033 /* WindowManagement */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000021 /* WindowManagementFeature.swift */,
+			);
+			path = WindowManagement;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000016 /* Hotkeys */ = {
@@ -308,6 +352,10 @@
 				B20000000000000000000015 /* WindowArrangement.swift in Sources */,
 				B20000000000000000000016 /* WindowArranger.swift in Sources */,
 				B20000000000000000000017 /* CommandTabOrder.swift in Sources */,
+				B20000000000000000000018 /* ShortcutChord.swift in Sources */,
+				B20000000000000000000019 /* DesktopFeature.swift in Sources */,
+				B20000000000000000000020 /* CommandTabFeature.swift in Sources */,
+				B20000000000000000000021 /* WindowManagementFeature.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

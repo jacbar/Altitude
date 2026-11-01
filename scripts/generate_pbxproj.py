@@ -22,6 +22,10 @@ sources = [
     "Altitude/Domain/WindowArrangement.swift",
     "Altitude/Backend/WindowArranger.swift",
     "Altitude/Domain/CommandTabOrder.swift",
+    "Altitude/Domain/ShortcutChord.swift",
+    "Altitude/Features/Desktop/DesktopFeature.swift",
+    "Altitude/Features/CommandTab/CommandTabFeature.swift",
+    "Altitude/Features/WindowManagement/WindowManagementFeature.swift",
 ]
 
 test_sources = [
@@ -58,6 +62,11 @@ ids = {
     "resources_group": "A10000000000000000000018",
     "config_example": "A10000000000000000000019",
     "config_example_build": "A1000000000000000000001A",
+    # Features group (new ids; do not collide with A1… / B1… / C1…)
+    "features_group": "A10000000000000000000030",
+    "features_desktop_group": "A10000000000000000000031",
+    "features_command_tab_group": "A10000000000000000000032",
+    "features_window_management_group": "A10000000000000000000033",
     # AltitudeTests unit-test target
     "test_target": "C10000000000000000000001",
     "test_sources_phase": "C10000000000000000000002",
@@ -225,6 +234,9 @@ backend_srcs = [s for s in sources if "/Backend/" in s]
 domain_srcs = [s for s in sources if "/Domain/" in s]
 hotkeys_srcs = [s for s in sources if "/Hotkeys/" in s]
 ui_srcs = [s for s in sources if "/UI/" in s]
+features_desktop_srcs = [s for s in sources if "/Features/Desktop/" in s]
+features_command_tab_srcs = [s for s in sources if "/Features/CommandTab/" in s]
+features_window_management_srcs = [s for s in sources if "/Features/WindowManagement/" in s]
 root_srcs = [s for s in sources if s.count("/") == 1]
 
 lines.append("/* Begin PBXFrameworksBuildPhase section */")
@@ -277,6 +289,7 @@ altitude_children = (
     + [
         f"{ids['backend_group']} /* Backend */",
         f"{ids['domain_group']} /* Domain */",
+        f"{ids['features_group']} /* Features */",
         f"{ids['hotkeys_group']} /* Hotkeys */",
         f"{ids['ui_group']} /* UI */",
         f"{ids['resources_group']} /* Resources */",
@@ -296,6 +309,34 @@ emit_group(
     "Domain",
     "Domain",
     [f"{file_ids[s]} /* {Path(s).name} */" for s in domain_srcs],
+)
+emit_group(
+    ids["features_group"],
+    "Features",
+    "Features",
+    [
+        f"{ids['features_desktop_group']} /* Desktop */",
+        f"{ids['features_command_tab_group']} /* CommandTab */",
+        f"{ids['features_window_management_group']} /* WindowManagement */",
+    ],
+)
+emit_group(
+    ids["features_desktop_group"],
+    "Desktop",
+    "Desktop",
+    [f"{file_ids[s]} /* {Path(s).name} */" for s in features_desktop_srcs],
+)
+emit_group(
+    ids["features_command_tab_group"],
+    "CommandTab",
+    "CommandTab",
+    [f"{file_ids[s]} /* {Path(s).name} */" for s in features_command_tab_srcs],
+)
+emit_group(
+    ids["features_window_management_group"],
+    "WindowManagement",
+    "WindowManagement",
+    [f"{file_ids[s]} /* {Path(s).name} */" for s in features_window_management_srcs],
 )
 emit_group(
     ids["hotkeys_group"],

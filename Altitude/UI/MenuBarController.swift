@@ -42,7 +42,7 @@ final class MenuBarController: NSObject {
             button.appearsDisabled = false
         }
 
-        spaceService.instantSwitching = config.disableAnimations
+        spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
         if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
             log.error("Launch at Login reconcile failed during launch")
         }
@@ -119,7 +119,8 @@ final class MenuBarController: NSObject {
             NSSound.beep()
             return
         }
-        switch arranger.arrange(action, margin: config.arrangeMargin, on: spaceID, screen: screen) {
+        let margin = WindowManagementFeature.margin(config: config)
+        switch arranger.arrange(action, margin: margin, on: spaceID, screen: screen) {
         case .applied(let count):
             log.info("Arranged \(count) window(s)")
         case .accessibilityDenied, .nothingToDo:
@@ -129,7 +130,7 @@ final class MenuBarController: NSObject {
 
     @objc private func refreshFromMenu() {
         config = ConfigStore.load()
-        spaceService.instantSwitching = config.disableAnimations
+        spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
         if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
             log.error("Launch at Login reconcile failed after reload")
             NSSound.beep()
@@ -205,23 +206,24 @@ final class MenuBarController: NSObject {
             menu.addItem(.separator())
         }
 
-        if lastSnapshot.spaces.isEmpty {
-            menu.addItem(NSMenuItem(title: "No Spaces detected", action: nil, keyEquivalent: ""))
-        } else {
-            for space in lastSnapshot.spaces {
-                let title = space.isCurrent ? "Desktop \(space.index) ✓" : "Desktop \(space.index)"
-                let item = NSMenuItem(
-                    title: title,
-                    action: #selector(switchToSpaceFromMenu(_:)),
-                    keyEquivalent: ""
-                )
-                item.target = self
-                item.tag = space.index
-                menu.addItem(item)
+        if config.desktop.enabled {
+            if lastSnapshot.spaces.isEmpty {
+                menu.addItem(NSMenuItem(title: "No Spaces detected", action: nil, keyEquivalent: ""))
+            } else {
+                for space in lastSnapshot.spaces {
+                    let title = space.isCurrent ? "Desktop \(space.index) ✓" : "Desktop \(space.index)"
+                    let item = NSMenuItem(
+                        title: title,
+                        action: #selector(switchToSpaceFromMenu(_:)),
+                        keyEquivalent: ""
+                    )
+                    item.target = self
+                    item.tag = space.index
+                    menu.addItem(item)
+                }
             }
+            menu.addItem(.separator())
         }
-
-        menu.addItem(.separator())
 
         let reload = NSMenuItem(title: "Reload Config", action: #selector(refreshFromMenu), keyEquivalent: "r")
         reload.target = self
@@ -231,11 +233,14 @@ final class MenuBarController: NSObject {
         configItem.target = self
         menu.addItem(configItem)
 
-        if config.disableAnimations {
-            menu.addItem(NSMenuItem(title: "Instant switching (config)", action: nil, keyEquivalent: ""))
+        if DesktopFeature.instantSwitching(config: config) {
+            menu.addItem(NSMenuItem(title: "Desktop motion on", action: nil, keyEquivalent: ""))
         }
-        if config.disableSystemMotions {
-            menu.addItem(NSMenuItem(title: "Trackpad, Control-arrows, and Command-Tab are instant (config)", action: nil, keyEquivalent: ""))
+        if config.commandTab.enabled {
+            menu.addItem(NSMenuItem(title: "Command-Tab on", action: nil, keyEquivalent: ""))
+        }
+        if config.commandTab.enabled && config.commandTab.disableMotion {
+            menu.addItem(NSMenuItem(title: "Command-Tab landing skips the slide", action: nil, keyEquivalent: ""))
         }
 
         menu.addItem(.separator())
@@ -259,7 +264,9 @@ final class MenuBarController: NSObject {
 
     private func refreshSpacesAndHotkeys() {
         lastSnapshot = spaceService.snapshot()
-        hotkeys.apply(config: config, spaceCount: lastSnapshot.spaces.count)
+        let bindings = DesktopFeature.bindings(config: config, spaceCount: lastSnapshot.spaces.count)
+            + WindowManagementFeature.bindings(config: config)
+        hotkeys.apply(bindings)
         refreshIndicator()
         buildMenu()
     }
@@ -299,7 +306,9 @@ final class MenuBarController: NSObject {
             || snapshot.currentIndex != lastSnapshot.currentIndex
         {
             lastSnapshot = snapshot
-            hotkeys.apply(config: config, spaceCount: snapshot.spaces.count)
+            let bindings = DesktopFeature.bindings(config: config, spaceCount: snapshot.spaces.count)
+                + WindowManagementFeature.bindings(config: config)
+            hotkeys.apply(bindings)
             refreshIndicator()
             buildMenu()
         }
@@ -307,13 +316,14 @@ final class MenuBarController: NSObject {
     }
 
     private func updateSystemMotions() {
-        if config.disableSystemMotions {
+        let mode = CommandTabFeature.motionMode(config: config)
+        if mode.wantsTaps {
             if motionSuppressor == nil {
                 motionSuppressor = SystemMotionSuppressor(spaceService: spaceService)
             }
-            motionSuppressor?.start()
+            motionSuppressor?.apply(mode)
         } else {
-            motionSuppressor?.stop()
+            motionSuppressor?.apply(.off)
         }
     }
 
