@@ -21,7 +21,7 @@ Switch Mission Control desktops and move the focused window with digit hotkeys. 
 ### Command-Tab
 
 - **`enabled = false` (default)** — leave the system app switcher alone
-- **`enabled = true`** — Altitude window switcher: a still row of open windows (including windows on other Spaces). Tab / Shift-Tab / arrows move the highlight; Command-Q quits and Command-H hides the highlighted app; Escape cancels; release Command (or any key without Command held) to land. The session also ends after 10 seconds with no switcher input, and if the event tap is disabled, so a stuck session cannot swallow keys
+- **`enabled = true`** — Altitude window switcher: a still row of open windows (including windows on other Spaces). Tab / Shift-Tab / arrows move the highlight; Command-Q quits and Command-H hides the highlighted app; Escape cancels; release Command to land
 - **`disable_motion`** — applies only while Command-Tab is enabled, and only skips the slide when landing on the highlighted window. It does not change trackpad, Control-arrow, or hotkey motion
 
 Both `disable_motion` flags may be on together.

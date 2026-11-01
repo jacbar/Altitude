@@ -61,7 +61,7 @@ final class WindowArranger {
             targets = rects
         }
 
-        guard let primaryMaxY = NSScreen.screens.first?.frame.maxY else {
+        guard let primaryMaxY = NSScreen.screens.map(\.frame.maxY).max() else {
             return .nothingToDo
         }
 
@@ -120,44 +120,35 @@ final class WindowArranger {
     }
 
     private func include(_ element: AXUIElement, on spaceID: CGSSpaceID) -> Candidate? {
-        let role = AXRead.string(element, kAXRoleAttribute as String)
+        let role = axString(element, kAXRoleAttribute as String)
         guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
 
-        let subrole = AXRead.string(element, kAXSubroleAttribute as String)
+        let subrole = axString(element, kAXSubroleAttribute as String)
         guard subrole.isEmpty || subrole == Self.standardWindowSubrole else { return nil }
 
-        if AXRead.bool(element, kAXMinimizedAttribute as String) { return nil }
-        if AXRead.bool(element, Self.fullScreenAttribute) { return nil }
+        if axBool(element, kAXMinimizedAttribute as String) { return nil }
+        if axBool(element, Self.fullScreenAttribute) { return nil }
 
-        guard let size = AXRead.size(element), size.width > 0, size.height > 0 else { return nil }
+        guard let size = axSize(element), size.width > 0, size.height > 0 else { return nil }
 
-        let windowID = AXRead.windowID(element)
-        guard windowID != 0 else { return nil }
+        var windowID: CGWindowID = 0
+        guard _AXUIElementGetWindow(element, &windowID) == .success, windowID != 0 else { return nil }
         guard CGSPrivate.spaceIDs(forWindow: windowID).contains(spaceID) else { return nil }
 
-        guard let position = AXRead.position(element) else { return nil }
+        guard let position = axPosition(element) else { return nil }
         return Candidate(element: element, position: position)
     }
 
     private func setFrame(_ element: AXUIElement, to rect: CGRect, primaryMaxY: CGFloat) -> Bool {
         AXUIElementSetMessagingTimeout(element, Self.axTimeoutSeconds)
-        let axOrigin = WindowArrangement.accessibilityOrigin(cocoaRect: rect, primaryScreenMaxY: primaryMaxY)
+        let axOrigin = CGPoint(x: rect.minX, y: primaryMaxY - rect.maxY)
         let size = rect.size
 
         // Position first so growing a window near an edge is not rejected as off-screen.
-        // A second pass runs only when the frame read back still differs.
+        // A second pass is needed for apps that clamp or ignore the first write.
         let first = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
-        if first {
-            if let readBack = readCocoaFrame(element, primaryMaxY: primaryMaxY),
-               WindowArrangement.needsAnotherPass(written: rect, readBack: readBack)
-            {
-                if applyFrame(element, origin: axOrigin, size: size, positionFirst: true) {
-                    return true
-                }
-            } else {
-                return true
-            }
-        }
+        let second = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
+        if first || second { return true }
 
         // Last resort: size then position (matches some older AX clients).
         let fallback = applyFrame(element, origin: axOrigin, size: size, positionFirst: false)
@@ -165,12 +156,6 @@ final class WindowArranger {
             log.error("AX frame set failed for window at (\(rect.midX), \(rect.midY))")
         }
         return fallback
-    }
-
-    private func readCocoaFrame(_ element: AXUIElement, primaryMaxY: CGFloat) -> CGRect? {
-        guard let origin = AXRead.position(element), let size = AXRead.size(element) else { return nil }
-        let cocoaY = primaryMaxY - (origin.y + size.height)
-        return CGRect(x: origin.x, y: cocoaY, width: size.width, height: size.height)
     }
 
     private func applyFrame(
@@ -205,5 +190,47 @@ final class WindowArranger {
             return false
         }
         return true
+    }
+
+    private func axString(_ element: AXUIElement, _ attribute: String) -> String {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else {
+            return ""
+        }
+        return ((ref as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func axBool(_ element: AXUIElement, _ attribute: String) -> Bool {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else {
+            return false
+        }
+        return (ref as? Bool) ?? false
+    }
+
+    private func axSize(_ element: AXUIElement) -> CGSize? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &ref) == .success,
+              let ref,
+              CFGetTypeID(ref) == AXValueGetTypeID()
+        else {
+            return nil
+        }
+        var size = CGSize.zero
+        guard AXValueGetValue(ref as! AXValue, .cgSize, &size) else { return nil }
+        return size
+    }
+
+    private func axPosition(_ element: AXUIElement) -> CGPoint? {
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &ref) == .success,
+              let ref,
+              CFGetTypeID(ref) == AXValueGetTypeID()
+        else {
+            return nil
+        }
+        var point = CGPoint.zero
+        guard AXValueGetValue(ref as! AXValue, .cgPoint, &point) else { return nil }
+        return point
     }
 }

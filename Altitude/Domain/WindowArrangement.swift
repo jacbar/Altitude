@@ -1,19 +1,6 @@
 import CoreGraphics
 
 enum WindowArrangement {
-    /// Convert a Cocoa bottom-left rect into the Accessibility top-left origin.
-    static func accessibilityOrigin(cocoaRect: CGRect, primaryScreenMaxY: CGFloat) -> CGPoint {
-        CGPoint(x: cocoaRect.minX, y: primaryScreenMaxY - cocoaRect.maxY)
-    }
-
-    /// True when the frame read back after a write still differs beyond `tolerance`.
-    static func needsAnotherPass(written: CGRect, readBack: CGRect, tolerance: CGFloat = 1) -> Bool {
-        abs(written.origin.x - readBack.origin.x) > tolerance
-            || abs(written.origin.y - readBack.origin.y) > tolerance
-            || abs(written.size.width - readBack.size.width) > tolerance
-            || abs(written.size.height - readBack.size.height) > tolerance
-    }
-
     /// Insets `visibleFrame` by `margin` on every side. Nil when width or height is not positive.
     static func maximizedRect(visibleFrame: CGRect, margin: CGFloat) -> CGRect? {
         let rect = visibleFrame.insetBy(dx: margin, dy: margin)

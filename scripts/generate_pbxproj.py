@@ -30,14 +30,6 @@ sources = [
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
-    # Append new sources at the end so existing file IDs stay stable.
-    "Altitude/Backend/AXRead.swift",
-    "Altitude/Domain/SpaceLayoutParser.swift",
-    "Altitude/Domain/SwipeGestureTracker.swift",
-    "Altitude/Domain/CommandTabSession.swift",
-    "Altitude/Domain/WindowCatalog.swift",
-    "Altitude/UI/AppSwitchHUD.swift",
-    "Altitude/Backend/EventTapHost.swift",
 ]
 
 test_sources = [
@@ -46,12 +38,6 @@ test_sources = [
     "AltitudeTests/WindowArrangementTests.swift",
     "AltitudeTests/CommandTabOrderTests.swift",
     "AltitudeTests/ShortcutEditingTests.swift",
-    "AltitudeTests/SwipeGestureTrackerTests.swift",
-    "AltitudeTests/CommandTabSessionTests.swift",
-    "AltitudeTests/WindowCatalogTests.swift",
-    "AltitudeTests/SpaceLayoutParserTests.swift",
-    "AltitudeTests/WindowFrameTests.swift",
-    "AltitudeTests/DockSwipeTimingTests.swift",
 ]
 
 ids = {
