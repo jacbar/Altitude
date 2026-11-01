@@ -36,14 +36,12 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let desktopDisableMotionSwitch = NSSwitch()
     private let maxSpaceStepper = NSStepper()
     private let maxSpaceField = NSTextField(labelWithString: "9")
-    private let switchOption = NSButton(checkboxWithTitle: "Option", target: nil, action: nil)
-    private let switchShift = NSButton(checkboxWithTitle: "Shift", target: nil, action: nil)
-    private let switchControl = NSButton(checkboxWithTitle: "Control", target: nil, action: nil)
-    private let switchCommand = NSButton(checkboxWithTitle: "Command", target: nil, action: nil)
-    private let moveOption = NSButton(checkboxWithTitle: "Option", target: nil, action: nil)
-    private let moveShift = NSButton(checkboxWithTitle: "Shift", target: nil, action: nil)
-    private let moveControl = NSButton(checkboxWithTitle: "Control", target: nil, action: nil)
-    private let moveCommand = NSButton(checkboxWithTitle: "Command", target: nil, action: nil)
+    private let switchRecorder = ShortcutRecorderControl()
+    private let moveRecorder = ShortcutRecorderControl()
+    private let switchDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
+    private let moveDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
+    private let switchConflictLabel = SettingsWindowController.conflictLabel()
+    private let moveConflictLabel = SettingsWindowController.conflictLabel()
     private var desktopDependentControls: [NSView] = []
 
     // Command-Tab
@@ -59,6 +57,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let equalSplitRecorder = ShortcutRecorderControl()
     private let maximizeDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
     private let equalSplitDefaultButton = NSButton(title: "Use Default", target: nil, action: nil)
+    private let maximizeConflictLabel = SettingsWindowController.conflictLabel()
+    private let equalSplitConflictLabel = SettingsWindowController.conflictLabel()
     private var windowsDependentControls: [NSView] = []
 
     init(menuBar: MenuBarController) {
@@ -177,8 +177,10 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         desktopDisableMotionSwitch.state = config.desktop.disableMotion ? .on : .off
         maxSpaceStepper.integerValue = config.desktop.maxSpace
         maxSpaceField.stringValue = "\(config.desktop.maxSpace)"
-        applyModifiers(config.desktop.switchModifiers, to: [switchOption, switchShift, switchControl, switchCommand])
-        applyModifiers(config.desktop.moveModifiers, to: [moveOption, moveShift, moveControl, moveCommand])
+        switchRecorder.display(modifiers: config.desktop.switchModifiers)
+        moveRecorder.display(modifiers: config.desktop.moveModifiers)
+        clearConflict(switchConflictLabel)
+        clearConflict(moveConflictLabel)
         setEnabled(config.desktop.enabled, controls: desktopDependentControls)
 
         commandTabEnabledSwitch.state = config.commandTab.enabled ? .on : .off
@@ -190,6 +192,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         marginField.stringValue = "\(config.windowManagement.margin)"
         maximizeRecorder.display(chord: config.windowManagement.maximize)
         equalSplitRecorder.display(chord: config.windowManagement.equalSplit)
+        clearConflict(maximizeConflictLabel)
+        clearConflict(equalSplitConflictLabel)
         setEnabled(config.windowManagement.enabled, controls: windowsDependentControls)
     }
 
@@ -283,29 +287,32 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         maxRow.addArrangedSubview(maxSpaceStepper)
         stack.addArrangedSubview(maxRow)
 
-        let switchGroup = modifierGroup(
-            title: "Switch modifiers",
-            option: switchOption,
-            shift: switchShift,
-            control: switchControl,
-            command: switchCommand
-        )
-        stack.addArrangedSubview(switchGroup)
+        switchRecorder.mode = .modifiersOnly
+        moveRecorder.mode = .modifiersOnly
 
-        let moveGroup = modifierGroup(
-            title: "Move modifiers",
-            option: moveOption,
-            shift: moveShift,
-            control: moveControl,
-            command: moveCommand
+        let switchRow = shortcutRow(
+            title: "Switch",
+            recorder: switchRecorder,
+            defaultButton: switchDefaultButton,
+            help: "Followed by 1–9",
+            conflictLabel: switchConflictLabel
         )
-        stack.addArrangedSubview(moveGroup)
+        stack.addArrangedSubview(switchRow)
+
+        let moveRow = shortcutRow(
+            title: "Move focused window",
+            recorder: moveRecorder,
+            defaultButton: moveDefaultButton,
+            help: "Followed by 1–9",
+            conflictLabel: moveConflictLabel
+        )
+        stack.addArrangedSubview(moveRow)
 
         desktopDependentControls = [
-            motionRow, maxRow, switchGroup, moveGroup,
+            motionRow, maxRow, switchRow, moveRow,
             desktopDisableMotionSwitch, maxSpaceStepper,
-            switchOption, switchShift, switchControl, switchCommand,
-            moveOption, moveShift, moveControl, moveCommand,
+            switchRecorder, moveRecorder,
+            switchDefaultButton, moveDefaultButton,
         ]
         return stack
     }
@@ -349,14 +356,16 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         let maximizeRow = shortcutRow(
             title: "Maximize",
             recorder: maximizeRecorder,
-            defaultButton: maximizeDefaultButton
+            defaultButton: maximizeDefaultButton,
+            conflictLabel: maximizeConflictLabel
         )
         stack.addArrangedSubview(maximizeRow)
 
         let equalRow = shortcutRow(
             title: "Equal columns",
             recorder: equalSplitRecorder,
-            defaultButton: equalSplitDefaultButton
+            defaultButton: equalSplitDefaultButton,
+            conflictLabel: equalSplitConflictLabel
         )
         stack.addArrangedSubview(equalRow)
 
@@ -383,35 +392,13 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         return row
     }
 
-    private func modifierGroup(
+    private func shortcutRow(
         title: String,
-        option: NSButton,
-        shift: NSButton,
-        control: NSButton,
-        command: NSButton
+        recorder: ShortcutRecorderControl,
+        defaultButton: NSButton,
+        help: String? = nil,
+        conflictLabel: NSTextField? = nil
     ) -> NSView {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        stack.addArrangedSubview(label(title))
-
-        let checks = NSStackView()
-        checks.orientation = .horizontal
-        checks.spacing = 12
-        for button in [option, shift, control, command] {
-            checks.addArrangedSubview(button)
-        }
-        stack.addArrangedSubview(checks)
-
-        let help = NSTextField(labelWithString: "Followed by 1–9")
-        help.textColor = .secondaryLabelColor
-        help.font = NSFont.systemFont(ofSize: 11)
-        stack.addArrangedSubview(help)
-        return stack
-    }
-
-    private func shortcutRow(title: String, recorder: ShortcutRecorderControl, defaultButton: NSButton) -> NSView {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -426,7 +413,35 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         row.addArrangedSubview(recorder)
         row.addArrangedSubview(defaultButton)
         stack.addArrangedSubview(row)
+
+        if let help {
+            let helpLabel = NSTextField(labelWithString: help)
+            helpLabel.textColor = .secondaryLabelColor
+            helpLabel.font = NSFont.systemFont(ofSize: 11)
+            stack.addArrangedSubview(helpLabel)
+        }
+        if let conflictLabel {
+            stack.addArrangedSubview(conflictLabel)
+        }
         return stack
+    }
+
+    private static func conflictLabel() -> NSTextField {
+        let field = NSTextField(labelWithString: "")
+        field.textColor = .systemRed
+        field.font = NSFont.systemFont(ofSize: 11)
+        field.isHidden = true
+        return field
+    }
+
+    private func showConflict(_ label: NSTextField) {
+        label.stringValue = "already in use"
+        label.isHidden = false
+    }
+
+    private func clearConflict(_ label: NSTextField) {
+        label.stringValue = ""
+        label.isHidden = true
     }
 
     private func label(_ text: String) -> NSTextField {
@@ -448,11 +463,16 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         maxSpaceStepper.target = self
         maxSpaceStepper.action = #selector(maxSpaceChanged)
 
-        for button in [switchOption, switchShift, switchControl, switchCommand,
-                       moveOption, moveShift, moveControl, moveCommand] {
-            button.target = self
-            button.action = #selector(desktopModifiersChanged(_:))
+        switchRecorder.onRecordModifiers = { [weak self] modifiers in
+            self?.applySwitchModifiers(modifiers)
         }
+        moveRecorder.onRecordModifiers = { [weak self] modifiers in
+            self?.applyMoveModifiers(modifiers)
+        }
+        switchDefaultButton.target = self
+        switchDefaultButton.action = #selector(useSwitchDefault)
+        moveDefaultButton.target = self
+        moveDefaultButton.action = #selector(useMoveDefault)
 
         commandTabEnabledSwitch.target = self
         commandTabEnabledSwitch.action = #selector(commandTabChanged)
@@ -497,39 +517,56 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         menuBar.apply(config, write: true)
     }
 
-    @objc private func desktopModifiersChanged(_ sender: NSButton) {
-        guard !suppressActions, let menuBar else { return }
+    private func applySwitchModifiers(_ proposed: ModifierFlags) {
+        guard let menuBar else { return }
         var config = menuBar.currentConfig
-        let proposedSwitch = readModifiers(from: [switchOption, switchShift, switchControl, switchCommand])
-        let proposedMove = readModifiers(from: [moveOption, moveShift, moveControl, moveCommand])
-
-        let isSwitch = [switchOption, switchShift, switchControl, switchCommand].contains(sender)
-        if isSwitch {
-            let validated = validatedDesktopModifiers(
-                current: config.desktop.switchModifiers,
-                other: config.desktop.moveModifiers,
-                proposed: proposedSwitch
-            )
-            if validated == config.desktop.switchModifiers && proposedSwitch != config.desktop.switchModifiers {
-                NSSound.beep()
-                display(config)
-                return
-            }
-            config.desktop.switchModifiers = validated
-        } else {
-            let validated = validatedDesktopModifiers(
-                current: config.desktop.moveModifiers,
-                other: config.desktop.switchModifiers,
-                proposed: proposedMove
-            )
-            if validated == config.desktop.moveModifiers && proposedMove != config.desktop.moveModifiers {
-                NSSound.beep()
-                display(config)
-                return
-            }
-            config.desktop.moveModifiers = validated
+        switch validatedDesktopModifiers(
+            current: config.desktop.switchModifiers,
+            other: config.desktop.moveModifiers,
+            proposed: proposed
+        ) {
+        case .accepted(let value):
+            clearConflict(switchConflictLabel)
+            config.desktop.switchModifiers = value
+            menuBar.apply(config, write: true)
+        case .conflict:
+            NSSound.beep()
+            showConflict(switchConflictLabel)
+            switchRecorder.display(modifiers: config.desktop.switchModifiers)
+        case .invalid:
+            NSSound.beep()
+            switchRecorder.display(modifiers: config.desktop.switchModifiers)
         }
-        menuBar.apply(config, write: true)
+    }
+
+    private func applyMoveModifiers(_ proposed: ModifierFlags) {
+        guard let menuBar else { return }
+        var config = menuBar.currentConfig
+        switch validatedDesktopModifiers(
+            current: config.desktop.moveModifiers,
+            other: config.desktop.switchModifiers,
+            proposed: proposed
+        ) {
+        case .accepted(let value):
+            clearConflict(moveConflictLabel)
+            config.desktop.moveModifiers = value
+            menuBar.apply(config, write: true)
+        case .conflict:
+            NSSound.beep()
+            showConflict(moveConflictLabel)
+            moveRecorder.display(modifiers: config.desktop.moveModifiers)
+        case .invalid:
+            NSSound.beep()
+            moveRecorder.display(modifiers: config.desktop.moveModifiers)
+        }
+    }
+
+    @objc private func useSwitchDefault() {
+        applySwitchModifiers(.optionOnly)
+    }
+
+    @objc private func useMoveDefault() {
+        applyMoveModifiers(.optionShift)
     }
 
     @objc private func commandTabChanged() {
@@ -558,39 +595,45 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private func applyMaximize(_ proposed: KeyChord) {
         guard let menuBar else { return }
         var config = menuBar.currentConfig
-        let validated = validatedWindowChord(
+        switch validatedWindowChord(
             current: config.windowManagement.maximize,
             other: config.windowManagement.equalSplit,
             proposed: proposed
-        )
-        if validated == config.windowManagement.maximize {
-            if normalizedChord(proposed) != config.windowManagement.maximize {
-                NSSound.beep()
-            }
-            display(config)
-            return
+        ) {
+        case .accepted(let value):
+            clearConflict(maximizeConflictLabel)
+            config.windowManagement.maximize = value
+            menuBar.apply(config, write: true)
+        case .conflict:
+            NSSound.beep()
+            showConflict(maximizeConflictLabel)
+            maximizeRecorder.display(chord: config.windowManagement.maximize)
+        case .invalid:
+            NSSound.beep()
+            maximizeRecorder.display(chord: config.windowManagement.maximize)
         }
-        config.windowManagement.maximize = validated
-        menuBar.apply(config, write: true)
     }
 
     private func applyEqualSplit(_ proposed: KeyChord) {
         guard let menuBar else { return }
         var config = menuBar.currentConfig
-        let validated = validatedWindowChord(
+        switch validatedWindowChord(
             current: config.windowManagement.equalSplit,
             other: config.windowManagement.maximize,
             proposed: proposed
-        )
-        if validated == config.windowManagement.equalSplit {
-            if normalizedChord(proposed) != config.windowManagement.equalSplit {
-                NSSound.beep()
-            }
-            display(config)
-            return
+        ) {
+        case .accepted(let value):
+            clearConflict(equalSplitConflictLabel)
+            config.windowManagement.equalSplit = value
+            menuBar.apply(config, write: true)
+        case .conflict:
+            NSSound.beep()
+            showConflict(equalSplitConflictLabel)
+            equalSplitRecorder.display(chord: config.windowManagement.equalSplit)
+        case .invalid:
+            NSSound.beep()
+            equalSplitRecorder.display(chord: config.windowManagement.equalSplit)
         }
-        config.windowManagement.equalSplit = validated
-        menuBar.apply(config, write: true)
     }
 
     @objc private func useMaximizeDefault() {
@@ -601,30 +644,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         applyEqualSplit(.equalSplitDefault)
     }
 
-    private func normalizedChord(_ chord: KeyChord) -> KeyChord {
-        KeyChord(
-            modifiers: chord.modifiers,
-            key: chord.key.lowercased().first ?? chord.key
-        )
-    }
-
     // MARK: - Helpers
-
-    private func applyModifiers(_ flags: ModifierFlags, to buttons: [NSButton]) {
-        buttons[0].state = flags.alt ? .on : .off
-        buttons[1].state = flags.shift ? .on : .off
-        buttons[2].state = flags.ctrl ? .on : .off
-        buttons[3].state = flags.cmd ? .on : .off
-    }
-
-    private func readModifiers(from buttons: [NSButton]) -> ModifierFlags {
-        ModifierFlags(
-            alt: buttons[0].state == .on,
-            shift: buttons[1].state == .on,
-            ctrl: buttons[2].state == .on,
-            cmd: buttons[3].state == .on
-        )
-    }
 
     private func setEnabled(_ enabled: Bool, controls: [NSView]) {
         for control in controls {
