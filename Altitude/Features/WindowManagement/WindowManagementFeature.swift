@@ -11,7 +11,7 @@ enum WindowManagementFeature {
             result.append(HotkeyBinding(
                 keyCode: keyCode,
                 modifiers: HotkeyChordMapping.carbonModifiers(maximize.modifiers),
-                id: 200,
+                id: HotkeyID.maximize,
                 action: .maximizeAll
             ))
         }
@@ -20,7 +20,7 @@ enum WindowManagementFeature {
             result.append(HotkeyBinding(
                 keyCode: keyCode,
                 modifiers: HotkeyChordMapping.carbonModifiers(equalSplit.modifiers),
-                id: 201,
+                id: HotkeyID.tileColumns,
                 action: .tileColumns
             ))
         }
