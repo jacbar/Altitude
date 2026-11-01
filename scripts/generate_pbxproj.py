@@ -30,6 +30,7 @@ sources = [
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
+    "Altitude/Domain/WindowCatalog.swift",
 ]
 
 test_sources = [
@@ -38,6 +39,7 @@ test_sources = [
     "AltitudeTests/WindowArrangementTests.swift",
     "AltitudeTests/CommandTabOrderTests.swift",
     "AltitudeTests/ShortcutEditingTests.swift",
+    "AltitudeTests/WindowCatalogTests.swift",
 ]
 
 ids = {
