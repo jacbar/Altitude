@@ -3,31 +3,56 @@ import os.log
 
 private let log = Logger(subsystem: "com.altitude.app", category: "Config")
 
+struct DesktopConfig: Equatable, Sendable {
+    var enabled: Bool
+    var disableMotion: Bool
+    var maxSpace: Int
+    var switchModifiers: ModifierFlags
+    var moveModifiers: ModifierFlags
+
+    static let `default` = DesktopConfig(
+        enabled: true,
+        disableMotion: false,
+        maxSpace: 9,
+        switchModifiers: .optionOnly,
+        moveModifiers: .optionShift
+    )
+}
+
+struct CommandTabConfig: Equatable, Sendable {
+    var enabled: Bool
+    var disableMotion: Bool
+
+    static let `default` = CommandTabConfig(enabled: false, disableMotion: false)
+}
+
+struct WindowManagementConfig: Equatable, Sendable {
+    var enabled: Bool
+    var margin: Int
+    var maximize: KeyChord
+    var equalSplit: KeyChord
+
+    static let `default` = WindowManagementConfig(
+        enabled: true,
+        margin: 8,
+        maximize: .maximizeDefault,
+        equalSplit: .equalSplitDefault
+    )
+}
+
 struct AppConfig: Equatable, Sendable {
     var version: Int
     var launchAtLogin: Bool
-    var disableAnimations: Bool
-    /// Skip the slide for trackpad Space swipes, Control-Left/Right, and Command-Tab.
-    var disableSystemMotions: Bool
-    var switchEnabled: Bool
-    var moveEnabled: Bool
-    var maxSpace: Int
-    /// Outer inset and inter-column gap for window arrangement (points).
-    var arrangeMargin: Int
-    var arrangeMaximizeEnabled: Bool
-    var arrangeColumnsEnabled: Bool
+    var desktop: DesktopConfig
+    var commandTab: CommandTabConfig
+    var windowManagement: WindowManagementConfig
 
     static let `default` = AppConfig(
-        version: 1,
+        version: 2,
         launchAtLogin: false,
-        disableAnimations: false,
-        disableSystemMotions: false,
-        switchEnabled: true,
-        moveEnabled: true,
-        maxSpace: 9,
-        arrangeMargin: 8,
-        arrangeMaximizeEnabled: true,
-        arrangeColumnsEnabled: true
+        desktop: .default,
+        commandTab: .default,
+        windowManagement: .default
     )
 }
 
@@ -94,25 +119,53 @@ enum ConfigStore {
     /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
     static func save(_ config: AppConfig) throws {
         try validateConfigURL(configFileURL, allowMissing: true)
+        let d = config.desktop
+        let c = config.commandTab
+        let w = config.windowManagement
         let text = """
         version = \(config.version)
 
         [app]
         launch_at_login = \(tomlBool(config.launchAtLogin))
 
-        [spaces]
-        disable_animations = \(tomlBool(config.disableAnimations))
-        disable_system_motions = \(tomlBool(config.disableSystemMotions))
+        [desktop]
+        enabled = \(tomlBool(d.enabled))
+        disable_motion = \(tomlBool(d.disableMotion))
+        max_space = \(d.maxSpace)
 
-        [hotkeys]
-        switch_enabled = \(tomlBool(config.switchEnabled))
-        move_enabled = \(tomlBool(config.moveEnabled))
-        max_space = \(config.maxSpace)
+        [desktop.switch]
+        alt = \(tomlBool(d.switchModifiers.alt))
+        shift = \(tomlBool(d.switchModifiers.shift))
+        ctrl = \(tomlBool(d.switchModifiers.ctrl))
+        cmd = \(tomlBool(d.switchModifiers.cmd))
 
-        [arrange]
-        margin = \(config.arrangeMargin)
-        maximize_enabled = \(tomlBool(config.arrangeMaximizeEnabled))
-        columns_enabled = \(tomlBool(config.arrangeColumnsEnabled))
+        [desktop.move]
+        alt = \(tomlBool(d.moveModifiers.alt))
+        shift = \(tomlBool(d.moveModifiers.shift))
+        ctrl = \(tomlBool(d.moveModifiers.ctrl))
+        cmd = \(tomlBool(d.moveModifiers.cmd))
+
+        [command_tab]
+        enabled = \(tomlBool(c.enabled))
+        disable_motion = \(tomlBool(c.disableMotion))
+
+        [window_management]
+        enabled = \(tomlBool(w.enabled))
+        margin = \(w.margin)
+
+        [window_management.maximize]
+        alt = \(tomlBool(w.maximize.modifiers.alt))
+        shift = \(tomlBool(w.maximize.modifiers.shift))
+        ctrl = \(tomlBool(w.maximize.modifiers.ctrl))
+        cmd = \(tomlBool(w.maximize.modifiers.cmd))
+        key = \(w.maximize.key)
+
+        [window_management.equal_split]
+        alt = \(tomlBool(w.equalSplit.modifiers.alt))
+        shift = \(tomlBool(w.equalSplit.modifiers.shift))
+        ctrl = \(tomlBool(w.equalSplit.modifiers.ctrl))
+        cmd = \(tomlBool(w.equalSplit.modifiers.cmd))
+        key = \(w.equalSplit.key)
         """
         try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
         try text.write(to: configFileURL, atomically: true, encoding: .utf8)
@@ -148,6 +201,11 @@ enum MinimalTOML {
         var config = AppConfig.default
         var section: String?
 
+        var switchPartial = PartialModifierFlags()
+        var movePartial = PartialModifierFlags()
+        var maximizePartial = PartialKeyChord(modifiers: PartialModifierFlags(), key: nil)
+        var equalSplitPartial = PartialKeyChord(modifiers: PartialModifierFlags(), key: nil)
+
         for rawLine in text.components(separatedBy: .newlines) {
             var line = rawLine
             if let hash = line.firstIndex(of: "#") {
@@ -166,49 +224,133 @@ enum MinimalTOML {
             let value = line[line.index(after: eq)...].trimmingCharacters(in: .whitespaces)
 
             let qualifiedKey = section.map { "\($0).\(key)" } ?? key
+
+            // Old schema sections are ignored entirely (no migration).
+            if let section, ["spaces", "hotkeys", "arrange"].contains(section) {
+                continue
+            }
+
             switch (section, key) {
             case (nil, "version"), ("", "version"):
                 if let int = Int(value) { config.version = int } else { warnInvalid(qualifiedKey, value) }
+
             case ("app", "launch_at_login"):
                 if let bool = parseBool(value) { config.launchAtLogin = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("spaces", "disable_animations"):
-                if let bool = parseBool(value) { config.disableAnimations = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("spaces", "disable_system_motions"):
-                if let bool = parseBool(value) { config.disableSystemMotions = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("hotkeys", "switch_enabled"):
-                if let bool = parseBool(value) { config.switchEnabled = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("hotkeys", "move_enabled"):
-                if let bool = parseBool(value) { config.moveEnabled = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("hotkeys", "max_space"):
+
+            case ("desktop", "enabled"):
+                if let bool = parseBool(value) { config.desktop.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+            case ("desktop", "disable_motion"):
+                if let bool = parseBool(value) { config.desktop.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
+            case ("desktop", "max_space"):
                 if let int = Int(value) {
-                    config.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
+                    config.desktop.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
                 } else {
                     warnInvalid(qualifiedKey, value)
                 }
-            case ("arrange", "margin"):
+
+            case ("desktop.switch", "alt"):
+                assignModifier(&switchPartial.alt, value, qualifiedKey)
+            case ("desktop.switch", "shift"):
+                assignModifier(&switchPartial.shift, value, qualifiedKey)
+            case ("desktop.switch", "ctrl"):
+                assignModifier(&switchPartial.ctrl, value, qualifiedKey)
+            case ("desktop.switch", "cmd"):
+                assignModifier(&switchPartial.cmd, value, qualifiedKey)
+
+            case ("desktop.move", "alt"):
+                assignModifier(&movePartial.alt, value, qualifiedKey)
+            case ("desktop.move", "shift"):
+                assignModifier(&movePartial.shift, value, qualifiedKey)
+            case ("desktop.move", "ctrl"):
+                assignModifier(&movePartial.ctrl, value, qualifiedKey)
+            case ("desktop.move", "cmd"):
+                assignModifier(&movePartial.cmd, value, qualifiedKey)
+
+            case ("command_tab", "enabled"):
+                if let bool = parseBool(value) { config.commandTab.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+            case ("command_tab", "disable_motion"):
+                if let bool = parseBool(value) { config.commandTab.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
+
+            case ("window_management", "enabled"):
+                if let bool = parseBool(value) { config.windowManagement.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+            case ("window_management", "margin"):
                 if let int = Int(value) {
-                    config.arrangeMargin = max(0, min(int, 256))
+                    config.windowManagement.margin = max(0, min(int, 256))
                 } else {
                     warnInvalid(qualifiedKey, value)
                 }
-            case ("arrange", "maximize_enabled"):
-                if let bool = parseBool(value) {
-                    config.arrangeMaximizeEnabled = bool
+
+            case ("window_management.maximize", "alt"):
+                assignModifier(&maximizePartial.modifiers.alt, value, qualifiedKey)
+            case ("window_management.maximize", "shift"):
+                assignModifier(&maximizePartial.modifiers.shift, value, qualifiedKey)
+            case ("window_management.maximize", "ctrl"):
+                assignModifier(&maximizePartial.modifiers.ctrl, value, qualifiedKey)
+            case ("window_management.maximize", "cmd"):
+                assignModifier(&maximizePartial.modifiers.cmd, value, qualifiedKey)
+            case ("window_management.maximize", "key"):
+                if let letter = parseKeyLetter(value) {
+                    maximizePartial.key = letter
                 } else {
                     warnInvalid(qualifiedKey, value)
+                    maximizePartial.key = nil
                 }
-            case ("arrange", "columns_enabled"):
-                if let bool = parseBool(value) {
-                    config.arrangeColumnsEnabled = bool
+
+            case ("window_management.equal_split", "alt"):
+                assignModifier(&equalSplitPartial.modifiers.alt, value, qualifiedKey)
+            case ("window_management.equal_split", "shift"):
+                assignModifier(&equalSplitPartial.modifiers.shift, value, qualifiedKey)
+            case ("window_management.equal_split", "ctrl"):
+                assignModifier(&equalSplitPartial.modifiers.ctrl, value, qualifiedKey)
+            case ("window_management.equal_split", "cmd"):
+                assignModifier(&equalSplitPartial.modifiers.cmd, value, qualifiedKey)
+            case ("window_management.equal_split", "key"):
+                if let letter = parseKeyLetter(value) {
+                    equalSplitPartial.key = letter
                 } else {
                     warnInvalid(qualifiedKey, value)
+                    equalSplitPartial.key = nil
                 }
+
             default:
                 log.warning("Ignoring unknown config key \(qualifiedKey, privacy: .public)")
             }
         }
 
+        let desktopResolved = resolveDesktopShortcuts(switch: switchPartial, move: movePartial)
+        if desktopResolved.usedFallback {
+            log.warning("Desktop switch/move shortcuts were empty or identical; using Option and Option+Shift defaults")
+        }
+        config.desktop.switchModifiers = desktopResolved.switchModifiers
+        config.desktop.moveModifiers = desktopResolved.moveModifiers
+
+        let windowResolved = resolveWindowChords(maximize: maximizePartial, equalSplit: equalSplitPartial)
+        if windowResolved.usedFallback {
+            log.warning("Window management chords were identical; using Control+Option+F and Control+Option+A defaults")
+        }
+        config.windowManagement.maximize = windowResolved.maximize
+        config.windowManagement.equalSplit = windowResolved.equalSplit
+
         return config
+    }
+
+    private static func assignModifier(_ target: inout Bool?, _ value: String, _ qualifiedKey: String) {
+        if let bool = parseBool(value) {
+            target = bool
+        } else {
+            warnInvalid(qualifiedKey, value)
+        }
+    }
+
+    /// Unquoted single a–z letter (case-insensitive). Quoted values are invalid.
+    private static func parseKeyLetter(_ value: String) -> Character? {
+        if value.hasPrefix("\"") || value.hasPrefix("'") {
+            return nil
+        }
+        guard value.count == 1, let c = value.lowercased().first, ("a"..."z").contains(c) else {
+            return nil
+        }
+        return c
     }
 
     private static func parseBool(_ value: String) -> Bool? {
