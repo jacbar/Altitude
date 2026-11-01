@@ -1,3 +1,4 @@
+@testable import Altitude
 import XCTest
 
 final class ShortcutEditingTests: XCTestCase {

@@ -1,5 +1,6 @@
 import CoreGraphics
 import XCTest
+@testable import Altitude
 
 final class WindowArrangementTests: XCTestCase {
     func testMaximizedRectDefaultMargin() {

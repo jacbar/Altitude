@@ -16,8 +16,7 @@ final class FocusedWindowResolver {
     /// (or a one-time first-run bootstrap), never on every launch.
     @discardableResult
     func promptForAccessibilityIfNeeded() -> Bool {
-        // String form of kAXTrustedCheckOptionPrompt (CF global is not Sendable).
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 

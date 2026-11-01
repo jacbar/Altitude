@@ -1,3 +1,4 @@
+@testable import Altitude
 import Carbon
 import XCTest
 

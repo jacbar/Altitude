@@ -1,4 +1,5 @@
 import XCTest
+@testable import Altitude
 
 final class CommandTabOrderTests: XCTestCase {
     func testRowGroupsWindowsThenEmptyApps() {

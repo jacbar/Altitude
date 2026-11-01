@@ -3,13 +3,10 @@ import Darwin
 import Foundation
 import ObjectiveC
 
-// Every new private selector must go through `performWithWMBridgeDelegate` so the
-// runtime return type is checked before the value is retained.
-
 /// macOS 14+ window-management bridge used by apps like Loop / WindowKit.
 /// Moves windows across Spaces without partially disabling SIP.
 enum SkyLightBridgedSPI {
-    nonisolated(unsafe) private static let objcMessageSend: UnsafeMutableRawPointer? = {
+    private static let objcMessageSend: UnsafeMutableRawPointer? = {
         guard let handle = dlopen(nil, RTLD_LAZY) else { return nil }
         return dlsym(handle, "objc_msgSend")
     }()
