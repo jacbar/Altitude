@@ -1,5 +1,12 @@
 import Foundation
 
+/// Outcome of validating a proposed shortcut against its same-tab sibling.
+enum ShortcutValidationResult<Value: Equatable>: Equatable {
+    case accepted(Value)
+    case conflict
+    case invalid
+}
+
 /// Apple-order chord string: ⌃ ⌥ ⇧ ⌘, then the uppercase letter when present.
 func shortcutSymbols(modifiers: ModifierFlags, key: Character?) -> String {
     var parts: [String] = []
@@ -13,29 +20,32 @@ func shortcutSymbols(modifiers: ModifierFlags, key: Character?) -> String {
     return parts.joined()
 }
 
-/// Keeps `current` when `proposed` is empty or identical to `other`.
+/// Accepts a non-empty set that differs from `other`; empty is invalid, match is conflict.
+/// Callers keep `current` on `.invalid` / `.conflict`.
 func validatedDesktopModifiers(
-    current: ModifierFlags,
+    current _: ModifierFlags,
     other: ModifierFlags,
     proposed: ModifierFlags
-) -> ModifierFlags {
-    guard proposed.hasAny, proposed != other else { return current }
-    return proposed
+) -> ShortcutValidationResult<ModifierFlags> {
+    guard proposed.hasAny else { return .invalid }
+    guard proposed != other else { return .conflict }
+    return .accepted(proposed)
 }
 
-/// Keeps `current` when the key is not a…z, there are no modifiers, or the chord matches `other`.
+/// Accepts a…z with modifiers that differ from `other`; otherwise invalid or conflict.
+/// Callers keep `current` on `.invalid` / `.conflict`.
 func validatedWindowChord(
-    current: KeyChord,
+    current _: KeyChord,
     other: KeyChord,
     proposed: KeyChord
-) -> KeyChord {
+) -> ShortcutValidationResult<KeyChord> {
     guard let lower = proposed.key.lowercased().first,
           ("a"..."z").contains(lower),
           proposed.modifiers.hasAny
     else {
-        return current
+        return .invalid
     }
     let normalized = KeyChord(modifiers: proposed.modifiers, key: lower)
-    guard normalized != other else { return current }
-    return normalized
+    guard normalized != other else { return .conflict }
+    return .accepted(normalized)
 }
