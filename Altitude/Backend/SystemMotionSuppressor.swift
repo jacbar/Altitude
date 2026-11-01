@@ -1,7 +1,7 @@
-import AppKit
+@preconcurrency import AppKit
 import ApplicationServices
 import Carbon.HIToolbox
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import Foundation
 import os.log
 
@@ -52,7 +52,8 @@ struct SystemMotionMode: Equatable, Sendable {
 /// releasing Command does not play the system switcher. Activating a running app via Raycast,
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
-final class SystemMotionSuppressor: NSObject {
+@MainActor
+final class SystemMotionSuppressor: NSObject, @unchecked Sendable {
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
     private let taps = EventTapHost()
@@ -82,10 +83,14 @@ final class SystemMotionSuppressor: NSObject {
         super.init()
         taps.handler = { [weak self] type, event in
             guard let self else { return event }
-            return self.handle(type: type, event: event)
+            return MainActor.assumeIsolated {
+                self.handle(type: type, event: event)
+            }
         }
         taps.onTapDisabled = { [weak self] in
-            self?.cancelSession()
+            MainActor.assumeIsolated {
+                self?.cancelSession()
+            }
         }
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
@@ -96,11 +101,13 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     deinit {
-        let center = NSWorkspace.shared.notificationCenter
-        center.removeObserver(self)
-        taps.handler = nil
-        taps.onTapDisabled = nil
-        taps.stop()
+        MainActor.assumeIsolated {
+            let center = NSWorkspace.shared.notificationCenter
+            center.removeObserver(self)
+            taps.handler = nil
+            taps.onTapDisabled = nil
+            taps.stop()
+        }
     }
 
     func apply(_ newMode: SystemMotionMode) {

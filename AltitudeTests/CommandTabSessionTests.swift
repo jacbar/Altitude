@@ -1,4 +1,3 @@
-@testable import Altitude
 import Carbon.HIToolbox
 import CoreGraphics
 import XCTest

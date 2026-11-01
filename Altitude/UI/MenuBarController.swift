@@ -5,7 +5,7 @@ import os.log
 private let log = Logger(subsystem: "com.altitude.app", category: "MenuBar")
 
 @MainActor
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, @unchecked Sendable {
     private static let didPromptForAccessibilityKey = "didPromptForAccessibility"
 
     /// Waits for dock-swipe gesture frames to land before refreshing Spaces/hotkeys.
@@ -31,7 +31,7 @@ final class MenuBarController: NSObject {
         self.config = ConfigStore.load()
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
-        weak var controller: MenuBarController?
+        nonisolated(unsafe) weak var controller: MenuBarController?
         self.hotkeys = HotkeyRegistrar { action in
             Task { @MainActor in
                 controller?.handle(action: action)

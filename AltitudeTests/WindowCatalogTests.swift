@@ -1,4 +1,3 @@
-@testable import Altitude
 import CoreGraphics
 import XCTest
 

@@ -1,14 +1,14 @@
-import AppKit
+@preconcurrency import AppKit
 import ApplicationServices
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import Foundation
 import os.log
 
 private let log = Logger(subsystem: "com.altitude.app", category: "EventTapHost")
 
 /// Owns CGEvent tap create / enable / teardown and the weak context box.
-final class EventTapHost {
-    typealias Handler = (CGEventType, CGEvent) -> CGEvent?
+final class EventTapHost: @unchecked Sendable {
+    typealias Handler = @Sendable (CGEventType, CGEvent) -> CGEvent?
 
     private final class Context {
         weak var host: EventTapHost?
@@ -23,7 +23,7 @@ final class EventTapHost {
     private var installedHID = false
 
     var handler: Handler?
-    var onTapDisabled: (() -> Void)?
+    var onTapDisabled: (@Sendable () -> Void)?
 
     var isRunning: Bool { gestureTap != nil || keyTap != nil }
 
@@ -164,18 +164,21 @@ final class EventTapHost {
         guard let host = context.host else {
             return Unmanaged.passUnretained(event)
         }
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            host.reenableTaps()
-            host.onTapDisabled?()
-            log.error("Event tap was disabled (\(type.rawValue, privacy: .public)); re-enabled")
-            return Unmanaged.passUnretained(event)
+        // Tap sources are installed on the main run loop.
+        return MainActor.assumeIsolated {
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                host.reenableTaps()
+                host.onTapDisabled?()
+                log.error("Event tap was disabled (\(type.rawValue, privacy: .public)); re-enabled")
+                return Unmanaged.passUnretained(event)
+            }
+            guard let handler = host.handler else {
+                return Unmanaged.passUnretained(event)
+            }
+            if let forwarded = handler(type, event) {
+                return Unmanaged.passUnretained(forwarded)
+            }
+            return nil
         }
-        guard let handler = host.handler else {
-            return Unmanaged.passUnretained(event)
-        }
-        if let forwarded = handler(type, event) {
-            return Unmanaged.passUnretained(forwarded)
-        }
-        return nil
     }
 }

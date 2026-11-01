@@ -16,7 +16,7 @@ SIGN_ID ?=
 
 # Unsigned Domain XCTest suite (no SIGN_ID). Prefer this for local/CI verification.
 test:
-	xcodebuild test -project Altitude.xcodeproj -scheme Altitude -configuration Debug -derivedDataPath $(DERIVED) -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO
+	xcodebuild test -project Altitude.xcodeproj -scheme Altitude -configuration Debug -derivedDataPath $(DERIVED) -destination 'platform=macOS' -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO
 
 build:
 ifndef SIGN_ID
