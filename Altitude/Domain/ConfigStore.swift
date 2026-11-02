@@ -347,6 +347,7 @@ enum MinimalTOML {
 
         for rawLine in text.components(separatedBy: .newlines) {
             var line = rawLine
+            // `#` cuts the line because values are not quoted strings in this subset.
             if let hash = line.firstIndex(of: "#") {
                 line = String(line[..<hash])
             }
@@ -514,6 +515,7 @@ enum MinimalTOML {
         return c
     }
 
+    /// Accepts true/false plus yes/no/1/0 (case-insensitive).
     private static func parseBool(_ value: String) -> Bool? {
         switch value.lowercased() {
         case "true", "yes", "1": return true

@@ -18,6 +18,11 @@ enum LaunchAtLogin {
     /// Value to write when the user clicks the menu item.
     /// A pending approval is cancelled so the click does not call `register()` again.
     static var toggledDesired: Bool {
+        toggledDesired(isEnabled: isEnabled, requiresApproval: requiresApproval)
+    }
+
+    /// Pure toggle target: off when already enabled or pending approval.
+    static func toggledDesired(isEnabled: Bool, requiresApproval: Bool) -> Bool {
         if isEnabled || requiresApproval {
             return false
         }

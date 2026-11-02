@@ -104,15 +104,13 @@ enum DockSwipeSwitcher {
         kind(of: event) == UInt32(gestureEvent)
     }
 
-    private static let smoothFrameCount = 24
-    private static let smoothFrameInterval: TimeInterval = 0.008
-    private static let smoothStepGap: TimeInterval = Timing.dockSwipeStepGap
+    private static let smoothFrameCount = DockSwipeTiming.smoothFrameCount
+    private static let smoothFrameInterval = DockSwipeTiming.smoothFrameInterval
+    private static let smoothStepGap = DockSwipeTiming.smoothStepGap
 
     /// Time spent posting gesture frames; the Dock's own animation comes on top.
     static func estimatedDuration(steps: Int, instant: Bool) -> TimeInterval {
-        guard !instant, steps > 0 else { return 0 }
-        let perStep = Double(smoothFrameCount) * smoothFrameInterval
-        return Double(steps) * perStep + Double(steps - 1) * smoothStepGap
+        DockSwipeTiming.estimatedDuration(steps: steps, instant: instant)
     }
 
     /// One gesture per space, posted back-to-back. A gap lets the desktop in

@@ -156,12 +156,14 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     }
 
     private func becomeForegroundApp() {
+        // Both stay: setActivationPolicy updates AppKit; TransformProcessType updates the process for the Dock/Cmd-Tab.
         _ = NSApp.setActivationPolicy(.regular)
         var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
         _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToForegroundApplication))
     }
 
     private func becomeAccessoryApp() {
+        // Both stay: TransformProcessType returns to UIElement; setActivationPolicy restores .accessory for AppKit.
         var psn = ProcessSerialNumber(highLongOfPSN: 0, lowLongOfPSN: UInt32(kCurrentProcess))
         _ = TransformProcessType(&psn, ProcessApplicationTransformState(kProcessTransformToUIElementApplication))
         _ = NSApp.setActivationPolicy(.accessory)
@@ -521,7 +523,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedDesktopModifiers(
-            current: config.desktop.switchModifiers,
             other: config.desktop.moveModifiers,
             proposed: proposed
         ) {
@@ -543,7 +544,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedDesktopModifiers(
-            current: config.desktop.moveModifiers,
             other: config.desktop.switchModifiers,
             proposed: proposed
         ) {
@@ -596,7 +596,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedWindowChord(
-            current: config.windowManagement.maximize,
             other: config.windowManagement.equalSplit,
             proposed: proposed
         ) {
@@ -618,7 +617,6 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         guard let menuBar else { return }
         var config = menuBar.currentConfig
         switch validatedWindowChord(
-            current: config.windowManagement.equalSplit,
             other: config.windowManagement.maximize,
             proposed: proposed
         ) {
