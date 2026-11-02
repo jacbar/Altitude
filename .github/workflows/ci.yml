@@ -11,11 +11,21 @@ permissions:
 
 jobs:
   build-test:
-    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: SwiftLint
+        run: swiftlint
 
       # Single xcodebuild test invocation (builds dependencies). Avoids a long-lived
       # unsigned app left from a separate build step that can stall the test host.
@@ -29,4 +39,5 @@ jobs:
             -destination 'platform=macOS' \
             -only-testing:AltitudeTests \
             -parallel-testing-enabled NO \
+            -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO

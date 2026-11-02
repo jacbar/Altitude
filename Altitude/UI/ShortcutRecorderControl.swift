@@ -1,4 +1,4 @@
-import AppKit
+@preconcurrency import AppKit
 import Carbon
 
 /// Button that displays a shortcut and records the next press.
@@ -48,7 +48,10 @@ final class ShortcutRecorderControl: NSButton {
     }
 
     deinit {
-        stopMonitoring()
+        // NSButton teardown is on the main actor in AppKit.
+        MainActor.assumeIsolated {
+            stopMonitoring()
+        }
     }
 
     func display(chord: KeyChord) {
@@ -116,7 +119,9 @@ final class ShortcutRecorderControl: NSButton {
                 return event
             }
             let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
-                self?.pollModifierFlags()
+                MainActor.assumeIsolated {
+                    self?.pollModifierFlags()
+                }
             }
             RunLoop.main.add(timer, forMode: .common)
             pollTimer = timer

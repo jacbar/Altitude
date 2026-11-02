@@ -1,14 +1,14 @@
 import AppKit
 import ApplicationServices
 import Carbon
-import CoreGraphics
+@preconcurrency import CoreGraphics
 import Foundation
 import os.log
 
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
 /// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
-private final class MotionTapContext {
+private final class MotionTapContext: @unchecked Sendable {
     weak var suppressor: SystemMotionSuppressor?
 }
 
@@ -23,6 +23,7 @@ private final class MotionTapContext {
 /// releasing Command does not play the system switcher. Activating a running app via Raycast,
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
+@MainActor
 final class SystemMotionSuppressor: NSObject {
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
@@ -62,10 +63,13 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     deinit {
-        let center = NSWorkspace.shared.notificationCenter
-        center.removeObserver(self)
-        tapContext.suppressor = nil
-        tapHost.tearDown()
+        // Taps are installed on the main run loop; teardown stays there.
+        MainActor.assumeIsolated {
+            let center = NSWorkspace.shared.notificationCenter
+            center.removeObserver(self)
+            tapContext.suppressor = nil
+            tapHost.tearDown()
+        }
     }
 
     func apply(_ newMode: SystemMotionMode) {
@@ -128,10 +132,13 @@ final class SystemMotionSuppressor: NSObject {
         guard let suppressor = context.suppressor else {
             return Unmanaged.passUnretained(event)
         }
-        if let forwarded = suppressor.handle(type: type, event: event) {
-            return Unmanaged.passUnretained(forwarded)
+        // Tap sources are added to the main run loop.
+        return MainActor.assumeIsolated {
+            if let forwarded = suppressor.handle(type: type, event: event) {
+                return Unmanaged.passUnretained(forwarded)
+            }
+            return nil
         }
-        return nil
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {

@@ -63,7 +63,7 @@ make install # force-quit, Release-build, install to /Applications, open
 make clean   # remove ./build
 ```
 
-- `make test` runs **hostless** `AltitudeTests` (`CODE_SIGNING_ALLOWED=NO`): it does not launch `Altitude.app`, write `~/.config/altitude`, touch Login Items, or install event taps. PRs and pushes to `main` run the same unsigned build+test path in GitHub Actions.
+- `make test` runs **hostless** `AltitudeTests` (`CODE_SIGNING_ALLOWED=NO`): it does not launch `Altitude.app`, write `~/.config/altitude`, touch Login Items, or install event taps. PRs and pushes to `main` run the same unsigned build+test path in GitHub Actions on **macos-14** and **macos-latest**.
 - `make install` force-quits running Altitude, builds **Release**, codesigns with `SIGN_ID`, replaces `/Applications/Altitude.app`, and opens it. It does not fetch or check out git.
 - Override without a file: `make SIGN_ID="Apple Development: …" run`
 - Or open `Altitude.xcodeproj` and run the **Altitude** scheme (Product → Test runs `AltitudeTests`)
@@ -175,6 +175,7 @@ key = a
 - Desktops are numbered 1–9 in Mission Control order.
 - A hotkey that failed to register is tried again on the next reload or Settings save.
 - Hotkeys and window arrangement need Accessibility.
+- If a private SkyLight or Accessibility symbol is missing, Altitude skips that operation instead of crashing at launch.
 - Window arrangement affects the desktop under the pointer and skips minimized, fullscreen, and other-desktop windows.
 - Window arrangement uses the primary (menu-bar) display as the vertical origin, so a display above that screen stays aligned.
 - Mission Control itself is unchanged when motion is turned off.

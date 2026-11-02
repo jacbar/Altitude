@@ -3,6 +3,7 @@ import ApplicationServices
 import Foundation
 
 /// Raises a SwitchTarget's window and tracks internal activation so external hops do not re-enter.
+@MainActor
 final class WindowFocuser {
     /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
     private let axTimeoutSeconds: Float = 0.1

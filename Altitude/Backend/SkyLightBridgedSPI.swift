@@ -6,7 +6,8 @@ import ObjectiveC
 /// macOS 14+ window-management bridge used by apps like Loop / WindowKit.
 /// Moves windows across Spaces without partially disabling SIP.
 enum SkyLightBridgedSPI {
-    private static let objcMessageSend: UnsafeMutableRawPointer? = {
+    // Resolved once at first use; dlsym pointer is immutable process state.
+    nonisolated(unsafe) private static let objcMessageSend: UnsafeMutableRawPointer? = {
         guard let handle = dlopen(nil, RTLD_LAZY) else { return nil }
         return dlsym(handle, "objc_msgSend")
     }()
