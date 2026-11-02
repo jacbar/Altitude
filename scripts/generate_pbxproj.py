@@ -50,6 +50,10 @@ sources = [
     "Altitude/Domain/SpaceRouting.swift",
     "Altitude/Domain/MotionTapPlan.swift",
     "Altitude/Domain/CommandTabSession.swift",
+    "Altitude/Backend/SwitchTarget.swift",
+    "Altitude/Backend/EventTapHost.swift",
+    "Altitude/Backend/WindowFocuser.swift",
+    "Altitude/UI/AppSwitchHUD.swift",
 ]
 
 test_sources = [

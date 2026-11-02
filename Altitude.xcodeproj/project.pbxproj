@@ -44,6 +44,10 @@
 		B20000000000000000000034 /* SpaceRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* SpaceRouting.swift */; };
 		B20000000000000000000035 /* MotionTapPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* MotionTapPlan.swift */; };
 		B20000000000000000000036 /* CommandTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* CommandTabSession.swift */; };
+		B20000000000000000000037 /* SwitchTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* SwitchTarget.swift */; };
+		B20000000000000000000038 /* EventTapHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* EventTapHost.swift */; };
+		B20000000000000000000039 /* WindowFocuser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000039 /* WindowFocuser.swift */; };
+		B20000000000000000000040 /* AppSwitchHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* AppSwitchHUD.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -127,6 +131,10 @@
 		B10000000000000000000034 /* SpaceRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRouting.swift; sourceTree = "<group>"; };
 		B10000000000000000000035 /* MotionTapPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionTapPlan.swift; sourceTree = "<group>"; };
 		B10000000000000000000036 /* CommandTabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabSession.swift; sourceTree = "<group>"; };
+		B10000000000000000000037 /* SwitchTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchTarget.swift; sourceTree = "<group>"; };
+		B10000000000000000000038 /* EventTapHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapHost.swift; sourceTree = "<group>"; };
+		B10000000000000000000039 /* WindowFocuser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocuser.swift; sourceTree = "<group>"; };
+		B10000000000000000000040 /* AppSwitchHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitchHUD.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -224,6 +232,9 @@
 				B10000000000000000000012 /* SystemMotionSuppressor.swift */,
 				B10000000000000000000016 /* WindowArranger.swift */,
 				B10000000000000000000030 /* AXUIElement+Read.swift */,
+				B10000000000000000000037 /* SwitchTarget.swift */,
+				B10000000000000000000038 /* EventTapHost.swift */,
+				B10000000000000000000039 /* WindowFocuser.swift */,
 			);
 			path = Backend;
 			sourceTree = "<group>";
@@ -304,6 +315,7 @@
 				B10000000000000000000023 /* AppMenu.swift */,
 				B10000000000000000000024 /* ShortcutRecorderControl.swift */,
 				B10000000000000000000025 /* SettingsWindowController.swift */,
+				B10000000000000000000040 /* AppSwitchHUD.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -460,6 +472,10 @@
 				B20000000000000000000034 /* SpaceRouting.swift in Sources */,
 				B20000000000000000000035 /* MotionTapPlan.swift in Sources */,
 				B20000000000000000000036 /* CommandTabSession.swift in Sources */,
+				B20000000000000000000037 /* SwitchTarget.swift in Sources */,
+				B20000000000000000000038 /* EventTapHost.swift in Sources */,
+				B20000000000000000000039 /* WindowFocuser.swift in Sources */,
+				B20000000000000000000040 /* AppSwitchHUD.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
