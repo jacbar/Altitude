@@ -2,6 +2,10 @@ import AppKit
 import CoreGraphics
 import Foundation
 
+/// SkyLight / CGS space identifier (UInt64). Lives in Domain so Space models
+/// compile in hostless tests without Backend SPI.
+typealias CGSSpaceID = UInt64
+
 struct DesktopSpace: Identifiable, Hashable, Sendable {
     /// 1-based index in the flattened user-desktop list (Mission Control order, v1).
     let index: Int

@@ -34,28 +34,37 @@
 		B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* ShortcutRecorderControl.swift */; };
 		B20000000000000000000025 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* SettingsWindowController.swift */; };
 		B20000000000000000000026 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
+		B20000000000000000000027 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
 		D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* CommandTabOrderTests.swift */; };
 		D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* ShortcutEditingTests.swift */; };
 		D20000000000000000000005 /* WindowCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000005 /* WindowCatalogTests.swift */; };
+		E20000000000000000000000 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* ConfigStore.swift */; };
+		E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* FocusedWindowResolver.swift */; };
+		E20000000000000000000002 /* SpaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* SpaceModels.swift */; };
+		E20000000000000000000003 /* LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* LaunchAtLogin.swift */; };
+		E20000000000000000000004 /* HotkeyBounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* HotkeyBounds.swift */; };
+		E20000000000000000000005 /* WindowArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* WindowArrangement.swift */; };
+		E20000000000000000000006 /* CommandTabOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* CommandTabOrder.swift */; };
+		E20000000000000000000007 /* ShortcutChord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* ShortcutChord.swift */; };
+		E20000000000000000000008 /* ShortcutEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ShortcutEditing.swift */; };
+		E20000000000000000000009 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
+		E20000000000000000000010 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
+		E20000000000000000000011 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
+		E20000000000000000000012 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
+		E20000000000000000000013 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
+		E20000000000000000000014 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
 		A10000000000000000000023 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* AppKit.framework */; };
 		C1000000000000000000000C /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1000000000000000000000B /* XCTest.framework */; };
+		C1000000000000000000000D /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
+		C1000000000000000000000E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* AppKit.framework */; };
+		C10000000000000000000010 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1000000000000000000000F /* ServiceManagement.framework */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		C1000000000000000000000A /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A10000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = A10000000000000000000002;
-			remoteInfo = Altitude;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		B10000000000000000000000 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -85,6 +94,7 @@
 		B10000000000000000000024 /* ShortcutRecorderControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderControl.swift; sourceTree = "<group>"; };
 		B10000000000000000000025 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		B10000000000000000000026 /* WindowCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCatalog.swift; sourceTree = "<group>"; };
+		B10000000000000000000027 /* SystemMotionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionMode.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -100,6 +110,7 @@
 		A10000000000000000000020 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		A10000000000000000000022 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		C1000000000000000000000B /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		C1000000000000000000000F /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -117,6 +128,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				C1000000000000000000000C /* XCTest.framework in Frameworks */,
+				C1000000000000000000000E /* AppKit.framework in Frameworks */,
+				C1000000000000000000000D /* Carbon.framework in Frameworks */,
+				C10000000000000000000010 /* ServiceManagement.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -131,6 +145,7 @@
 				A10000000000000000000007 /* Products */,
 				A10000000000000000000020 /* Carbon.framework */,
 				A10000000000000000000022 /* AppKit.framework */,
+				C1000000000000000000000F /* ServiceManagement.framework */,
 				C1000000000000000000000B /* XCTest.framework */,
 			);
 			sourceTree = "<group>";
@@ -187,6 +202,7 @@
 				B10000000000000000000018 /* ShortcutChord.swift */,
 				B10000000000000000000022 /* ShortcutEditing.swift */,
 				B10000000000000000000026 /* WindowCatalog.swift */,
+				B10000000000000000000027 /* SystemMotionMode.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -297,7 +313,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				C10000000000000000000009 /* PBXTargetDependency */,
 			);
 			name = AltitudeTests;
 			productName = AltitudeTests;
@@ -382,6 +397,7 @@
 				B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */,
 				B20000000000000000000025 /* SettingsWindowController.swift in Sources */,
 				B20000000000000000000026 /* WindowCatalog.swift in Sources */,
+				B20000000000000000000027 /* SystemMotionMode.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,18 +411,25 @@
 				D20000000000000000000003 /* CommandTabOrderTests.swift in Sources */,
 				D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */,
 				D20000000000000000000005 /* WindowCatalogTests.swift in Sources */,
+				E20000000000000000000000 /* ConfigStore.swift in Sources */,
+				E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */,
+				E20000000000000000000002 /* SpaceModels.swift in Sources */,
+				E20000000000000000000003 /* LaunchAtLogin.swift in Sources */,
+				E20000000000000000000004 /* HotkeyBounds.swift in Sources */,
+				E20000000000000000000005 /* WindowArrangement.swift in Sources */,
+				E20000000000000000000006 /* CommandTabOrder.swift in Sources */,
+				E20000000000000000000007 /* ShortcutChord.swift in Sources */,
+				E20000000000000000000008 /* ShortcutEditing.swift in Sources */,
+				E20000000000000000000009 /* WindowCatalog.swift in Sources */,
+				E20000000000000000000010 /* SystemMotionMode.swift in Sources */,
+				E20000000000000000000011 /* DesktopFeature.swift in Sources */,
+				E20000000000000000000012 /* CommandTabFeature.swift in Sources */,
+				E20000000000000000000013 /* WindowManagementFeature.swift in Sources */,
+				E20000000000000000000014 /* HotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		C10000000000000000000009 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A10000000000000000000002 /* Altitude */;
-			targetProxy = C1000000000000000000000A /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000000000000000000000A /* Debug */ = {
@@ -494,7 +517,6 @@
 		C10000000000000000000006 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				CODE_SIGNING_ALLOWED = NO;
@@ -511,14 +533,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";
 			};
 			name = Debug;
 		};
 		C10000000000000000000007 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				CODE_SIGNING_ALLOWED = NO;
@@ -535,7 +555,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";
 			};
 			name = Release;
 		};

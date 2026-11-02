@@ -31,6 +31,7 @@ sources = [
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
     "Altitude/Domain/WindowCatalog.swift",
+    "Altitude/Domain/SystemMotionMode.swift",
 ]
 
 test_sources = [
@@ -41,6 +42,14 @@ test_sources = [
     "AltitudeTests/ShortcutEditingTests.swift",
     "AltitudeTests/WindowCatalogTests.swift",
 ]
+
+# Compiled into AltitudeTests (hostless) as well as the app. Separate PBXBuildFile IDs.
+# Domain + Feature + HotkeyRegistrar only — no Backend/UI mass-inclusion.
+shared_test_sources = (
+    [s for s in sources if "/Domain/" in s]
+    + [s for s in sources if "/Features/" in s]
+    + ["Altitude/Hotkeys/HotkeyRegistrar.swift"]
+)
 
 ids = {
     "project": "A10000000000000000000001",
@@ -83,8 +92,6 @@ ids = {
     "test_debug_tgt": "C10000000000000000000006",
     "test_release_tgt": "C10000000000000000000007",
     "config_list_test": "C10000000000000000000008",
-    "test_dep": "C10000000000000000000009",
-    "test_proxy": "C1000000000000000000000A",
 }
 
 file_ids = {}
@@ -99,12 +106,21 @@ for i, src in enumerate(test_sources):
     test_file_ids[src] = f"D1{i:022d}"
     test_build_ids[src] = f"D2{i:022d}"
 
+shared_test_build_ids = {}
+for i, src in enumerate(shared_test_sources):
+    shared_test_build_ids[src] = f"E2{i:022d}"
+
 carbon_ref = "A10000000000000000000020"
 carbon_build = "A10000000000000000000021"
 appkit_ref = "A10000000000000000000022"
 appkit_build = "A10000000000000000000023"
 xctest_ref = "C1000000000000000000000B"
 xctest_build = "C1000000000000000000000C"
+# Test-target framework build files (shared sources need these; separate IDs from app).
+carbon_test_build = "C1000000000000000000000D"
+appkit_test_build = "C1000000000000000000000E"
+sm_ref = "C1000000000000000000000F"
+sm_test_build = "C10000000000000000000010"
 
 lines = []
 lines.append("// !$*UTF8*$!")
@@ -128,6 +144,12 @@ for src in test_sources:
         f"\t\t{test_build_ids[src]} /* {name} in Sources */ = "
         f"{{isa = PBXBuildFile; fileRef = {test_file_ids[src]} /* {name} */; }};"
     )
+for src in shared_test_sources:
+    name = Path(src).name
+    lines.append(
+        f"\t\t{shared_test_build_ids[src]} /* {name} in Sources */ = "
+        f"{{isa = PBXBuildFile; fileRef = {file_ids[src]} /* {name} */; }};"
+    )
 lines.append(
     f"\t\t{ids['assets_build']} /* Assets.xcassets in Resources */ = "
     f"{{isa = PBXBuildFile; fileRef = {ids['assets']} /* Assets.xcassets */; }};"
@@ -148,17 +170,19 @@ lines.append(
     f"\t\t{xctest_build} /* XCTest.framework in Frameworks */ = "
     f"{{isa = PBXBuildFile; fileRef = {xctest_ref} /* XCTest.framework */; }};"
 )
+lines.append(
+    f"\t\t{carbon_test_build} /* Carbon.framework in Frameworks */ = "
+    f"{{isa = PBXBuildFile; fileRef = {carbon_ref} /* Carbon.framework */; }};"
+)
+lines.append(
+    f"\t\t{appkit_test_build} /* AppKit.framework in Frameworks */ = "
+    f"{{isa = PBXBuildFile; fileRef = {appkit_ref} /* AppKit.framework */; }};"
+)
+lines.append(
+    f"\t\t{sm_test_build} /* ServiceManagement.framework in Frameworks */ = "
+    f"{{isa = PBXBuildFile; fileRef = {sm_ref} /* ServiceManagement.framework */; }};"
+)
 lines.append("/* End PBXBuildFile section */")
-lines.append("")
-lines.append("/* Begin PBXContainerItemProxy section */")
-lines.append(f"\t\t{ids['test_proxy']} /* PBXContainerItemProxy */ = {{")
-lines.append("\t\t\tisa = PBXContainerItemProxy;")
-lines.append(f"\t\t\tcontainerPortal = {ids['project']} /* Project object */;")
-lines.append("\t\t\tproxyType = 1;")
-lines.append(f"\t\t\tremoteGlobalIDString = {ids['target']};")
-lines.append('\t\t\tremoteInfo = Altitude;')
-lines.append("\t\t};")
-lines.append("/* End PBXContainerItemProxy section */")
 lines.append("")
 lines.append("/* Begin PBXFileReference section */")
 for src in sources:
@@ -218,6 +242,11 @@ lines.append(
     f"lastKnownFileType = wrapper.framework; name = XCTest.framework; "
     f"path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; }};"
 )
+lines.append(
+    f"\t\t{sm_ref} /* ServiceManagement.framework */ = {{isa = PBXFileReference; "
+    f"lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; "
+    f"path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; }};"
+)
 lines.append("/* End PBXFileReference section */")
 lines.append("")
 
@@ -261,6 +290,9 @@ lines.append("\t\t\tisa = PBXFrameworksBuildPhase;")
 lines.append("\t\t\tbuildActionMask = 2147483647;")
 lines.append("\t\t\tfiles = (")
 lines.append(f"\t\t\t\t{xctest_build} /* XCTest.framework in Frameworks */,")
+lines.append(f"\t\t\t\t{appkit_test_build} /* AppKit.framework in Frameworks */,")
+lines.append(f"\t\t\t\t{carbon_test_build} /* Carbon.framework in Frameworks */,")
+lines.append(f"\t\t\t\t{sm_test_build} /* ServiceManagement.framework in Frameworks */,")
 lines.append("\t\t\t);")
 lines.append("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
 lines.append("\t\t};")
@@ -276,6 +308,7 @@ lines.append(f"\t\t\t\t{ids['test_group']} /* AltitudeTests */,")
 lines.append(f"\t\t\t\t{ids['products_group']} /* Products */,")
 lines.append(f"\t\t\t\t{carbon_ref} /* Carbon.framework */,")
 lines.append(f"\t\t\t\t{appkit_ref} /* AppKit.framework */,")
+lines.append(f"\t\t\t\t{sm_ref} /* ServiceManagement.framework */,")
 lines.append(f"\t\t\t\t{xctest_ref} /* XCTest.framework */,")
 lines.append("\t\t\t);")
 lines.append('\t\t\tsourceTree = "<group>";')
@@ -409,7 +442,6 @@ lines.append("\t\t\t);")
 lines.append("\t\t\tbuildRules = (")
 lines.append("\t\t\t);")
 lines.append("\t\t\tdependencies = (")
-lines.append(f"\t\t\t\t{ids['test_dep']} /* PBXTargetDependency */,")
 lines.append("\t\t\t);")
 lines.append("\t\t\tname = AltitudeTests;")
 lines.append("\t\t\tproductName = AltitudeTests;")
@@ -481,18 +513,12 @@ lines.append("\t\t\tbuildActionMask = 2147483647;")
 lines.append("\t\t\tfiles = (")
 for src in test_sources:
     lines.append(f"\t\t\t\t{test_build_ids[src]} /* {Path(src).name} in Sources */,")
+for src in shared_test_sources:
+    lines.append(f"\t\t\t\t{shared_test_build_ids[src]} /* {Path(src).name} in Sources */,")
 lines.append("\t\t\t);")
 lines.append("\t\t\trunOnlyForDeploymentPostprocessing = 0;")
 lines.append("\t\t};")
 lines.append("/* End PBXSourcesBuildPhase section */")
-lines.append("")
-lines.append("/* Begin PBXTargetDependency section */")
-lines.append(f"\t\t{ids['test_dep']} /* PBXTargetDependency */ = {{")
-lines.append("\t\t\tisa = PBXTargetDependency;")
-lines.append(f"\t\t\ttarget = {ids['target']} /* Altitude */;")
-lines.append(f"\t\t\ttargetProxy = {ids['test_proxy']} /* PBXContainerItemProxy */;")
-lines.append("\t\t};")
-lines.append("/* End PBXTargetDependency section */")
 lines.append("")
 lines.append("/* Begin XCBuildConfiguration section */")
 
@@ -570,7 +596,6 @@ for oid, name in [(ids["test_debug_tgt"], "Debug"), (ids["test_release_tgt"], "R
     lines.append(f"\t\t{oid} /* {name} */ = {{")
     lines.append("\t\t\tisa = XCBuildConfiguration;")
     lines.append("\t\t\tbuildSettings = {")
-    lines.append("\t\t\t\tBUNDLE_LOADER = \"$(TEST_HOST)\";")
     lines.append('\t\t\t\tCODE_SIGN_IDENTITY = "-";')
     lines.append("\t\t\t\tCODE_SIGN_STYLE = Manual;")
     lines.append("\t\t\t\tCODE_SIGNING_ALLOWED = NO;")
@@ -587,9 +612,6 @@ for oid, name in [(ids["test_debug_tgt"], "Debug"), (ids["test_release_tgt"], "R
     lines.append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;")
     lines.append('\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";')
     lines.append("\t\t\t\tSWIFT_VERSION = 5.0;")
-    lines.append(
-        '\t\t\t\tTEST_HOST = "$(BUILT_PRODUCTS_DIR)/Altitude.app/Contents/MacOS/Altitude";'
-    )
     lines.append("\t\t\t};")
     lines.append(f"\t\t\tname = {name};")
     lines.append("\t\t};")

@@ -3,7 +3,6 @@ import CoreGraphics
 import Foundation
 
 typealias CGSConnectionID = Int32
-typealias CGSSpaceID = UInt64
 
 /// Thin decls for undocumented SkyLight / CGS symbols.
 /// These can break across macOS releases — keep call sites behind `SpaceService`.
@@ -63,6 +62,3 @@ func CGSGetActiveSpace(_ cid: CGSConnectionID) -> CGSSpaceID
 
 @_silgen_name("CGSCopySpacesForWindows")
 func CGSCopySpacesForWindows(_ cid: CGSConnectionID, _ mask: Int32, _ windows: CFArray) -> CFArray?
-
-@_silgen_name("_AXUIElementGetWindow")
-func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
