@@ -184,10 +184,15 @@ final class WindowArranger {
         let size = rect.size
 
         // Position first so growing a window near an edge is not rejected as off-screen.
-        // A second pass is needed for apps that clamp or ignore the first write.
-        let first = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
-        let second = applyFrame(element, origin: axOrigin, size: size, positionFirst: true)
-        if first || second { return true }
+        // Skip a second write when the first already stuck; otherwise retry, then size-then-position.
+        if applyFrame(element, origin: axOrigin, size: size, positionFirst: true),
+           frameMatches(element, origin: axOrigin, size: size) {
+            return true
+        }
+        if applyFrame(element, origin: axOrigin, size: size, positionFirst: true),
+           frameMatches(element, origin: axOrigin, size: size) {
+            return true
+        }
 
         // Last resort: size then position (matches some older AX clients).
         let fallback = applyFrame(element, origin: axOrigin, size: size, positionFirst: false)
@@ -195,6 +200,18 @@ final class WindowArranger {
             log.error("AX frame set failed for window at (\(rect.midX), \(rect.midY))")
         }
         return fallback
+    }
+
+    private func frameMatches(_ element: AXUIElement, origin: CGPoint, size: CGSize) -> Bool {
+        guard let actualOrigin = element.axPosition(), let actualSize = element.axSize() else {
+            return false
+        }
+        return WindowArrangement.framesMatch(
+            expectedOrigin: origin,
+            expectedSize: size,
+            actualOrigin: actualOrigin,
+            actualSize: actualSize
+        )
     }
 
     private func applyFrame(

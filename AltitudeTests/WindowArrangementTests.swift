@@ -8,6 +8,32 @@ final class WindowArrangementTests: XCTestCase {
         XCTAssertEqual(origin, CGPoint(x: 0, y: 780))
     }
 
+    func testFramesMatchAtExactTolerance() {
+        let expectedOrigin = CGPoint(x: 10, y: 20)
+        let expectedSize = CGSize(width: 100, height: 200)
+        XCTAssertTrue(
+            WindowArrangement.framesMatch(
+                expectedOrigin: expectedOrigin,
+                expectedSize: expectedSize,
+                actualOrigin: CGPoint(x: 12, y: 18),
+                actualSize: CGSize(width: 98, height: 202)
+            )
+        )
+    }
+
+    func testFramesMatchMissesJustOverTolerance() {
+        let expectedOrigin = CGPoint(x: 10, y: 20)
+        let expectedSize = CGSize(width: 100, height: 200)
+        XCTAssertFalse(
+            WindowArrangement.framesMatch(
+                expectedOrigin: expectedOrigin,
+                expectedSize: expectedSize,
+                actualOrigin: CGPoint(x: 12.01, y: 20),
+                actualSize: expectedSize
+            )
+        )
+    }
+
     func testAccessibilityOriginStackedDisplayUsesPrimaryNotGlobalMaxY() {
         // Display above primary: Cocoa maxY 2000. Primary menu-bar display maxY is 1080.
         let rect = CGRect(x: 100, y: 1700, width: 400, height: 300)

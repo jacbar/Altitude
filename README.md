@@ -173,6 +173,7 @@ key = a
 ## Good to know
 
 - Desktops are numbered 1–9 in Mission Control order.
+- A hotkey that failed to register is tried again on the next reload or Settings save.
 - Hotkeys and window arrangement need Accessibility.
 - Window arrangement affects the desktop under the pointer and skips minimized, fullscreen, and other-desktop windows.
 - Window arrangement uses the primary (menu-bar) display as the vertical origin, so a display above that screen stays aligned.

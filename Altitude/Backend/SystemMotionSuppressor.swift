@@ -65,6 +65,8 @@ final class SystemMotionSuppressor: NSObject {
     private var activationFallback: DispatchWorkItem?
     /// True while our own activate(_:) is raising an app, so appActivated does not re-enter.
     private var isActivatingInternally = false
+    private var activatingPID: pid_t?
+    private var activationGuard: DispatchWorkItem?
 
     /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
     private let axTimeoutSeconds: Float = 0.1
@@ -163,6 +165,9 @@ final class SystemMotionSuppressor: NSObject {
         pendingActivation = nil
         activationFallback?.cancel()
         activationFallback = nil
+        activationGuard?.cancel()
+        activationGuard = nil
+        activatingPID = nil
         isActivatingInternally = false
         swipeGesture = SwipeGestureState()
         tearDownTaps()
@@ -503,12 +508,22 @@ final class SystemMotionSuppressor: NSObject {
         // macOS 14+ cooperative activation requires `from` to be the real frontmost
         // app (still Rex/etc. — the HUD is nonactivating). `.current` (Altitude) made
         // same-Space picks no-op; cross-Space still worked via the Dock hop.
+        let pid = target.app.processIdentifier
         isActivatingInternally = true
+        activatingPID = pid
+        activationGuard?.cancel()
+        let guardWork = DispatchWorkItem { [weak self] in
+            guard let self, self.activatingPID == pid else { return }
+            self.isActivatingInternally = false
+            self.activatingPID = nil
+            self.activationGuard = nil
+        }
+        activationGuard = guardWork
         focus(target)
         let donor = NSWorkspace.shared.frontmostApplication ?? .current
         _ = target.app.activate(from: donor, options: [])
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.isActivatingInternally = false
+            self?.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             self?.focus(target)
@@ -516,6 +531,7 @@ final class SystemMotionSuppressor: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
             self?.focus(target)
         }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: guardWork)
     }
 
     /// Main window if Accessibility marked one; otherwise the first listed window.
@@ -758,6 +774,14 @@ final class SystemMotionSuppressor: NSObject {
         if app.bundleIdentifier == Bundle.main.bundleIdentifier { return }
         mru.removeAll { $0 == app.processIdentifier }
         mru.insert(app.processIdentifier, at: 0)
+
+        if app.processIdentifier == activatingPID {
+            activationGuard?.cancel()
+            activationGuard = nil
+            isActivatingInternally = false
+            activatingPID = nil
+            return
+        }
 
         // Keep MRU while taps are running. Hop only when desktop motion is suppressed.
         guard gestureTap != nil else { return }
