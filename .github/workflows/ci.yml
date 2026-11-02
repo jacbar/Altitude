@@ -10,12 +10,24 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
-    runs-on: macos-14
+  # Matrix expands check names (e.g. "test (macos-14)"); branch protection still
+  # requires the exact context "build-test", so a final gate job keeps that name.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: SwiftLint
+        run: swiftlint
 
       # Single xcodebuild test invocation (builds dependencies). Avoids a long-lived
       # unsigned app left from a separate build step that can stall the test host.
@@ -29,4 +41,13 @@ jobs:
             -destination 'platform=macOS' \
             -only-testing:AltitudeTests \
             -parallel-testing-enabled NO \
+            -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO
+
+  build-test:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All matrix jobs passed
+        run: echo "macos-14 and macos-latest succeeded"

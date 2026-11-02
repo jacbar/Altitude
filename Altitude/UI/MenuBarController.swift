@@ -10,30 +10,41 @@ final class MenuBarController: NSObject {
 
     private let statusItem: NSStatusItem
     private let spaceService: SpaceService
-    private let focusResolver: FocusedWindowResolver
+    private let focusResolver: AccessibilityTrusting
+    private let configStore: ConfigPersisting
+    private let launchAtLogin: LaunchAtLoginControlling
     private let arranger = WindowArranger()
-    private var hotkeys: HotkeyRegistrar!
+    private lazy var hotkeys: HotkeyApplying = HotkeyRegistrar { [weak self] action in
+        Task { @MainActor [weak self] in
+            self?.handle(action: action)
+        }
+    }
     private var config: AppConfig
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
     private var motionSuppressor: SystemMotionSuppressor?
-    private var settings: SettingsWindowController!
+    private lazy var settings: SettingsWindowController = SettingsWindowController(menuBar: self)
 
     var currentConfig: AppConfig { config }
 
-    init(spaceService: SpaceService, focusResolver: FocusedWindowResolver) {
+    init(
+        spaceService: SpaceService,
+        focusResolver: AccessibilityTrusting,
+        configStore: ConfigPersisting = ConfigStore.standard,
+        launchAtLogin: LaunchAtLoginControlling = SystemLaunchAtLogin(),
+        hotkeys: HotkeyApplying? = nil
+    ) {
         self.spaceService = spaceService
         self.focusResolver = focusResolver
-        self.config = ConfigStore.load()
+        self.configStore = configStore
+        self.launchAtLogin = launchAtLogin
+        self.config = configStore.load()
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
-        self.hotkeys = HotkeyRegistrar { [weak self] action in
-            Task { @MainActor [weak self] in
-                self?.handle(action: action)
-            }
+        if let hotkeys {
+            self.hotkeys = hotkeys
         }
-        self.settings = SettingsWindowController(menuBar: self)
         AppMenu.install(target: self)
 
         // Avoid autosave-name hide bugs on Tahoe; keep the item always visible.
@@ -48,7 +59,7 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
-        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
+        if !launchAtLogin.apply(desired: config.launchAtLogin) {
             log.error("Launch at Login reconcile failed during launch")
         }
         updateSystemMotions()
@@ -81,23 +92,18 @@ final class MenuBarController: NSObject {
         switch action {
         case .maximizeAll:
             arrangeWindows(.maximize)
-            return
         case .tileColumns:
             arrangeWindows(.columns)
-            return
-        case .switchTo, .moveTo:
-            break
+        case .switchTo(let index):
+            performSpaceHotkey { try spaceService.switchTo(index: index) }
+        case .moveTo(let index):
+            performSpaceHotkey { try spaceService.moveFocusedWindow(to: index) }
         }
+    }
 
+    private func performSpaceHotkey(_ body: () throws -> Void) {
         do {
-            switch action {
-            case .switchTo(let index):
-                try spaceService.switchTo(index: index)
-            case .moveTo(let index):
-                try spaceService.moveFocusedWindow(to: index)
-            case .maximizeAll, .tileColumns:
-                return
-            }
+            try body()
             // Dock-swipe transitions settle after the gesture frames are posted.
             DispatchQueue.main.asyncAfter(deadline: .now() + Timing.hotkeyRefresh) { [weak self] in
                 self?.refreshSpacesAndHotkeys()
@@ -135,12 +141,15 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func refreshFromMenu() {
-        let loaded = ConfigStore.load()
+        let loaded = configStore.load()
         apply(loaded, write: false)
     }
 
     @objc private func toggleLaunchAtLogin() {
-        setLaunchAtLogin(LaunchAtLogin.toggledDesired)
+        setLaunchAtLogin(LaunchAtLogin.toggledDesired(
+            isEnabled: launchAtLogin.isEnabled,
+            requiresApproval: launchAtLogin.requiresApproval
+        ))
     }
 
     @objc func showSettings() {
@@ -151,31 +160,25 @@ final class MenuBarController: NSObject {
     /// Updates Launch at Login via SMAppService, writes config, and rolls back on failure.
     func setLaunchAtLogin(_ desired: Bool) {
         let previous = config.launchAtLogin
-        do {
-            try LaunchAtLogin.setEnabled(desired)
-        } catch {
-            log.error("Launch at Login toggle failed: \(error.localizedDescription, privacy: .public)")
-            NSSound.beep()
-            settings.display(config)
-            buildMenu()
-            return
-        }
-
-        config.launchAtLogin = desired
-        do {
-            try ConfigStore.save(config)
-        } catch {
-            log.error("Could not write launch_at_login: \(error.localizedDescription, privacy: .public)")
-            config.launchAtLogin = previous
-            do {
-                try LaunchAtLogin.setEnabled(previous)
-            } catch {
-                log.error("Could not roll back Launch at Login: \(error.localizedDescription, privacy: .public)")
+        let outcome = MenuBarMutation.setLaunchAtLogin(
+            desired: desired,
+            previous: previous,
+            setEnabled: { try launchAtLogin.setEnabled($0) },
+            save: {
+                self.config.launchAtLogin = desired
+                try self.configStore.save(self.config)
             }
+        )
+        switch outcome {
+        case .serviceFailed:
+            log.error("Launch at Login toggle failed")
             NSSound.beep()
-            settings.display(config)
-            buildMenu()
-            return
+        case .saveFailedRestored(let restored):
+            log.error("Could not write launch_at_login; restored login item")
+            config.launchAtLogin = restored
+            NSSound.beep()
+        case .succeeded(let value):
+            config.launchAtLogin = value
         }
         settings.display(config)
         buildMenu()
@@ -186,22 +189,21 @@ final class MenuBarController: NSObject {
         let previous = config
         config = newConfig
 
-        if write {
-            do {
-                try ConfigStore.save(config)
-            } catch {
-                log.error("Could not write config: \(error.localizedDescription, privacy: .public)")
-                config = previous
-                NSSound.beep()
-                settings.display(config)
-                buildMenu()
-                return
-            }
+        switch MenuBarMutation.applyWrite(write: write, save: { try self.configStore.save(self.config) }) {
+        case .saveFailed:
+            log.error("Could not write config")
+            config = previous
+            NSSound.beep()
+            settings.display(config)
+            buildMenu()
+            return
+        case .succeeded:
+            break
         }
 
         spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
         // Login-item edits use setLaunchAtLogin; other apply paths reconcile here.
-        if !LaunchAtLogin.apply(desired: config.launchAtLogin) {
+        if !launchAtLogin.apply(desired: config.launchAtLogin) {
             log.error("Launch at Login reconcile failed")
             NSSound.beep()
         }
@@ -298,7 +300,7 @@ final class MenuBarController: NSObject {
         )
         launchItem.target = self
         // Only show checked when fully enabled; requiresApproval stays unchecked honestly.
-        launchItem.state = LaunchAtLogin.isEnabled ? .on : .off
+        launchItem.state = launchAtLogin.isEnabled ? .on : .off
         menu.addItem(launchItem)
 
         let quitItem = NSMenuItem(title: "Quit Altitude", action: #selector(quit), keyEquivalent: "q")
@@ -358,6 +360,7 @@ final class MenuBarController: NSObject {
             refreshIndicator()
             buildMenu()
         }
+        // Runs every second so taps install once Accessibility is granted.
         updateSystemMotions()
     }
 

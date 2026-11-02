@@ -21,9 +21,8 @@ func shortcutSymbols(modifiers: ModifierFlags, key: Character?) -> String {
 }
 
 /// Accepts a non-empty set that differs from `other`; empty is invalid, match is conflict.
-/// Callers keep `current` on `.invalid` / `.conflict`.
+/// Callers keep the prior value on `.invalid` / `.conflict`.
 func validatedDesktopModifiers(
-    current _: ModifierFlags,
     other: ModifierFlags,
     proposed: ModifierFlags
 ) -> ShortcutValidationResult<ModifierFlags> {
@@ -33,9 +32,8 @@ func validatedDesktopModifiers(
 }
 
 /// Accepts a…z with modifiers that differ from `other`; otherwise invalid or conflict.
-/// Callers keep `current` on `.invalid` / `.conflict`.
+/// Callers keep the prior value on `.invalid` / `.conflict`.
 func validatedWindowChord(
-    current _: KeyChord,
     other: KeyChord,
     proposed: KeyChord
 ) -> ShortcutValidationResult<KeyChord> {

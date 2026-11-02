@@ -1,16 +1,13 @@
-import ApplicationServices
-import AppKit
+@preconcurrency import ApplicationServices
+@preconcurrency import AppKit
 import CoreGraphics
 import Foundation
 import os.log
 
-@_silgen_name("_AXUIElementGetWindow")
-func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
-
 private let log = Logger(subsystem: "com.altitude.app", category: "FocusedWindow")
 
 /// Resolves the focused window's `CGWindowID` via Accessibility.
-final class FocusedWindowResolver {
+final class FocusedWindowResolver: @unchecked Sendable {
     var isAccessibilityTrusted: Bool {
         AXIsProcessTrusted()
     }
@@ -42,7 +39,7 @@ final class FocusedWindowResolver {
             return focusedWindowID(forPID: app.processIdentifier)
         }
 
-        let focusedApp = focusedAppObject as! AXUIElement
+        let focusedApp = unsafeBitCast(focusedAppObject, to: AXUIElement.self)
         return focusedWindowID(fromAppElement: focusedApp)
     }
 
@@ -63,11 +60,9 @@ final class FocusedWindowResolver {
             return nil
         }
 
-        let window = focusedWindowObject as! AXUIElement
-        var windowID: CGWindowID = 0
-        let error = _AXUIElementGetWindow(window, &windowID)
-        guard error == .success, windowID != 0 else {
-            log.error("_AXUIElementGetWindow failed: \(String(describing: error))")
+        let window = unsafeBitCast(focusedWindowObject, to: AXUIElement.self)
+        guard let windowID = AXUIElementGetWindow.windowID(of: window) else {
+            log.error("_AXUIElementGetWindow unavailable or failed")
             return nil
         }
         return windowID

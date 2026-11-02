@@ -1,16 +1,73 @@
 import ApplicationServices
 import CoreGraphics
+import Darwin
 import Foundation
 
 typealias CGSConnectionID = Int32
 
-/// Thin decls for undocumented SkyLight / CGS symbols.
+/// Thin wrappers for undocumented SkyLight / CGS symbols resolved via `dlsym`.
 /// These can break across macOS releases — keep call sites behind `SpaceService`.
+/// Missing symbols fail soft (nil / no-op / empty) instead of crashing at launch.
 enum CGSPrivate {
-    static let connection: CGSConnectionID = CGSMainConnectionID()
+    // Resolved once at first use; dlopen handles are process-global.
+    nonisolated(unsafe) private static let skyLightHandle: UnsafeMutableRawPointer? = {
+        if let handle = dlopen(
+            "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight",
+            RTLD_LAZY
+        ) {
+            return handle
+        }
+        return dlopen(nil, RTLD_LAZY)
+    }()
+
+    private typealias MainConnectionIDFn = @convention(c) () -> CGSConnectionID
+    private typealias CopyManagedDisplaySpacesFn = @convention(c) (CGSConnectionID) -> Unmanaged<CFArray>?
+    private typealias MoveWindowsToManagedSpaceFn = @convention(c) (CGSConnectionID, CFArray, CGSSpaceID) -> Void
+    private typealias GetActiveSpaceFn = @convention(c) (CGSConnectionID) -> CGSSpaceID
+    private typealias CopySpacesForWindowsFn = @convention(c) (CGSConnectionID, Int32, CFArray) -> Unmanaged<CFArray>?
+
+    private static let mainConnectionIDFn: MainConnectionIDFn? = {
+        guard let handle = skyLightHandle,
+              let symbol = dlsym(handle, "CGSMainConnectionID")
+        else { return nil }
+        return unsafeBitCast(symbol, to: MainConnectionIDFn.self)
+    }()
+
+    private static let copyManagedDisplaySpacesFn: CopyManagedDisplaySpacesFn? = {
+        guard let handle = skyLightHandle,
+              let symbol = dlsym(handle, "CGSCopyManagedDisplaySpaces")
+        else { return nil }
+        return unsafeBitCast(symbol, to: CopyManagedDisplaySpacesFn.self)
+    }()
+
+    private static let moveWindowsToManagedSpaceFn: MoveWindowsToManagedSpaceFn? = {
+        guard let handle = skyLightHandle,
+              let symbol = dlsym(handle, "CGSMoveWindowsToManagedSpace")
+        else { return nil }
+        return unsafeBitCast(symbol, to: MoveWindowsToManagedSpaceFn.self)
+    }()
+
+    private static let getActiveSpaceFn: GetActiveSpaceFn? = {
+        guard let handle = skyLightHandle,
+              let symbol = dlsym(handle, "CGSGetActiveSpace")
+        else { return nil }
+        return unsafeBitCast(symbol, to: GetActiveSpaceFn.self)
+    }()
+
+    private static let copySpacesForWindowsFn: CopySpacesForWindowsFn? = {
+        guard let handle = skyLightHandle,
+              let symbol = dlsym(handle, "CGSCopySpacesForWindows")
+        else { return nil }
+        return unsafeBitCast(symbol, to: CopySpacesForWindowsFn.self)
+    }()
+
+    static let connection: CGSConnectionID = mainConnectionIDFn?() ?? 0
 
     static func copyManagedDisplaySpaces() -> [[String: Any]]? {
-        guard let array = CGSCopyManagedDisplaySpaces(connection) else { return nil }
+        guard let fn = copyManagedDisplaySpacesFn,
+              let unmanaged = fn(connection)
+        else { return nil }
+        let array = unmanaged.takeRetainedValue()
         return array as? [[String: Any]]
     }
 
@@ -20,17 +77,20 @@ enum CGSPrivate {
         if SkyLightBridgedSPI.moveWindows(windowIDs, toSpace: spaceID) {
             return
         }
-        CGSMoveWindowsToManagedSpace(connection, windows, spaceID)
+        moveWindowsToManagedSpaceFn?(connection, windows, spaceID)
     }
 
     static func activeSpaceID() -> CGSSpaceID {
-        CGSGetActiveSpace(connection)
+        getActiveSpaceFn?(connection) ?? 0
     }
 
     /// Spaces that contain `windowID`, including Spaces that are not visible.
     static func spaceIDs(forWindow windowID: CGWindowID) -> [CGSSpaceID] {
         let array = [NSNumber(value: windowID)] as CFArray
-        guard let raw = CGSCopySpacesForWindows(connection, allSpacesMask, array) else { return [] }
+        guard let fn = copySpacesForWindowsFn,
+              let unmanaged = fn(connection, allSpacesMask, array)
+        else { return [] }
+        let raw = unmanaged.takeRetainedValue()
         let numbers = raw as? [NSNumber] ?? []
         var seen = Set<CGSSpaceID>()
         var ids: [CGSSpaceID] = []
@@ -43,22 +103,3 @@ enum CGSPrivate {
     /// User, other, and currently visible Spaces. Matches the mask other Space tools pass here.
     private static let allSpacesMask: Int32 = 0x7
 }
-
-@_silgen_name("CGSMainConnectionID")
-func CGSMainConnectionID() -> CGSConnectionID
-
-@_silgen_name("CGSCopyManagedDisplaySpaces")
-func CGSCopyManagedDisplaySpaces(_ cid: CGSConnectionID) -> CFArray?
-
-@_silgen_name("CGSMoveWindowsToManagedSpace")
-func CGSMoveWindowsToManagedSpace(
-    _ cid: CGSConnectionID,
-    _ windows: CFArray,
-    _ space: CGSSpaceID
-)
-
-@_silgen_name("CGSGetActiveSpace")
-func CGSGetActiveSpace(_ cid: CGSConnectionID) -> CGSSpaceID
-
-@_silgen_name("CGSCopySpacesForWindows")
-func CGSCopySpacesForWindows(_ cid: CGSConnectionID, _ mask: Int32, _ windows: CFArray) -> CFArray?

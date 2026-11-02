@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 /// Still row of running apps shown while Command is held. It does not fade or slide.
+@MainActor
 final class AppSwitchHUD {
     private let panel: NSPanel
     private let effect: NSVisualEffectView

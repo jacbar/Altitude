@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 
 /// Owns the session and HID CGEvent taps driven by a MotionTapPlan.
+@MainActor
 final class EventTapHost {
     struct InstallResult {
         /// False when a required session tap could not be created.

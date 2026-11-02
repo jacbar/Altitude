@@ -1,4 +1,4 @@
-import AppKit
+@preconcurrency import AppKit
 import Carbon
 import Foundation
 import os.log
@@ -23,12 +23,17 @@ struct HotkeyBinding: Equatable {
 }
 
 /// Weak box so Carbon callbacks no-op after the registrar is released.
-private final class HotkeyCallbackContext {
+private final class HotkeyCallbackContext: @unchecked Sendable {
     weak var registrar: HotkeyRegistrar?
 }
 
+/// Applies a set of Carbon hotkey bindings.
+protocol HotkeyApplying: AnyObject {
+    func apply(_ bindings: [HotkeyBinding])
+}
+
 /// Registers global hotkeys via Carbon.
-final class HotkeyRegistrar {
+final class HotkeyRegistrar: HotkeyApplying, @unchecked Sendable {
     private var hotKeyRefs: [EventHotKeyRef?] = []
     private var handlerRef: EventHandlerRef?
     private var actionByID: [UInt32: HotkeyAction] = [:]
@@ -137,9 +142,8 @@ final class HotkeyRegistrar {
             return OSStatus(eventNotHandledErr)
         }
 
-        DispatchQueue.main.async { [onAction] in
-            onAction(action)
-        }
+        // Carbon delivers this callback on the main thread already.
+        onAction(action)
         return noErr
     }
 
@@ -185,35 +189,19 @@ enum HotkeyChordMapping {
     }
 
     /// ANSI letter key codes are layout-based, not alphabetical.
+    private static let letterCodes: [Character: UInt32] = [
+        "a": UInt32(kVK_ANSI_A), "b": UInt32(kVK_ANSI_B), "c": UInt32(kVK_ANSI_C),
+        "d": UInt32(kVK_ANSI_D), "e": UInt32(kVK_ANSI_E), "f": UInt32(kVK_ANSI_F),
+        "g": UInt32(kVK_ANSI_G), "h": UInt32(kVK_ANSI_H), "i": UInt32(kVK_ANSI_I),
+        "j": UInt32(kVK_ANSI_J), "k": UInt32(kVK_ANSI_K), "l": UInt32(kVK_ANSI_L),
+        "m": UInt32(kVK_ANSI_M), "n": UInt32(kVK_ANSI_N), "o": UInt32(kVK_ANSI_O),
+        "p": UInt32(kVK_ANSI_P), "q": UInt32(kVK_ANSI_Q), "r": UInt32(kVK_ANSI_R),
+        "s": UInt32(kVK_ANSI_S), "t": UInt32(kVK_ANSI_T), "u": UInt32(kVK_ANSI_U),
+        "v": UInt32(kVK_ANSI_V), "w": UInt32(kVK_ANSI_W), "x": UInt32(kVK_ANSI_X),
+        "y": UInt32(kVK_ANSI_Y), "z": UInt32(kVK_ANSI_Z),
+    ]
+
     static func letterKeyCode(_ key: Character) -> UInt32? {
-        switch key {
-        case "a": return UInt32(kVK_ANSI_A)
-        case "b": return UInt32(kVK_ANSI_B)
-        case "c": return UInt32(kVK_ANSI_C)
-        case "d": return UInt32(kVK_ANSI_D)
-        case "e": return UInt32(kVK_ANSI_E)
-        case "f": return UInt32(kVK_ANSI_F)
-        case "g": return UInt32(kVK_ANSI_G)
-        case "h": return UInt32(kVK_ANSI_H)
-        case "i": return UInt32(kVK_ANSI_I)
-        case "j": return UInt32(kVK_ANSI_J)
-        case "k": return UInt32(kVK_ANSI_K)
-        case "l": return UInt32(kVK_ANSI_L)
-        case "m": return UInt32(kVK_ANSI_M)
-        case "n": return UInt32(kVK_ANSI_N)
-        case "o": return UInt32(kVK_ANSI_O)
-        case "p": return UInt32(kVK_ANSI_P)
-        case "q": return UInt32(kVK_ANSI_Q)
-        case "r": return UInt32(kVK_ANSI_R)
-        case "s": return UInt32(kVK_ANSI_S)
-        case "t": return UInt32(kVK_ANSI_T)
-        case "u": return UInt32(kVK_ANSI_U)
-        case "v": return UInt32(kVK_ANSI_V)
-        case "w": return UInt32(kVK_ANSI_W)
-        case "x": return UInt32(kVK_ANSI_X)
-        case "y": return UInt32(kVK_ANSI_Y)
-        case "z": return UInt32(kVK_ANSI_Z)
-        default: return nil
-        }
+        letterCodes[key]
     }
 }

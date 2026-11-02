@@ -54,6 +54,9 @@ sources = [
     "Altitude/Backend/EventTapHost.swift",
     "Altitude/Backend/WindowFocuser.swift",
     "Altitude/UI/AppSwitchHUD.swift",
+    "Altitude/Domain/AXUIElementGetWindow.swift",
+    "Altitude/Domain/MenuBarDependencies.swift",
+    "Altitude/Domain/DockSwipeTiming.swift",
 ]
 
 test_sources = [
@@ -69,6 +72,11 @@ test_sources = [
     "AltitudeTests/SpaceLayoutTests.swift",
     "AltitudeTests/MotionTapPlanTests.swift",
     "AltitudeTests/CommandTabSessionTests.swift",
+    "AltitudeTests/HotkeyChordMappingTests.swift",
+    "AltitudeTests/FeatureBindingsTests.swift",
+    "AltitudeTests/DockSwipeTimingTests.swift",
+    "AltitudeTests/LaunchAtLoginTests.swift",
+    "AltitudeTests/MenuBarMutationTests.swift",
 ]
 
 # Compiled into AltitudeTests (hostless) as well as the app. Separate PBXBuildFile IDs.
@@ -615,6 +623,7 @@ for oid, name in [(ids["debug_tgt"], "Debug"), (ids["release_tgt"], "Release")]:
     lines.append("\t\t\t\tMARKETING_VERSION = 0.1.0;")
     lines.append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.altitude.app;")
     lines.append('\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";')
+    lines.append("\t\t\t\tSWIFT_STRICT_CONCURRENCY = complete;")
     lines.append("\t\t\t\tSWIFT_VERSION = 5.0;")
     lines.append("\t\t\t};")
     lines.append(f"\t\t\tname = {name};")
@@ -639,6 +648,7 @@ for oid, name in [(ids["test_debug_tgt"], "Debug"), (ids["test_release_tgt"], "R
     lines.append("\t\t\t\tMARKETING_VERSION = 0.1.0;")
     lines.append("\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.altitude.app.tests;")
     lines.append('\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";')
+    lines.append("\t\t\t\tSWIFT_STRICT_CONCURRENCY = complete;")
     lines.append("\t\t\t\tSWIFT_VERSION = 5.0;")
     lines.append("\t\t\t};")
     lines.append(f"\t\t\tname = {name};")

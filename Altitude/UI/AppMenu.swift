@@ -1,7 +1,8 @@
-import AppKit
+@preconcurrency import AppKit
 
 enum AppMenu {
     /// Installs the Altitude + Edit main menu used while an Altitude window is key.
+    @MainActor
     static func install(target: AnyObject) {
         let main = NSMenu()
 
