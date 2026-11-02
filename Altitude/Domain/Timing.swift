@@ -14,6 +14,9 @@ enum Timing {
     /// Backup clear of isActivatingInternally.
     static let activationGuard: TimeInterval = 1.0
 
+    /// Cancel an open Command-Tab session after this much idle time.
+    static let commandTabIdle: TimeInterval = 10
+
     static let instantLandingBase: TimeInterval = 0.08
     static let instantLandingPerStep: TimeInterval = 0.06
 
