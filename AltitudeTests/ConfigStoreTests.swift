@@ -257,6 +257,28 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.desktop.maxSpace, AppConfig.default.desktop.maxSpace)
     }
 
+    func testExampleFileHasNoUnknownKeys() throws {
+        let testFile = URL(fileURLWithPath: #filePath)
+        let repoRoot = testFile
+            .deletingLastPathComponent() // AltitudeTests
+            .deletingLastPathComponent() // repo root
+        let exampleURL = repoRoot.appendingPathComponent("config/config.example.toml")
+        let text = try String(contentsOf: exampleURL, encoding: .utf8)
+        let result = MinimalTOML.parseAltitudeConfigDetail(text)
+        XCTAssertEqual(result.ignoredKeys, [])
+        XCTAssertEqual(result.config, AppConfig.default)
+    }
+
+    func testUnknownKeyIsReported() {
+        let result = MinimalTOML.parseAltitudeConfigDetail("""
+        [desktop]
+        mystery = 1
+        enabled = false
+        """)
+        XCTAssertEqual(result.ignoredKeys, ["desktop.mystery"])
+        XCTAssertFalse(result.config.desktop.enabled)
+    }
+
     func testPartialModifiersKeepDefaults() {
         let config = MinimalTOML.parseAltitudeConfig("""
         [desktop.switch]
