@@ -61,6 +61,8 @@ final class SystemMotionSuppressor: NSObject {
     private var swipeDirection: DockSwipeSwitcher.Direction?
 
     private var session: Session?
+    private var switcherBuildInFlight = false
+    private var sessionIdle: DispatchWorkItem?
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
@@ -71,13 +73,12 @@ final class SystemMotionSuppressor: NSObject {
     private let axTimeoutSeconds: Float = 0.1
     /// Finger must travel at least this far before a released swipe commits a Space change.
     private let swipeCommitThreshold: Double = 0.08
+    /// Cancel an open Command-Tab session after this much idle time.
+    private let sessionIdleInterval: TimeInterval = 10
 
     private let tabKeyCode: Int64 = 48
-    private let escapeKeyCode: Int64 = 53
     private let leftArrowKeyCode: Int64 = 123
     private let rightArrowKeyCode: Int64 = 124
-    private let qKeyCode: Int64 = 12
-    private let hKeyCode: Int64 = 4
 
     init(spaceService: SpaceService) {
         self.spaceService = spaceService
@@ -234,6 +235,7 @@ final class SystemMotionSuppressor: NSObject {
 
     private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            cancelSession()
             if let gestureTap {
                 CGEvent.tapEnable(tap: gestureTap, enable: true)
             }
@@ -331,82 +333,62 @@ final class SystemMotionSuppressor: NSObject {
             return nil
         }
         guard type == .keyDown else { return event }
-        if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
+
+        // Swallow the opening keyDown before enumerating windows; build on the next turn.
+        if switcherBuildInFlight || event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
             return nil
         }
 
-        let apps = orderedApps()
-        guard let front = apps.first else { return event }
-        let targets = switchTargets(apps: apps)
-        guard targets.count >= 2 else { return event }
-        let index = commandTabOpeningIndex(
-            appIDs: targets.map { Int64($0.app.processIdentifier) },
-            frontAppID: Int64(front.processIdentifier),
-            forward: !shift
-        )
-        session = Session(targets: targets, index: index)
-        hud.show(targets: targets, selectedIndex: index)
+        switcherBuildInFlight = true
+        let forward = !shift
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            defer { self.switcherBuildInFlight = false }
+            guard NSEvent.modifierFlags.contains(.command) else { return }
+
+            let apps = self.orderedApps()
+            guard let front = apps.first else { return }
+            let targets = self.switchTargets(apps: apps)
+            guard targets.count >= 2 else { return }
+            let index = commandTabOpeningIndex(
+                appIDs: targets.map { Int64($0.app.processIdentifier) },
+                frontAppID: Int64(front.processIdentifier),
+                forward: forward
+            )
+            self.session = Session(targets: targets, index: index)
+            self.hud.show(targets: targets, selectedIndex: index)
+            self.armSessionIdle()
+        }
         return nil
     }
 
     /// While the switcher is open, keys go to Altitude — not the frontmost app.
     /// Tab / arrows move, Escape cancels, Q quits and H hides the highlighted app.
     private func handleSwitcherKey(type: CGEventType, event: CGEvent) -> CGEvent? {
-        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-
-        if let step = switcherArrowStep(keyCode: keyCode) {
-            if type == .keyDown, !isRepeat {
-                moveSelection(by: step)
-            }
-            return nil
+        let action = CommandTabKeys.action(
+            keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            command: event.flags.contains(.maskCommand),
+            shift: event.flags.contains(.maskShift),
+            alternate: event.flags.contains(.maskAlternate),
+            control: event.flags.contains(.maskControl),
+            isKeyDown: type == .keyDown,
+            isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+        )
+        switch action {
+        case .move(let delta):
+            moveSelection(by: delta)
+        case .cancel:
+            cancelSession()
+        case .commit:
+            commitSession()
+        case .quit:
+            quitHighlighted()
+        case .hide:
+            hideHighlighted()
+        case .swallow:
+            break
         }
-
-        if keyCode == escapeKeyCode {
-            if type == .keyDown, !isRepeat {
-                cancelSession()
-            }
-            return nil
-        }
-
-        let command = event.flags.contains(.maskCommand)
-        let shift = event.flags.contains(.maskShift)
-        let extra = event.flags.contains(.maskAlternate) || event.flags.contains(.maskControl)
-
-        if command, !extra, keyCode == tabKeyCode {
-            if type == .keyDown, !isRepeat {
-                moveSelection(by: shift ? -1 : 1)
-            }
-            return nil
-        }
-
-        if command, !extra, keyCode == qKeyCode {
-            if type == .keyDown, !isRepeat {
-                quitHighlighted()
-            }
-            return nil
-        }
-
-        if command, !extra, keyCode == hKeyCode {
-            if type == .keyDown, !isRepeat {
-                hideHighlighted()
-            }
-            return nil
-        }
-
-        // Drop every other key so Command-Q / Command-W cannot hit the app underneath.
         return nil
-    }
-
-    private func switcherArrowStep(keyCode: Int64) -> Int? {
-        switch keyCode {
-        case leftArrowKeyCode:
-            return -1
-        case rightArrowKeyCode:
-            return 1
-        default:
-            return nil
-        }
     }
 
     private func moveSelection(by delta: Int) {
@@ -420,6 +402,16 @@ final class SystemMotionSuppressor: NSObject {
         current.index = wrapped
         session = current
         hud.show(targets: current.targets, selectedIndex: current.index)
+        armSessionIdle()
+    }
+
+    private func armSessionIdle() {
+        sessionIdle?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.cancelSession()
+        }
+        sessionIdle = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + sessionIdleInterval, execute: work)
     }
 
     /// Control-Left/Right is the system "move a space" shortcut. Command, Option, and Shift stay free.
@@ -453,6 +445,8 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     private func commitSession() {
+        sessionIdle?.cancel()
+        sessionIdle = nil
         guard let session else { return }
         self.session = nil
         hud.hide()
@@ -476,6 +470,8 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     private func cancelSession() {
+        sessionIdle?.cancel()
+        sessionIdle = nil
         session = nil
         hud.hide()
     }
