@@ -32,6 +32,7 @@ sources = [
     "Altitude/UI/SettingsWindowController.swift",
     "Altitude/Domain/WindowCatalog.swift",
     "Altitude/Domain/SystemMotionMode.swift",
+    "Altitude/Domain/CommandTabKeys.swift",
 ]
 
 test_sources = [
@@ -41,6 +42,7 @@ test_sources = [
     "AltitudeTests/CommandTabOrderTests.swift",
     "AltitudeTests/ShortcutEditingTests.swift",
     "AltitudeTests/WindowCatalogTests.swift",
+    "AltitudeTests/CommandTabKeysTests.swift",
 ]
 
 # Compiled into AltitudeTests (hostless) as well as the app. Separate PBXBuildFile IDs.
