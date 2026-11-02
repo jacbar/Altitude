@@ -28,7 +28,8 @@ extension AXUIElement {
             return nil
         }
         var size = CGSize.zero
-        guard AXValueGetValue(ref as! AXValue, .cgSize, &size) else { return nil }
+        let value = unsafeBitCast(ref, to: AXValue.self)
+        guard AXValueGetValue(value, .cgSize, &size) else { return nil }
         return size
     }
 
@@ -41,13 +42,12 @@ extension AXUIElement {
             return nil
         }
         var point = CGPoint.zero
-        guard AXValueGetValue(ref as! AXValue, .cgPoint, &point) else { return nil }
+        let value = unsafeBitCast(ref, to: AXValue.self)
+        guard AXValueGetValue(value, .cgPoint, &point) else { return nil }
         return point
     }
 
     func axWindowID() -> CGWindowID {
-        var id: CGWindowID = 0
-        guard _AXUIElementGetWindow(self, &id) == .success else { return 0 }
-        return id
+        AXUIElementGetWindow.windowID(of: self) ?? 0
     }
 }
