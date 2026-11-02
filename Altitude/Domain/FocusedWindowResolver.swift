@@ -4,6 +4,9 @@ import CoreGraphics
 import Foundation
 import os.log
 
+@_silgen_name("_AXUIElementGetWindow")
+func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 private let log = Logger(subsystem: "com.altitude.app", category: "FocusedWindow")
 
 /// Resolves the focused window's `CGWindowID` via Accessibility.

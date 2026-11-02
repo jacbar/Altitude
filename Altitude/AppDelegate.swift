@@ -14,6 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Hostless XCTest must not bootstrap the agent (config, menu bar, event taps).
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            return
+        }
+
         log.info("Altitude launching")
         ConfigStore.ensureExampleIfMissing()
 
