@@ -2,80 +2,69 @@
 
 ![Altitude](docs/branding/altitude-full.png)
 
-Menu bar agent for macOS with three independent modules: desktops, Command-Tab, and window management. A module that is off does nothing. The status item stays visible either way.
+Opinionated macOS automation inspired by [Space Rabbit](https://space-rabbit.app) and [Spaceman](https://github.com/Jaysce/Spaceman). Altitude is a modular menu-bar agent: desktops, Command-Tab, and window management. Turn a module off and it does nothing; the status item stays either way.
 
 **Version:** 0.1.0 · **License:** MIT
 
-## Features
+## What it does
 
 ### Desktop
 
-Switch Mission Control desktops and move the focused window with digit hotkeys. The menu bar shows numbered desktop boxes with the current Space highlighted, and the status menu lists desktops when this module is on.
+Switch Mission Control desktops and move the focused window with digit hotkeys. The menu bar shows numbered desktop boxes (current Space highlighted); the status menu lists desktops when this module is on.
 
-- **Switch** — default `⌥` + `1`…`N` jumps to desktop N
-- **Move focused window** — default `⌥⇧` + `1`…`N` moves the frontmost window to desktop N
-- **`enabled = false`** — no digit bindings; the menu does not list desktops; Space-motion suppression for this module is off
-- **`disable_motion`** — applies only while desktop is enabled. Makes these instant (no slide, no edge bounce): hotkey space switches, trackpad space swipes, Control-Left/Right, and activating an app that already has a window on another space of the same display
-- **`max_space`** — highest desktop number that gets a hotkey (default 9); clamped to 1…9 and to the number of Spaces
+- Switch — default `⌥` + `1`…`N`
+- Move focused window — default `⌥⇧` + `1`…`N`
+- `disable_motion` — while enabled, skips Space slides for hotkeys, trackpad swipes, Control-Left/Right, and same-display app activation
+- `max_space` — highest desktop number with a hotkey (default 9; clamped to 1…9 and existing Spaces)
 
 ### Command-Tab
 
-- **`enabled = false` (default)** — leave the system app switcher alone
-- **`enabled = true`** — Altitude window switcher: a still row of open windows (including windows on other Spaces). Untitled Electron helpers (ChatGPT, Teams, …) collapse to the largest real window so a background app does not appear multiple times. Tab / Shift-Tab / arrows move the highlight; Command-Q quits and Command-H hides the highlighted app; Escape cancels; release Command to land
-- **`disable_motion`** — applies only while Command-Tab is enabled, and only skips the slide when landing on the highlighted window. It does not change trackpad, Control-arrow, or hotkey motion
-
-Both `disable_motion` flags may be on together.
+Off by default (system switcher). When on, Altitude shows a still row of open windows — including other Spaces. Untitled Electron helpers (ChatGPT, Teams, …) collapse to the largest real window. Tab / Shift-Tab / arrows move; ⌘Q quits and ⌘H hides the highlighted app; Escape cancels; release Command to land. `disable_motion` only skips the slide when landing.
 
 ### Window management
 
 Arrange windows on the desktop under the pointer.
 
-- **Maximize** — default `⌃⌥` + `F` maximizes every included window to the same inset visible frame
-- **Equal split** — default `⌃⌥` + `A` tiles them in equal columns (full height, left to right)
-- **`enabled = false`** — neither chord is registered and nothing is arranged
-- **`margin`** — outer inset and gap between columns (default 8, clamped 0…256)
+- Maximize — default `⌃⌥` + `F`
+- Equal split — default `⌃⌥` + `A` (equal columns, left to right)
+- `margin` — outer inset and column gap (default 8; clamped 0…256)
 
-### Always available
+## Always on
 
-- **Settings…** — Cmd+comma opens a Settings window (General, Desktop, Command-Tab, Windows) that edits every current knob and writes `config.toml` immediately. Desktop Switch/Move and Windows Maximize/Equal Split use press-to-record controls (plus **Use Default**); same-tab sibling conflicts show a red **already in use** message and do not save
-- **Menu actions** — Settings…; Reload Config; Open Config…; Launch at Login; open Accessibility settings
-- **Launch at Login** — checkable menu item and General tab switch (and `[app] launch_at_login` in TOML) register via `SMAppService`; reload/relaunch reconciles the service to config
-- **Accessibility-aware** — prompts once for Accessibility; later launches use the menu if permission is missing
+- **Settings…** — Cmd+comma; General / Desktop / Command-Tab / Windows; writes `config.toml` immediately. Desktop Switch/Move and Windows Maximize/Equal Split use press-to-record (plus **Use Default**); same-tab sibling conflicts show a red **already in use** message and do not save
+- **Menu** — Settings…; Reload Config; Open Config…; Launch at Login; open Accessibility settings
+- **Launch at Login** — menu item and General switch (and `[app] launch_at_login`) via `SMAppService`; reload/relaunch reconciles to config
+- **Accessibility** — prompts once; later launches use the menu if permission is missing
 
 ## Requirements
 
-- macOS (built as an `LSUIElement` accessory app)
+- macOS (`LSUIElement` accessory app)
 - Xcode / `xcodebuild`
-- **Accessibility** permission for Space switching, window moves, and window arrangement
-- Apple Development identity for codesigning if you use `make` (keeps the Accessibility grant stable across rebuilds)
+- **Accessibility** for Space switching, window moves, and arrangement
+- Apple Development identity for `make` codesigning (keeps Accessibility grant stable across rebuilds)
 
 ## Build & run
 
-Copy the env example and set your signing identity (required for `make build` / `make run`):
-
 ```bash
 cp .env.example .env
-# Edit .env and set SIGN_ID, e.g. Apple Development: you@example.com (TEAMID)
-# List identities with: security find-identity -v -p codesigning
+# Edit .env → set SIGN_ID, e.g. Apple Development: you@example.com (TEAMID)
+# List identities: security find-identity -v -p codesigning
 ```
 
 `.env` is gitignored — do not commit it.
 
 ```bash
 make test    # unsigned Domain XCTest suite (no SIGN_ID)
-make build   # Debug build into ./build, then codesign
+make build   # Debug → ./build, then codesign
 make run     # build and open Altitude.app
-make install # force-quit running Altitude, Release-build, install to /Applications, open
+make install # force-quit, Release-build, install to /Applications, open
 make clean   # remove ./build
 ```
 
-`make test` runs the Altitude scheme’s XCTest target with `CODE_SIGNING_ALLOWED=NO` (no Apple Development identity required). Pull requests targeting `main` run the same unsigned build+test path in GitHub Actions (`.github/workflows/ci.yml`).
-
-`make install` force-quits every running Altitude instance (AppleScript quit, then `pkill` if needed), builds **Release**, codesigns with `SIGN_ID`, replaces `/Applications/Altitude.app`, and opens it. It does **not** fetch or check out git — you own the working tree before running it.
-
-You can also override without a file: `make SIGN_ID="Apple Development: …" run`.
-
-You can also open `Altitude.xcodeproj` in Xcode and run the **Altitude** scheme (Product → Test exercises `AltitudeTests`).
+- `make test` uses `CODE_SIGNING_ALLOWED=NO`. PRs to `main` run the same unsigned build+test path in GitHub Actions.
+- `make install` force-quits running Altitude, builds **Release**, codesigns with `SIGN_ID`, replaces `/Applications/Altitude.app`, and opens it. It does not fetch or check out git.
+- Override without a file: `make SIGN_ID="Apple Development: …" run`
+- Or open `Altitude.xcodeproj` and run the **Altitude** scheme (Product → Test runs `AltitudeTests`)
 
 ## Configuration
 
@@ -149,9 +138,29 @@ cmd = false
 key = a
 ```
 
-A missing or empty shortcut uses the default chord. A missing modifier flag keeps that flag's default. If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used. A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used. Unquoted key letters are case-insensitive; a quoted key is invalid. Invalid bools/ints keep the field default. Unknown keys are ignored. Old `[spaces]`, `[hotkeys]`, and `[arrange]` keys are not read.
+### Parsing & safety
 
-**Settings…** (Cmd+comma) in the status menu — or Cmd+comma while an Altitude window is key — opens the Settings window. Changes there write `~/.config/altitude/config.toml` immediately and reapply hotkeys and motion. On the **Desktop** tab, Switch and Move use the same press-to-record control as Windows (modifiers only — e.g. ⌥ or ⌥⇧ — with digits 1–9 still fixed at runtime); each row has **Use Default** (⌥ / ⌥⇧) and “Followed by 1–9” help. On the **Windows** tab, Maximize and Equal Split record a letter chord the same way, with **Use Default** restoring ⌃⌥F / ⌃⌥A. If a recorded shortcut matches its same-tab sibling (Switch vs Move, or Maximize vs Equal Split), Altitude beeps, reverts the control, and shows a red **already in use** message under that row; the message clears on a successful change or when the window redisplays. TOML schema is unchanged — Desktop still stores modifiers only. **Open Config…** and **Reload Config** remain for hand edits; Reload refreshes an open Settings window from disk. Toggling **Launch at Login** (menu or General tab) writes `launch_at_login` immediately. If that write fails, Altitude beeps, leaves the file unchanged, and puts the Login Item back. Reload and relaunch reconcile the Login Item to the config value, including a registration still waiting for approval: the pending item stays while `launch_at_login` is true, and is removed when it is false. While macOS is waiting for approval in System Settings → General → Login Items, the menu item and General switch stay unchecked; clicking the menu item cancels that pending registration.
+- Files larger than **64 KB** are rejected; Altitude falls back to defaults
+- Stow-style symlinks are allowed only when the resolved target stays under `$HOME`
+- Bools accept `true` / `false` / `yes` / `no` / `1` / `0`
+- `#` starts a comment to end of line
+- A missing or empty shortcut uses the default chord; a missing modifier flag keeps that flag's default
+- If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used (`⌥` / `⌥⇧`)
+- A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used (`⌃⌥F` / `⌃⌥A`)
+- Unquoted key letters are case-insensitive; a quoted key is invalid
+- Invalid bools/ints keep the field default; unknown keys are ignored
+- Old `[spaces]`, `[hotkeys]`, and `[arrange]` sections are ignored
+
+### Settings & menu
+
+- **Settings…** (Cmd+comma) writes `~/.config/altitude/config.toml` immediately and reapplies hotkeys and motion
+- **Desktop** tab — Switch/Move record modifiers only (digits 1–9 stay fixed); **Use Default** restores `⌥` / `⌥⇧`
+- **Windows** tab — Maximize/Equal Split record a letter chord; **Use Default** restores `⌃⌥F` / `⌃⌥A`
+- Same-tab sibling conflicts beep, revert the control, and show a red **already in use** message (clears on a successful change or when the window redisplays)
+- **Open Config…** / **Reload Config** for hand edits; Reload refreshes an open Settings window from disk
+- **Launch at Login** (menu or General) writes `launch_at_login` immediately; a failed write beeps, leaves the file unchanged, and restores the Login Item
+- Reload and relaunch reconcile the Login Item to config (pending approval stays while true, removed when false)
+- While macOS waits for Login Items approval, the menu item and General switch stay unchecked; clicking the menu item cancels that pending registration
 
 ## Permissions
 
