@@ -5,22 +5,6 @@ import CoreGraphics
 import Foundation
 import os.log
 
-/// One Command-Tab entry. An app with two windows produces two of these.
-private struct SwitchTarget {
-    let app: NSRunningApplication
-    let windowID: CGWindowID?
-    let title: String
-    let width: Double
-    let height: Double
-
-    func sameInstance(as other: SwitchTarget) -> Bool {
-        app.processIdentifier == other.app.processIdentifier
-            && title == other.title
-            && abs(width - other.width) < 2
-            && abs(height - other.height) < 2
-    }
-}
-
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
 /// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
@@ -40,40 +24,26 @@ private final class MotionTapContext {
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
 final class SystemMotionSuppressor: NSObject {
-    private struct Session {
-        var targets: [SwitchTarget]
-        var index: Int
-    }
-
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
+    private let tapHost = EventTapHost()
+    private let focuser = WindowFocuser()
     private let tapContext = MotionTapContext()
-    private var gestureTap: CFMachPort?
-    private var gestureSource: CFRunLoopSource?
-    private var keyTap: CFMachPort?
-    private var keySource: CFRunLoopSource?
     private var didLogTapFailure = false
     private var mode: SystemMotionMode = .off
 
     private var swipeGesture = SwipeGestureState()
 
-    private var session: Session?
+    private var session: CommandTabSession<SwitchTarget>?
     private var switcherBuildInFlight = false
     private var sessionIdle: DispatchWorkItem?
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
-    /// True while our own activate(_:) is raising an app, so appActivated does not re-enter.
-    private var isActivatingInternally = false
-    private var activatingPID: pid_t?
-    private var activationGuard: DispatchWorkItem?
+    private var activationPoll: DispatchWorkItem?
 
-    /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
-    private let axTimeoutSeconds: Float = 0.1
     /// Finger must travel at least this far before a released swipe commits a Space change.
     private let swipeCommitThreshold: Double = Timing.swipeCommitThreshold
-    /// Cancel an open Command-Tab session after this much idle time.
-    private let sessionIdleInterval: TimeInterval = 10
 
     private let tabKeyCode: Int64 = Int64(kVK_Tab)
     private let leftArrowKeyCode: Int64 = Int64(kVK_LeftArrow)
@@ -95,7 +65,7 @@ final class SystemMotionSuppressor: NSObject {
         let center = NSWorkspace.shared.notificationCenter
         center.removeObserver(self)
         tapContext.suppressor = nil
-        tearDownTaps()
+        tapHost.tearDown()
     }
 
     func apply(_ newMode: SystemMotionMode) {
@@ -106,53 +76,31 @@ final class SystemMotionSuppressor: NSObject {
             cancelSession()
         }
 
-        if !newMode.wantsTaps {
+        let plan = MotionTapPlan(mode: newMode)
+        if !plan.wantsAnyTap {
             stop()
             return
         }
 
-        if gestureTap != nil || keyTap != nil {
-            // Taps already installed; mode flags update in place.
-            return
+        if tapHost.installedPlan != plan {
+            tapHost.tearDown()
+            startTaps(plan: plan)
         }
-        startTaps()
     }
 
-    private func startTaps() {
-        guard gestureTap == nil, keyTap == nil else { return }
+    private func startTaps(plan: MotionTapPlan) {
         guard AXIsProcessTrusted() else {
             logTapFailure("Accessibility is required to disable trackpad, Control-arrow, and Command-Tab motion")
             return
         }
 
         let userInfo = Unmanaged.passUnretained(tapContext).toOpaque()
-        guard let gesture = installTap(
-            location: .cgSessionEventTap,
-            events: [
-                CGEventType.keyDown.rawValue,
-                CGEventType.keyUp.rawValue,
-                CGEventType.flagsChanged.rawValue,
-                29,
-                30,
-            ],
-            userInfo: userInfo
-        ) else {
+        let result = tapHost.install(plan: plan, callback: Self.callback, userInfo: userInfo)
+        guard result.ok else {
             logTapFailure("Could not create the event tap that disables system motion")
             return
         }
-        gestureTap = gesture.tap
-        gestureSource = gesture.source
-
-        // Mission Control handles Control-Left/Right before a session tap runs.
-        // The HID tap sees the key first and can drop it before that shortcut starts the slide.
-        if let keys = installTap(
-            location: .cghidEventTap,
-            events: [CGEventType.keyDown.rawValue, CGEventType.keyUp.rawValue],
-            userInfo: userInfo
-        ) {
-            keyTap = keys.tap
-            keySource = keys.source
-        } else {
+        if result.hidFailed {
             logTapFailure("Could not create the keyboard tap for Control-Left/Right")
         }
 
@@ -165,57 +113,11 @@ final class SystemMotionSuppressor: NSObject {
         pendingActivation = nil
         activationFallback?.cancel()
         activationFallback = nil
-        activationGuard?.cancel()
-        activationGuard = nil
-        activatingPID = nil
-        isActivatingInternally = false
+        activationPoll?.cancel()
+        activationPoll = nil
+        focuser.reset()
         swipeGesture = SwipeGestureState()
-        tearDownTaps()
-    }
-
-    private func installTap(
-        location: CGEventTapLocation,
-        events: [UInt32],
-        userInfo: UnsafeMutableRawPointer
-    ) -> (tap: CFMachPort, source: CFRunLoopSource)? {
-        var mask: CGEventMask = 0
-        for raw in events {
-            mask |= CGEventMask(1) << CGEventMask(raw)
-        }
-        guard let tap = CGEvent.tapCreate(
-            tap: location,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: Self.callback,
-            userInfo: userInfo
-        ) else {
-            return nil
-        }
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            return nil
-        }
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        return (tap, source)
-    }
-
-    private func tearDownTaps() {
-        for source in [gestureSource, keySource] {
-            if let source {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-            }
-        }
-        for tap in [gestureTap, keyTap] {
-            if let tap {
-                CGEvent.tapEnable(tap: tap, enable: false)
-                CFMachPortInvalidate(tap)
-            }
-        }
-        gestureTap = nil
-        gestureSource = nil
-        keyTap = nil
-        keySource = nil
+        tapHost.tearDown()
     }
 
     // MARK: - Tap
@@ -235,12 +137,7 @@ final class SystemMotionSuppressor: NSObject {
     private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             cancelSession()
-            if let gestureTap {
-                CGEvent.tapEnable(tap: gestureTap, enable: true)
-            }
-            if let keyTap {
-                CGEvent.tapEnable(tap: keyTap, enable: true)
-            }
+            tapHost.reenable()
             log.error("Event tap was disabled (\(type.rawValue, privacy: .public)); re-enabled")
             return event
         }
@@ -330,13 +227,16 @@ final class SystemMotionSuppressor: NSObject {
             let apps = self.orderedApps()
             guard let front = apps.first else { return }
             let targets = self.switchTargets(apps: apps)
-            guard targets.count >= 2 else { return }
             let index = commandTabOpeningIndex(
                 appIDs: targets.map { Int64($0.app.processIdentifier) },
                 frontAppID: Int64(front.processIdentifier),
                 forward: forward
             )
-            self.session = Session(targets: targets, index: index)
+            let now = Date()
+            guard let opened = CommandTabSession.open(targets: targets, index: index, now: now) else {
+                return
+            }
+            self.session = opened
             self.hud.show(targets: targets, selectedIndex: index)
             self.armSessionIdle()
         }
@@ -374,13 +274,11 @@ final class SystemMotionSuppressor: NSObject {
 
     private func moveSelection(by delta: Int) {
         guard var current = session else { return }
-        let count = current.targets.count
-        guard count >= 2, delta != 0 else {
-            if count < 2 { cancelSession() }
+        let now = Date()
+        if current.move(by: delta, now: now) {
+            cancelSession()
             return
         }
-        let wrapped = (current.index + delta % count + count) % count
-        current.index = wrapped
         session = current
         hud.show(targets: current.targets, selectedIndex: current.index)
         armSessionIdle()
@@ -388,11 +286,13 @@ final class SystemMotionSuppressor: NSObject {
 
     private func armSessionIdle() {
         sessionIdle?.cancel()
+        guard let deadline = session?.idleDeadline else { return }
         let work = DispatchWorkItem { [weak self] in
             self?.cancelSession()
         }
         sessionIdle = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + sessionIdleInterval, execute: work)
+        let delay = max(deadline.timeIntervalSinceNow, 0)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     /// Control-Left/Right is the system "move a space" shortcut. Command, Option, and Shift stay free.
@@ -459,7 +359,7 @@ final class SystemMotionSuppressor: NSObject {
             }
             armActivation(of: target, after: delay)
         case .alreadyThere, .otherDisplay, .unavailable:
-            activate(target)
+            focuser.activate(target)
         }
     }
 
@@ -493,45 +393,54 @@ final class SystemMotionSuppressor: NSObject {
     private func armActivation(of target: SwitchTarget, after delay: TimeInterval) {
         pendingActivation = target
         activationFallback?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, let pending = self.pendingActivation, pending.sameInstance(as: target) else { return }
-            self.pendingActivation = nil
-            self.activate(target)
+        activationPoll?.cancel()
+
+        // Poll active Space so we raise the target as soon as the hop lands — ideally
+        // before the destination Space's previous front app paints (the Rex flash).
+        let destinations = Set(target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? [])
+        let startSpace = CGSPrivate.activeSpaceID()
+        let giveUp = Date().addingTimeInterval(delay)
+        func schedulePoll(after interval: TimeInterval) {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                guard let pending = self.pendingActivation, pending.sameInstance(as: target) else { return }
+                let active = CGSPrivate.activeSpaceID()
+                if !destinations.isEmpty, destinations.contains(active), active != startSpace {
+                    self.promotePendingActivation(matching: target)
+                    return
+                }
+                if Date() >= giveUp {
+                    self.promotePendingActivation(matching: target)
+                    return
+                }
+                // Keep the window raised on the far Space while we wait.
+                self.focuser.focus(target)
+                schedulePoll(after: 0.004)
+            }
+            self.activationPoll = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: work)
         }
-        activationFallback = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        focuser.focus(target)
+        schedulePoll(after: 0)
+
+        // Absolute fallback if Space never reports (same as prior landing delay).
+        let fallback = DispatchWorkItem { [weak self] in
+            self?.promotePendingActivation(matching: target)
+        }
+        activationFallback = fallback
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: fallback)
     }
 
-    private func activate(_ target: SwitchTarget) {
-        // Raise first, then again after activate(). Activation focuses the app's main
-        // window on its own, which is why an Outlook message was opening the inbox.
-        // macOS 14+ cooperative activation requires `from` to be the real frontmost
-        // app (still Rex/etc. — the HUD is nonactivating). `.current` (Altitude) made
-        // same-Space picks no-op; cross-Space still worked via the Dock hop.
-        let pid = target.app.processIdentifier
-        isActivatingInternally = true
-        activatingPID = pid
-        activationGuard?.cancel()
-        let guardWork = DispatchWorkItem { [weak self] in
-            guard let self, self.activatingPID == pid else { return }
-            self.isActivatingInternally = false
-            self.activatingPID = nil
-            self.activationGuard = nil
-        }
-        activationGuard = guardWork
-        focus(target)
-        let donor = NSWorkspace.shared.frontmostApplication ?? .current
-        _ = target.app.activate(from: donor, options: [])
-        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryShort) { [weak self] in
-            self?.focus(target)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryMid) { [weak self] in
-            self?.focus(target)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong) { [weak self] in
-            self?.focus(target)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.activationGuard, execute: guardWork)
+    /// Raise the armed Command-Tab / external-hop target once the hop has landed (or timed out).
+    private func promotePendingActivation(matching target: SwitchTarget? = nil) {
+        guard let pending = pendingActivation else { return }
+        if let target, !pending.sameInstance(as: target) { return }
+        pendingActivation = nil
+        activationFallback?.cancel()
+        activationFallback = nil
+        activationPoll?.cancel()
+        activationPoll = nil
+        focuser.activate(pending)
     }
 
     /// Main window if Accessibility marked one; otherwise the first listed window.
@@ -550,60 +459,10 @@ final class SystemMotionSuppressor: NSObject {
             let delay = Timing.instantLandingDelay(steps: steps)
             armActivation(of: target, after: delay)
         case .alreadyThere:
-            activate(target)
+            focuser.activate(target)
         case .otherDisplay, .unavailable:
             break
         }
-    }
-
-    /// Raise the selected window, matching the accessibility window by id, then by title and size.
-    private func focus(_ target: SwitchTarget) {
-        guard AXIsProcessTrusted(), let window = axWindow(matching: target) else { return }
-        let appElement = axApplication(pid: target.app.processIdentifier)
-        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, window)
-        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
-        AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString, kCFBooleanTrue)
-    }
-
-    private func axWindow(matching target: SwitchTarget) -> AXUIElement? {
-        let appElement = axApplication(pid: target.app.processIdentifier)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) == .success,
-              let windows = value as? [AXUIElement]
-        else {
-            return nil
-        }
-        let described = windows.map { element in
-            (element: element, title: element.axString(kAXTitleAttribute as String), size: element.axSize())
-        }
-        if let windowID = target.windowID, windowID != 0 {
-            if let match = described.first(where: { $0.element.axWindowID() == windowID }) {
-                return match.element
-            }
-        }
-        let appName = (target.app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        let titled = described.filter { item in
-            guard let size = item.size else { return false }
-            let sizeMatches = abs(size.width - target.width) < 4 && abs(size.height - target.height) < 4
-            let titleMatches = !target.title.isEmpty && item.title == target.title
-            // After merge, the strip may keep a stronger CG title while AX still reports empty / app name.
-            return sizeMatches && (
-                titleMatches
-                    || WindowCatalog.isWeakTitle(item.title, appName: appName)
-                    || WindowCatalog.isWeakTitle(target.title, appName: appName)
-            )
-        }
-        if let exact = titled.first(where: { $0.title == target.title }) {
-            return exact.element
-        }
-        return titled.first?.element
-    }
-
-    private func axApplication(pid: pid_t) -> AXUIElement {
-        let element = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(element, axTimeoutSeconds)
-        return element
     }
 
     /// Front app's windows as one block, then other apps in MRU order; empty apps trail.
@@ -665,7 +524,7 @@ final class SystemMotionSuppressor: NSObject {
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
         guard AXIsProcessTrusted() else { return [] }
-        let axApp = axApplication(pid: app.processIdentifier)
+        let axApp = focuser.axApplication(pid: app.processIdentifier)
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
               let windows = value as? [AXUIElement]
@@ -775,18 +634,23 @@ final class SystemMotionSuppressor: NSObject {
         mru.removeAll { $0 == app.processIdentifier }
         mru.insert(app.processIdentifier, at: 0)
 
-        if app.processIdentifier == activatingPID {
-            activationGuard?.cancel()
-            activationGuard = nil
-            isActivatingInternally = false
-            activatingPID = nil
+        if focuser.consumeInternalActivation(for: app.processIdentifier) {
+            return
+        }
+
+        // Instant hop landed: the destination Space brought its previous front app
+        // forward. Promote the pending target immediately so that app does not flash.
+        if let pending = pendingActivation,
+           app.processIdentifier != pending.app.processIdentifier
+        {
+            promotePendingActivation()
             return
         }
 
         // Keep MRU while taps are running. Hop only when desktop motion is suppressed.
-        guard gestureTap != nil else { return }
+        guard tapHost.hasAnyTap else { return }
         guard mode.suppressDesktopMotion else { return }
-        if session != nil || isActivatingInternally || pendingActivation != nil { return }
+        if session != nil || focuser.isActivatingInternally || pendingActivation != nil { return }
         hopForExternalActivation(of: app)
     }
 
@@ -794,116 +658,5 @@ final class SystemMotionSuppressor: NSObject {
         guard !didLogTapFailure else { return }
         didLogTapFailure = true
         log.error("\(message, privacy: .public)")
-    }
-}
-
-/// Still row of running apps shown while Command is held. It does not fade or slide.
-private final class AppSwitchHUD {
-    private let panel: NSPanel
-    private let effect: NSVisualEffectView
-    private let nameField = NSTextField(labelWithString: "")
-    private let iconHost = NSView()
-
-    init() {
-        panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 120),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isFloatingPanel = true
-        panel.level = .popUpMenu
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.hidesOnDeactivate = false
-        panel.animationBehavior = .none
-        panel.ignoresMouseEvents = true
-        panel.worksWhenModal = true
-
-        effect = NSVisualEffectView(frame: panel.contentRect(forFrameRect: panel.frame))
-        effect.autoresizingMask = [.width, .height]
-        effect.material = .hudWindow
-        effect.state = .active
-        effect.wantsLayer = true
-        effect.layer?.cornerRadius = 16
-        effect.layer?.masksToBounds = true
-        panel.contentView = effect
-
-        iconHost.wantsLayer = false
-        nameField.font = .systemFont(ofSize: 13, weight: .medium)
-        nameField.textColor = .labelColor
-        nameField.alignment = .center
-        nameField.lineBreakMode = .byTruncatingTail
-        nameField.drawsBackground = false
-        nameField.isBezeled = false
-        nameField.isEditable = false
-        effect.addSubview(iconHost)
-        effect.addSubview(nameField)
-    }
-
-    func show(targets: [SwitchTarget], selectedIndex: Int) {
-        guard !targets.isEmpty else {
-            hide()
-            return
-        }
-        let index = min(max(selectedIndex, 0), targets.count - 1)
-        let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
-        let maxWidth = (screen?.visibleFrame.width ?? 1280) - 48
-        let paddingX: CGFloat = 16
-        let paddingTop: CGFloat = 14
-        let nameGap: CGFloat = 8
-        let nameHeight: CGFloat = 18
-        let paddingBottom: CGFloat = 12
-        let iconGap: CGFloat = 8
-        let count = CGFloat(targets.count)
-        let gaps = iconGap * max(count - 1, 0)
-        let available = max(maxWidth - paddingX * 2 - gaps, count)
-        let iconSide = min(64, floor(available / count))
-        let rowWidth = count * iconSide + gaps
-        let width = min(maxWidth, rowWidth + paddingX * 2)
-        let height = paddingTop + iconSide + nameGap + nameHeight + paddingBottom
-
-        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: width, height: height)
-        let origin = NSPoint(
-            x: visible.midX - width / 2,
-            y: visible.midY - height / 2
-        )
-        panel.setFrame(NSRect(x: origin.x, y: origin.y, width: width, height: height), display: true, animate: false)
-
-        let rowX = (width - rowWidth) / 2
-        iconHost.frame = NSRect(x: rowX, y: paddingBottom + nameHeight + nameGap, width: rowWidth, height: iconSide)
-        nameField.frame = NSRect(x: paddingX, y: paddingBottom, width: width - paddingX * 2, height: nameHeight)
-        nameField.stringValue = targets[index].title
-
-        iconHost.subviews.forEach { $0.removeFromSuperview() }
-        for (offset, target) in targets.enumerated() {
-            let originX = CGFloat(offset) * (iconSide + iconGap)
-            if offset == index {
-                let highlight = NSView(frame: NSRect(
-                    x: originX - 4,
-                    y: -4,
-                    width: iconSide + 8,
-                    height: iconSide + 8
-                ))
-                highlight.wantsLayer = true
-                highlight.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.28).cgColor
-                highlight.layer?.cornerRadius = 10
-                iconHost.addSubview(highlight)
-            }
-            let iconView = NSImageView(frame: NSRect(x: originX, y: 0, width: iconSide, height: iconSide))
-            iconView.imageScaling = .scaleProportionallyUpOrDown
-            let icon = target.app.icon ?? NSImage(named: NSImage.applicationIconName)
-            icon?.size = NSSize(width: iconSide, height: iconSide)
-            iconView.image = icon
-            iconHost.addSubview(iconView)
-        }
-
-        panel.orderFrontRegardless()
-    }
-
-    func hide() {
-        panel.orderOut(nil)
     }
 }

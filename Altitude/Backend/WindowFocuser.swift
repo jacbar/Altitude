@@ -1,0 +1,113 @@
+import AppKit
+import ApplicationServices
+import Foundation
+
+/// Raises a SwitchTarget's window and tracks internal activation so external hops do not re-enter.
+final class WindowFocuser {
+    /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
+    private let axTimeoutSeconds: Float = 0.1
+
+    private(set) var isActivatingInternally = false
+    private(set) var activatingPID: pid_t?
+    private var activationGuard: DispatchWorkItem?
+
+    /// Raise first, then again after activate(). Activation focuses the app's main
+    /// window on its own, which is why an Outlook message was opening the inbox.
+    /// macOS 14+ cooperative activation requires `from` to be the real frontmost
+    /// app (still Rex/etc. — the HUD is nonactivating). `.current` (Altitude) made
+    /// same-Space picks no-op; cross-Space still worked via the Dock hop.
+    func activate(_ target: SwitchTarget) {
+        let pid = target.app.processIdentifier
+        isActivatingInternally = true
+        activatingPID = pid
+        activationGuard?.cancel()
+        let guardWork = DispatchWorkItem { [weak self] in
+            guard let self, self.activatingPID == pid else { return }
+            self.isActivatingInternally = false
+            self.activatingPID = nil
+            self.activationGuard = nil
+        }
+        activationGuard = guardWork
+        focus(target)
+        let donor = NSWorkspace.shared.frontmostApplication ?? .current
+        _ = target.app.activate(from: donor, options: [])
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryShort) { [weak self] in
+            self?.focus(target)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryMid) { [weak self] in
+            self?.focus(target)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong) { [weak self] in
+            self?.focus(target)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.activationGuard, execute: guardWork)
+    }
+
+    /// Clears the internal-activation guard when our own raise lands.
+    @discardableResult
+    func consumeInternalActivation(for pid: pid_t) -> Bool {
+        guard pid == activatingPID else { return false }
+        activationGuard?.cancel()
+        activationGuard = nil
+        isActivatingInternally = false
+        activatingPID = nil
+        return true
+    }
+
+    func reset() {
+        activationGuard?.cancel()
+        activationGuard = nil
+        activatingPID = nil
+        isActivatingInternally = false
+    }
+
+    /// Raise the selected window, matching the accessibility window by id, then by title and size.
+    func focus(_ target: SwitchTarget) {
+        guard AXIsProcessTrusted(), let window = axWindow(matching: target) else { return }
+        let appElement = axApplication(pid: target.app.processIdentifier)
+        AXUIElementSetAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, window)
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    }
+
+    func axWindow(matching target: SwitchTarget) -> AXUIElement? {
+        let appElement = axApplication(pid: target.app.processIdentifier)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value) == .success,
+              let windows = value as? [AXUIElement]
+        else {
+            return nil
+        }
+        let described = windows.map { element in
+            (element: element, title: element.axString(kAXTitleAttribute as String), size: element.axSize())
+        }
+        if let windowID = target.windowID, windowID != 0 {
+            if let match = described.first(where: { $0.element.axWindowID() == windowID }) {
+                return match.element
+            }
+        }
+        let appName = (target.app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let titled = described.filter { item in
+            guard let size = item.size else { return false }
+            let sizeMatches = abs(size.width - target.width) < 4 && abs(size.height - target.height) < 4
+            let titleMatches = !target.title.isEmpty && item.title == target.title
+            // After merge, the strip may keep a stronger CG title while AX still reports empty / app name.
+            return sizeMatches && (
+                titleMatches
+                    || WindowCatalog.isWeakTitle(item.title, appName: appName)
+                    || WindowCatalog.isWeakTitle(target.title, appName: appName)
+            )
+        }
+        if let exact = titled.first(where: { $0.title == target.title }) {
+            return exact.element
+        }
+        return titled.first?.element
+    }
+
+    func axApplication(pid: pid_t) -> AXUIElement {
+        let element = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(element, axTimeoutSeconds)
+        return element
+    }
+}

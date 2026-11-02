@@ -48,6 +48,12 @@ sources = [
     "Altitude/Domain/HotkeyID.swift",
     "Altitude/Domain/SpaceLayout.swift",
     "Altitude/Domain/SpaceRouting.swift",
+    "Altitude/Domain/MotionTapPlan.swift",
+    "Altitude/Domain/CommandTabSession.swift",
+    "Altitude/Backend/SwitchTarget.swift",
+    "Altitude/Backend/EventTapHost.swift",
+    "Altitude/Backend/WindowFocuser.swift",
+    "Altitude/UI/AppSwitchHUD.swift",
 ]
 
 test_sources = [
@@ -61,6 +67,8 @@ test_sources = [
     "AltitudeTests/SwipeGestureTests.swift",
     "AltitudeTests/HotkeyIDTests.swift",
     "AltitudeTests/SpaceLayoutTests.swift",
+    "AltitudeTests/MotionTapPlanTests.swift",
+    "AltitudeTests/CommandTabSessionTests.swift",
 ]
 
 # Compiled into AltitudeTests (hostless) as well as the app. Separate PBXBuildFile IDs.
