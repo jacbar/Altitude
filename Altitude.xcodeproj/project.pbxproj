@@ -36,6 +36,7 @@
 		B20000000000000000000026 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
 		B20000000000000000000027 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
 		B20000000000000000000028 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* CommandTabKeys.swift */; };
+		B20000000000000000000029 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* SwipeGesture.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -43,6 +44,7 @@
 		D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000004 /* ShortcutEditingTests.swift */; };
 		D20000000000000000000005 /* WindowCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000005 /* WindowCatalogTests.swift */; };
 		D20000000000000000000006 /* CommandTabKeysTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000006 /* CommandTabKeysTests.swift */; };
+		D20000000000000000000007 /* SwipeGestureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000007 /* SwipeGestureTests.swift */; };
 		E20000000000000000000000 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* ConfigStore.swift */; };
 		E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* FocusedWindowResolver.swift */; };
 		E20000000000000000000002 /* SpaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* SpaceModels.swift */; };
@@ -55,10 +57,11 @@
 		E20000000000000000000009 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
 		E20000000000000000000010 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
 		E20000000000000000000011 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* CommandTabKeys.swift */; };
-		E20000000000000000000012 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
-		E20000000000000000000013 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
-		E20000000000000000000014 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
-		E20000000000000000000015 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
+		E20000000000000000000012 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* SwipeGesture.swift */; };
+		E20000000000000000000013 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
+		E20000000000000000000014 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
+		E20000000000000000000015 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
+		E20000000000000000000016 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -99,6 +102,7 @@
 		B10000000000000000000026 /* WindowCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCatalog.swift; sourceTree = "<group>"; };
 		B10000000000000000000027 /* SystemMotionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionMode.swift; sourceTree = "<group>"; };
 		B10000000000000000000028 /* CommandTabKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabKeys.swift; sourceTree = "<group>"; };
+		B10000000000000000000029 /* SwipeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeGesture.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -106,6 +110,7 @@
 		D10000000000000000000004 /* ShortcutEditingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutEditingTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000005 /* WindowCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCatalogTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000006 /* CommandTabKeysTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabKeysTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000007 /* SwipeGestureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeGestureTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000004 /* AltitudeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AltitudeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -209,6 +214,7 @@
 				B10000000000000000000026 /* WindowCatalog.swift */,
 				B10000000000000000000027 /* SystemMotionMode.swift */,
 				B10000000000000000000028 /* CommandTabKeys.swift */,
+				B10000000000000000000029 /* SwipeGesture.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -286,6 +292,7 @@
 				D10000000000000000000004 /* ShortcutEditingTests.swift */,
 				D10000000000000000000005 /* WindowCatalogTests.swift */,
 				D10000000000000000000006 /* CommandTabKeysTests.swift */,
+				D10000000000000000000007 /* SwipeGestureTests.swift */,
 			);
 			path = AltitudeTests;
 			sourceTree = "<group>";
@@ -406,6 +413,7 @@
 				B20000000000000000000026 /* WindowCatalog.swift in Sources */,
 				B20000000000000000000027 /* SystemMotionMode.swift in Sources */,
 				B20000000000000000000028 /* CommandTabKeys.swift in Sources */,
+				B20000000000000000000029 /* SwipeGesture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -420,6 +428,7 @@
 				D20000000000000000000004 /* ShortcutEditingTests.swift in Sources */,
 				D20000000000000000000005 /* WindowCatalogTests.swift in Sources */,
 				D20000000000000000000006 /* CommandTabKeysTests.swift in Sources */,
+				D20000000000000000000007 /* SwipeGestureTests.swift in Sources */,
 				E20000000000000000000000 /* ConfigStore.swift in Sources */,
 				E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */,
 				E20000000000000000000002 /* SpaceModels.swift in Sources */,
@@ -432,10 +441,11 @@
 				E20000000000000000000009 /* WindowCatalog.swift in Sources */,
 				E20000000000000000000010 /* SystemMotionMode.swift in Sources */,
 				E20000000000000000000011 /* CommandTabKeys.swift in Sources */,
-				E20000000000000000000012 /* DesktopFeature.swift in Sources */,
-				E20000000000000000000013 /* CommandTabFeature.swift in Sources */,
-				E20000000000000000000014 /* WindowManagementFeature.swift in Sources */,
-				E20000000000000000000015 /* HotkeyRegistrar.swift in Sources */,
+				E20000000000000000000012 /* SwipeGesture.swift in Sources */,
+				E20000000000000000000013 /* DesktopFeature.swift in Sources */,
+				E20000000000000000000014 /* CommandTabFeature.swift in Sources */,
+				E20000000000000000000015 /* WindowManagementFeature.swift in Sources */,
+				E20000000000000000000016 /* HotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

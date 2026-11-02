@@ -54,11 +54,7 @@ final class SystemMotionSuppressor: NSObject {
     private var didLogTapFailure = false
     private var mode: SystemMotionMode = .off
 
-    private var swallowingSwipe = false
-    private var postedForSwipe = false
-    private var swipeDeadline = Date.distantPast
-    private var swipePeak: Double = 0
-    private var swipeDirection: DockSwipeSwitcher.Direction?
+    private var swipeGesture = SwipeGestureState()
 
     private var session: Session?
     private var switcherBuildInFlight = false
@@ -167,10 +163,7 @@ final class SystemMotionSuppressor: NSObject {
         activationFallback?.cancel()
         activationFallback = nil
         isActivatingInternally = false
-        swallowingSwipe = false
-        postedForSwipe = false
-        swipePeak = 0
-        swipeDirection = nil
+        swipeGesture = SwipeGestureState()
         tearDownTaps()
     }
 
@@ -250,18 +243,13 @@ final class SystemMotionSuppressor: NSObject {
             return event
         }
         if mode.suppressDesktopMotion {
-            if swallowingSwipe, Date() > swipeDeadline {
-                swallowingSwipe = false
-                postedForSwipe = false
-                swipePeak = 0
-                swipeDirection = nil
-            }
+            _ = swipeGesture.expireIfStuck(now: Date())
 
             if let swipe = DockSwipeSwitcher.horizontalSwipe(in: event) {
                 consume(swipe)
                 return nil
             }
-            if swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
+            if swipeGesture.swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
                 return nil
             }
         }
@@ -271,32 +259,19 @@ final class SystemMotionSuppressor: NSObject {
     /// Swallow the live gesture and only jump when the finger lifts past the commit threshold.
     /// That lets a reversed or aborted swipe cancel, matching Mission Control's habit.
     private func consume(_ swipe: DockSwipeSwitcher.HorizontalSwipe) {
-        if swipe.began {
-            postedForSwipe = false
-            swipePeak = 0
-            swipeDirection = nil
-        }
-        swallowingSwipe = !swipe.ended
-        swipeDeadline = Date().addingTimeInterval(1.5)
-
-        let magnitude = abs(swipe.progress)
-        if magnitude >= abs(swipePeak), let direction = swipe.direction {
-            swipePeak = swipe.progress
-            swipeDirection = direction
-        }
-
-        if swipe.ended {
-            if !postedForSwipe,
-               abs(swipePeak) >= swipeCommitThreshold,
-               let direction = swipeDirection
-            {
-                postedForSwipe = true
-                _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
-            }
-            postedForSwipe = false
-            swallowingSwipe = false
-            swipePeak = 0
-            swipeDirection = nil
+        let sample = SwipeSample(
+            progress: swipe.progress,
+            direction: swipe.direction.map(swipeDirection(from:)),
+            began: swipe.began,
+            ended: swipe.ended
+        )
+        if let direction = swipeGesture.consume(
+            sample,
+            now: Date(),
+            commitThreshold: swipeCommitThreshold,
+            stuckInterval: 1.5
+        ) {
+            _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
         }
     }
 
@@ -435,7 +410,20 @@ final class SystemMotionSuppressor: NSObject {
         }
     }
 
+    private func swipeDirection(from direction: DockSwipeSwitcher.Direction) -> SwipeDirection {
+        switch direction {
+        case .left:
+            return .left
+        case .right:
+            return .right
+        }
+    }
+
     private func hopDirection(_ direction: DockSwipeSwitcher.Direction) -> SpaceHopDirection {
+        hopDirection(swipeDirection(from: direction))
+    }
+
+    private func hopDirection(_ direction: SwipeDirection) -> SpaceHopDirection {
         switch direction {
         case .left:
             return .previous
@@ -631,76 +619,27 @@ final class SystemMotionSuppressor: NSObject {
         )
     }
 
-    /// Prefer a specific title over empty / the bare app name when collapsing twins.
-    private func preferredTitle(_ a: String, _ b: String, appName: String) -> String {
-        let aWeak = WindowCatalog.isWeakTitle(a, appName: appName)
-        let bWeak = WindowCatalog.isWeakTitle(b, appName: appName)
-        if aWeak && !bWeak { return b }
-        if bWeak && !aWeak { return a }
-        if a.isEmpty, !b.isEmpty { return b }
-        return a
-    }
-
-    private func preferredWindowID(_ a: CGWindowID?, _ b: CGWindowID?) -> CGWindowID? {
-        if let a, a != 0 { return a }
-        if let b, b != 0 { return b }
-        return nil
-    }
-
-    private func sameListedSize(_ a: ListedWindow, _ b: ListedWindow) -> Bool {
-        abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
-    }
-
-    /// Same CG id, or same size with equal / weak titles — not two strong different titles.
-    private func isSameListedWindow(_ a: ListedWindow, _ b: ListedWindow, appName: String) -> Bool {
-        if let left = a.id, let right = b.id, left != 0, left == right {
-            return true
-        }
-        guard sameListedSize(a, b) else { return false }
-        if a.title == b.title { return true }
-        return WindowCatalog.isWeakTitle(a.title, appName: appName)
-            || WindowCatalog.isWeakTitle(b.title, appName: appName)
-    }
-
-    private func collapseListed(_ existing: ListedWindow, with other: ListedWindow, appName: String) -> ListedWindow {
-        ListedWindow(
-            id: preferredWindowID(existing.id, other.id),
-            title: preferredTitle(existing.title, other.title, appName: appName),
-            width: existing.width,
-            height: existing.height,
-            main: existing.main || other.main
-        )
-    }
-
     /// Accessibility covers the current Space; the window-server list adds windows on other Spaces.
     private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let ax = accessibilityWindows(for: app)
-        let cg = dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
-        let merged = mergeWindows(ax: ax, cg: cg, appName: appName)
-        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
-    }
-
-    private func mergeWindows(ax: [ListedWindow], cg: [ListedWindow], appName: String) -> [ListedWindow] {
-        var merged = ax
-        // Accessibility already omitted panels on this Space; CG still lists some (Rex Settings).
-        // Trust AX for the active Space; only append CG windows that live strictly elsewhere.
-        let activeSpace = ax.isEmpty ? nil : CGSPrivate.activeSpaceID()
-        for window in cg {
-            if let index = merged.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
-                // Keep AX order / main; absorb the stronger title and best id from CG.
-                merged[index] = collapseListed(merged[index], with: window, appName: appName)
-                continue
+        let cg = WindowCatalog.dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
+        let isOnActiveSpace: ((CGWindowID) -> Bool)?
+        if ax.isEmpty {
+            isOnActiveSpace = nil
+        } else {
+            let activeSpaceID = CGSPrivate.activeSpaceID()
+            isOnActiveSpace = { id in
+                CGSPrivate.spaceIDs(forWindow: id).contains(activeSpaceID)
             }
-            if let activeSpace, let id = window.id {
-                let spaces = CGSPrivate.spaceIDs(forWindow: id)
-                if spaces.contains(activeSpace) {
-                    continue
-                }
-            }
-            merged.append(window)
         }
-        return merged
+        let merged = WindowCatalog.mergeWindows(
+            ax: ax,
+            cg: cg,
+            appName: appName,
+            isOnActiveSpace: isOnActiveSpace
+        )
+        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
@@ -758,7 +697,13 @@ final class SystemMotionSuppressor: NSObject {
             let title = ((dict[kCGWindowName as String] as? String) ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let onscreen = (dict[kCGWindowIsOnscreen as String] as? Bool) ?? false
-            if isHiddenHelper(width: width, height: height, title: title, onscreen: onscreen, appName: appName) {
+            if WindowCatalog.isHiddenHelper(
+                width: width,
+                height: height,
+                title: title,
+                onscreen: onscreen,
+                appName: appName
+            ) {
                 return nil
             }
             // Prefs chrome some apps publish to CG without exposing it to Accessibility (Rex).
@@ -774,33 +719,6 @@ final class SystemMotionSuppressor: NSObject {
             }
             return window
         }
-    }
-
-    /// Same size with equal or weak titles means one window on the window-server list.
-    /// Teams (and similar) publish twins there — often one empty / app-named and one specific.
-    private func dedupe(_ windows: [ListedWindow], appName: String) -> [ListedWindow] {
-        var kept: [ListedWindow] = []
-        for window in windows {
-            if let index = kept.firstIndex(where: { isSameListedWindow($0, window, appName: appName) }) {
-                kept[index] = collapseListed(kept[index], with: window, appName: appName)
-            } else {
-                kept.append(window)
-            }
-        }
-        return kept
-    }
-
-    /// Arc/Teams keep offscreen 500×500 / 800×600 helpers; title is often empty or just the app name.
-    private func isHiddenHelper(
-        width: Double,
-        height: Double,
-        title: String,
-        onscreen: Bool,
-        appName: String
-    ) -> Bool {
-        guard WindowCatalog.isWeakTitle(title, appName: appName) else { return false }
-        if onscreen { return false }
-        return (width == 500 && height == 500) || (width == 800 && height == 600)
     }
 
     private func axString(_ element: AXUIElement, _ attribute: String) -> String {
