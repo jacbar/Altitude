@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Carbon
 import CoreGraphics
 import Foundation
 import os.log
@@ -22,6 +23,11 @@ private struct SwitchTarget {
 
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
+/// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
+private final class MotionTapContext {
+    weak var suppressor: SystemMotionSuppressor?
+}
+
 /// Replaces animated Space changes from the trackpad, Control-Left/Right, Command-Tab,
 /// and external activation of an already-running app on another Space.
 ///
@@ -33,11 +39,6 @@ private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion"
 /// releasing Command does not play the system switcher. Activating a running app via Raycast,
 /// Spotlight, Dock, or similar hops to that app's Space with no slide and leaves the window
 /// there. Mission Control swipes are left alone.
-/// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
-private final class MotionTapContext {
-    weak var suppressor: SystemMotionSuppressor?
-}
-
 final class SystemMotionSuppressor: NSObject {
     private struct Session {
         var targets: [SwitchTarget]
@@ -72,9 +73,9 @@ final class SystemMotionSuppressor: NSObject {
     /// Cancel an open Command-Tab session after this much idle time.
     private let sessionIdleInterval: TimeInterval = 10
 
-    private let tabKeyCode: Int64 = 48
-    private let leftArrowKeyCode: Int64 = 123
-    private let rightArrowKeyCode: Int64 = 124
+    private let tabKeyCode: Int64 = Int64(kVK_Tab)
+    private let leftArrowKeyCode: Int64 = Int64(kVK_LeftArrow)
+    private let rightArrowKeyCode: Int64 = Int64(kVK_RightArrow)
 
     init(spaceService: SpaceService) {
         self.spaceService = spaceService
@@ -558,10 +559,10 @@ final class SystemMotionSuppressor: NSObject {
             return nil
         }
         let described = windows.map { element in
-            (element: element, title: axString(element, kAXTitleAttribute as String), size: axSize(element))
+            (element: element, title: element.axString(kAXTitleAttribute as String), size: element.axSize())
         }
         if let windowID = target.windowID, windowID != 0 {
-            if let match = described.first(where: { axWindowID($0.element) == windowID }) {
+            if let match = described.first(where: { $0.element.axWindowID() == windowID }) {
                 return match.element
             }
         }
@@ -658,20 +659,20 @@ final class SystemMotionSuppressor: NSObject {
         // Do not apply the Electron helper filter here: Accessibility already omits most of
         // those, and an untitled real window of 500×500 would look the same.
         return windows.compactMap { element in
-            let role = axString(element, kAXRoleAttribute as String)
+            let role = element.axString(kAXRoleAttribute as String)
             guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
-            let subrole = axString(element, kAXSubroleAttribute as String)
+            let subrole = element.axString(kAXSubroleAttribute as String)
             if subrole == "AXUnknown" || subrole == "AXSystemDialog" { return nil }
-            guard let size = axSize(element) else { return nil }
+            guard let size = element.axSize() else { return nil }
             guard size.width >= 160, size.height >= 100 else { return nil }
-            let title = axString(element, kAXTitleAttribute as String)
-            let id = axWindowID(element)
+            let title = element.axString(kAXTitleAttribute as String)
+            let id = element.axWindowID()
             return ListedWindow(
                 id: id == 0 ? nil : id,
                 title: title,
                 width: size.width,
                 height: size.height,
-                main: axBool(element, kAXMainAttribute as String)
+                main: element.axBool(kAXMainAttribute as String)
             )
         }
         .sorted { $0.main && !$1.main }
@@ -723,37 +724,6 @@ final class SystemMotionSuppressor: NSObject {
             }
             return window
         }
-    }
-
-    private func axString(_ element: AXUIElement, _ attribute: String) -> String {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else { return "" }
-        return ((ref as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func axBool(_ element: AXUIElement, _ attribute: String) -> Bool {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else { return false }
-        return (ref as? Bool) ?? false
-    }
-
-    private func axSize(_ element: AXUIElement) -> CGSize? {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &ref) == .success,
-              let ref,
-              CFGetTypeID(ref) == AXValueGetTypeID()
-        else {
-            return nil
-        }
-        var size = CGSize.zero
-        guard AXValueGetValue(ref as! AXValue, .cgSize, &size) else { return nil }
-        return size
-    }
-
-    private func axWindowID(_ element: AXUIElement) -> CGWindowID {
-        var id: CGWindowID = 0
-        guard _AXUIElementGetWindow(element, &id) == .success else { return 0 }
-        return id
     }
 
     private func orderedApps() -> [NSRunningApplication] {
