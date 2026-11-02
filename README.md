@@ -1,6 +1,8 @@
 # Altitude
 
-![Altitude](docs/branding/altitude-full.png)
+<p align="center">
+  <img src="docs/branding/altitude-full.png" alt="Altitude" width="560" />
+</p>
 
 Opinionated macOS automation inspired by [Space Rabbit](https://space-rabbit.app) and [Spaceman](https://github.com/Jaysce/Spaceman). Altitude is a modular menu-bar agent: desktops, Command-Tab, and window management. Turn a module off and it does nothing; the status item stays either way.
 
