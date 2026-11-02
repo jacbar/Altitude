@@ -40,6 +40,7 @@ final class SystemMotionSuppressor: NSObject {
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
+    private var activationPoll: DispatchWorkItem?
 
     /// Finger must travel at least this far before a released swipe commits a Space change.
     private let swipeCommitThreshold: Double = Timing.swipeCommitThreshold
@@ -112,6 +113,8 @@ final class SystemMotionSuppressor: NSObject {
         pendingActivation = nil
         activationFallback?.cancel()
         activationFallback = nil
+        activationPoll?.cancel()
+        activationPoll = nil
         focuser.reset()
         swipeGesture = SwipeGestureState()
         tapHost.tearDown()
@@ -390,13 +393,54 @@ final class SystemMotionSuppressor: NSObject {
     private func armActivation(of target: SwitchTarget, after delay: TimeInterval) {
         pendingActivation = target
         activationFallback?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, let pending = self.pendingActivation, pending.sameInstance(as: target) else { return }
-            self.pendingActivation = nil
-            self.focuser.activate(target)
+        activationPoll?.cancel()
+
+        // Poll active Space so we raise the target as soon as the hop lands — ideally
+        // before the destination Space's previous front app paints (the Rex flash).
+        let destinations = Set(target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? [])
+        let startSpace = CGSPrivate.activeSpaceID()
+        let giveUp = Date().addingTimeInterval(delay)
+        func schedulePoll(after interval: TimeInterval) {
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                guard let pending = self.pendingActivation, pending.sameInstance(as: target) else { return }
+                let active = CGSPrivate.activeSpaceID()
+                if !destinations.isEmpty, destinations.contains(active), active != startSpace {
+                    self.promotePendingActivation(matching: target)
+                    return
+                }
+                if Date() >= giveUp {
+                    self.promotePendingActivation(matching: target)
+                    return
+                }
+                // Keep the window raised on the far Space while we wait.
+                self.focuser.focus(target)
+                schedulePoll(after: 0.004)
+            }
+            self.activationPoll = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: work)
         }
-        activationFallback = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+        focuser.focus(target)
+        schedulePoll(after: 0)
+
+        // Absolute fallback if Space never reports (same as prior landing delay).
+        let fallback = DispatchWorkItem { [weak self] in
+            self?.promotePendingActivation(matching: target)
+        }
+        activationFallback = fallback
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: fallback)
+    }
+
+    /// Raise the armed Command-Tab / external-hop target once the hop has landed (or timed out).
+    private func promotePendingActivation(matching target: SwitchTarget? = nil) {
+        guard let pending = pendingActivation else { return }
+        if let target, !pending.sameInstance(as: target) { return }
+        pendingActivation = nil
+        activationFallback?.cancel()
+        activationFallback = nil
+        activationPoll?.cancel()
+        activationPoll = nil
+        focuser.activate(pending)
     }
 
     /// Main window if Accessibility marked one; otherwise the first listed window.
@@ -591,6 +635,15 @@ final class SystemMotionSuppressor: NSObject {
         mru.insert(app.processIdentifier, at: 0)
 
         if focuser.consumeInternalActivation(for: app.processIdentifier) {
+            return
+        }
+
+        // Instant hop landed: the destination Space brought its previous front app
+        // forward. Promote the pending target immediately so that app does not flash.
+        if let pending = pendingActivation,
+           app.processIdentifier != pending.app.processIdentifier
+        {
+            promotePendingActivation()
             return
         }
 
