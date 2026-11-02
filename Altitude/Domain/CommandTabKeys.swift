@@ -1,3 +1,4 @@
+import Carbon
 import Foundation
 
 enum CommandTabSwitcherAction: Equatable {
@@ -10,12 +11,12 @@ enum CommandTabSwitcherAction: Equatable {
 }
 
 enum CommandTabKeys {
-    private static let tabKeyCode: Int64 = 48
-    private static let escapeKeyCode: Int64 = 53
-    private static let leftArrowKeyCode: Int64 = 123
-    private static let rightArrowKeyCode: Int64 = 124
-    private static let qKeyCode: Int64 = 12
-    private static let hKeyCode: Int64 = 4
+    private static let tabKeyCode: Int64 = Int64(kVK_Tab)
+    private static let escapeKeyCode: Int64 = Int64(kVK_Escape)
+    private static let leftArrowKeyCode: Int64 = Int64(kVK_LeftArrow)
+    private static let rightArrowKeyCode: Int64 = Int64(kVK_RightArrow)
+    private static let qKeyCode: Int64 = Int64(kVK_ANSI_Q)
+    private static let hKeyCode: Int64 = Int64(kVK_ANSI_H)
 
     /// Pure key → action map for an open Command-Tab session.
     static func action(
