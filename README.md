@@ -21,7 +21,7 @@ Switch Mission Control desktops and move the focused window with digit hotkeys. 
 
 ### Command-Tab
 
-Off by default (system switcher). When on, Altitude shows a still row of open windows — including other Spaces. Untitled Electron helpers (ChatGPT, Teams, …) collapse to the largest real window. Tab / Shift-Tab / arrows move; ⌘Q quits and ⌘H hides the highlighted app; Escape cancels; release Command to land. `disable_motion` only skips the slide when landing.
+Off by default (system switcher). When on, Altitude shows a still row of open windows — including other Spaces. The row can appear just after the key so the tap stays responsive. Untitled Electron helpers (ChatGPT, Teams, …) collapse to the largest real window. Tab / Shift-Tab / arrows move; ⌘Q quits and ⌘H hides the highlighted app; Escape cancels; releasing Command lands on the highlight. Ten seconds without input cancels; a disabled event tap also cancels. `disable_motion` only skips the slide when landing.
 
 ### Window management
 
