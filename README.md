@@ -142,8 +142,8 @@ key = a
 
 ### Parsing & safety
 
-- Files larger than **64 KB** are rejected; Altitude falls back to defaults
-- Stow-style symlinks are allowed only when the resolved target stays under `$HOME`
+- Files larger than **64 KB** of resolved bytes are rejected; Altitude falls back to defaults (the limit applies to the real file behind a symlink, not the symlink node size)
+- Stow-style symlinks are allowed only when the resolved target stays under `$HOME`; Settings / menu saves write through the symlink to that target and leave the link in place
 - Bools accept `true` / `false` / `yes` / `no` / `1` / `0`
 - `#` starts a comment to end of line
 - A missing or empty shortcut uses the default chord; a missing modifier flag keeps that flag's default
