@@ -499,9 +499,13 @@ final class SystemMotionSuppressor: NSObject {
     private func activate(_ target: SwitchTarget) {
         // Raise first, then again after activate(). Activation focuses the app's main
         // window on its own, which is why an Outlook message was opening the inbox.
+        // macOS 14+ cooperative activation requires `from` to be the real frontmost
+        // app (still Rex/etc. — the HUD is nonactivating). `.current` (Altitude) made
+        // same-Space picks no-op; cross-Space still worked via the Dock hop.
         isActivatingInternally = true
         focus(target)
-        _ = target.app.activate(from: .current, options: [])
+        let donor = NSWorkspace.shared.frontmostApplication ?? .current
+        _ = target.app.activate(from: donor, options: [])
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.isActivatingInternally = false
         }
