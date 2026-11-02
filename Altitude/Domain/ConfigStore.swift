@@ -56,39 +56,76 @@ struct AppConfig: Equatable, Sendable {
     )
 }
 
-enum ConfigStore {
+struct ConfigStore {
     /// Hard cap matching Carbon digit hotkeys (1…9).
     static let maxHotkeySpace = 9
-    /// Reject absurdly large config files (symlink / DoS guard).
+    /// Reject absurdly large config files (symlink / DoS guard). Measured on resolved bytes.
     static let maxConfigBytes: UInt64 = 64 * 1024
 
-    static var configDirectoryURL: URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".config/altitude", isDirectory: true)
+    /// Directory that contains `config.toml` (default: `~/.config/altitude`).
+    let rootDirectory: URL
+    /// Home boundary for symlink resolution checks (injectable so tests can use a temp tree).
+    let homeDirectory: URL
+    let fileManager: FileManager
+
+    static var standard: ConfigStore { ConfigStore() }
+
+    init(
+        rootDirectory: URL? = nil,
+        homeDirectory: URL? = nil,
+        fileManager: FileManager = .default
+    ) {
+        self.fileManager = fileManager
+        let home = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
+        self.homeDirectory = home
+        self.rootDirectory = rootDirectory
+            ?? home.appendingPathComponent(".config/altitude", isDirectory: true)
     }
 
-    static var configFileURL: URL {
-        configDirectoryURL.appendingPathComponent("config.toml", isDirectory: false)
+    var configDirectoryURL: URL { rootDirectory }
+
+    var configFileURL: URL {
+        rootDirectory.appendingPathComponent("config.toml", isDirectory: false)
     }
 
-    static func load() -> AppConfig {
+    // MARK: - Static convenience (MenuBarController / AppDelegate)
+
+    static var configDirectoryURL: URL { standard.configDirectoryURL }
+    static var configFileURL: URL { standard.configFileURL }
+
+    static func load() -> AppConfig { standard.load() }
+
+    static func save(_ config: AppConfig) throws { try standard.save(config) }
+
+    static func ensureExampleIfMissing() { standard.ensureExampleIfMissing() }
+
+    // MARK: - Instance API
+
+    func load() -> AppConfig {
         let url = configFileURL
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: url.path) else {
+        guard fileManager.fileExists(atPath: url.path) else {
             log.info("No config at \(url.path, privacy: .public); using defaults")
             return .default
         }
 
         do {
             try validateConfigURL(url)
-            let attrs = try fm.attributesOfItem(atPath: url.path)
-            if let size = attrs[.size] as? UInt64, size > maxConfigBytes {
+            let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+            try validateResolvedUnderHome(resolved)
+
+            let handle = try FileHandle(forReadingFrom: resolved)
+            defer { try? handle.close() }
+            // Read one past the limit so oversized targets cannot bypass via symlink lstat size.
+            let data = handle.readData(ofLength: Int(Self.maxConfigBytes) + 1)
+            if data.count > Int(Self.maxConfigBytes) {
                 log.error(
-                    "Config at \(url.path, privacy: .public) is \(size) bytes (limit \(maxConfigBytes)); using defaults"
+                    "Config at \(resolved.path, privacy: .public) exceeds \(Self.maxConfigBytes) bytes; using defaults"
                 )
                 return .default
             }
-            let text = try String(contentsOf: url, encoding: .utf8)
+            guard let text = String(data: data, encoding: .utf8) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
             let config = MinimalTOML.parseAltitudeConfig(text)
             log.info("Loaded config version \(config.version) from \(url.path, privacy: .public)")
             return config
@@ -98,18 +135,17 @@ enum ConfigStore {
         }
     }
 
-    /// Writes a starter config if none exists (does not overwrite stowed files).
-    static func ensureExampleIfMissing() {
-        let fm = FileManager.default
+    /// Writes a starter config if none exists (does not overwrite stowed files or dangling symlinks).
+    func ensureExampleIfMissing() {
         let url = configFileURL
-        guard !fm.fileExists(atPath: url.path) else { return }
+        if pathExistsIncludingBrokenSymlink(url) { return }
         guard let template = Bundle.main.url(forResource: "config.example", withExtension: "toml") else {
             log.error("Bundled config.example.toml is missing; not writing a starter config")
             return
         }
         do {
-            try fm.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
-            try fm.copyItem(at: template, to: url)
+            try fileManager.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
+            try fileManager.copyItem(at: template, to: url)
             log.info("Wrote starter config to \(url.path, privacy: .public)")
         } catch {
             log.error("Could not write starter config: \(error.localizedDescription, privacy: .public)")
@@ -117,12 +153,35 @@ enum ConfigStore {
     }
 
     /// Deterministically rewrites known keys (used by menu toggles). Does not preserve comments.
-    static func save(_ config: AppConfig) throws {
-        try validateConfigURL(configFileURL, allowMissing: true)
+    func save(_ config: AppConfig) throws {
+        let url = configFileURL
+        let text = Self.renderConfig(config)
+        try fileManager.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
+
+        if isSymbolicLink(at: url) {
+            // Dangling symlink: do not replace the link with a regular file.
+            guard fileManager.fileExists(atPath: url.path) else {
+                log.error("Refusing to save through dangling symlink at \(url.path, privacy: .public)")
+                throw CocoaError(.fileNoSuchFile)
+            }
+            let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+            try validateResolvedUnderHome(resolved)
+            try text.write(to: resolved, atomically: true, encoding: .utf8)
+            log.info("Wrote config through symlink to \(resolved.path, privacy: .public)")
+            return
+        }
+
+        try validateConfigURL(url, allowMissing: true)
+        try text.write(to: url, atomically: true, encoding: .utf8)
+        log.info("Wrote config to \(url.path, privacy: .public)")
+    }
+
+    /// Canonical TOML text written by `save` (also useful for parser round-trip tests).
+    static func renderConfig(_ config: AppConfig) -> String {
         let d = config.desktop
         let c = config.commandTab
         let w = config.windowManagement
-        let text = """
+        return """
         version = \(config.version)
 
         [app]
@@ -167,30 +226,41 @@ enum ConfigStore {
         cmd = \(tomlBool(w.equalSplit.modifiers.cmd))
         key = \(w.equalSplit.key)
         """
-        try FileManager.default.createDirectory(at: configDirectoryURL, withIntermediateDirectories: true)
-        try text.write(to: configFileURL, atomically: true, encoding: .utf8)
-        log.info("Wrote config to \(configFileURL.path, privacy: .public)")
     }
 
     private static func tomlBool(_ value: Bool) -> String {
         value ? "true" : "false"
     }
 
-    /// Allows Stow-style symlinks when the resolved target stays under the user's home.
-    private static func validateConfigURL(_ url: URL, allowMissing: Bool = false) throws {
-        let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser.resolvingSymlinksInPath().standardizedFileURL.path
-        if !fm.fileExists(atPath: url.path) {
+    /// Allows Stow-style symlinks when the resolved target stays under `homeDirectory`.
+    private func validateConfigURL(_ url: URL, allowMissing: Bool = false) throws {
+        if !fileManager.fileExists(atPath: url.path) {
             if allowMissing { return }
             throw CocoaError(.fileNoSuchFile)
         }
-        let resolved = url.resolvingSymlinksInPath().standardizedFileURL.path
-        guard resolved == home || resolved.hasPrefix(home + "/") else {
+        let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+        try validateResolvedUnderHome(resolved)
+    }
+
+    private func validateResolvedUnderHome(_ resolved: URL) throws {
+        let home = homeDirectory.resolvingSymlinksInPath().standardizedFileURL.path
+        let path = resolved.standardizedFileURL.path
+        guard path == home || path.hasPrefix(home + "/") else {
             log.error(
-                "Refusing config outside home (resolved \(resolved, privacy: .public))"
+                "Refusing config outside home (resolved \(path, privacy: .public))"
             )
             throw CocoaError(.fileReadNoPermission)
         }
+    }
+
+    private func isSymbolicLink(at url: URL) -> Bool {
+        guard let attrs = try? fileManager.attributesOfItem(atPath: url.path) else { return false }
+        return (attrs[.type] as? FileAttributeType) == .typeSymbolicLink
+    }
+
+    private func pathExistsIncludingBrokenSymlink(_ url: URL) -> Bool {
+        if fileManager.fileExists(atPath: url.path) { return true }
+        return isSymbolicLink(at: url)
     }
 }
 

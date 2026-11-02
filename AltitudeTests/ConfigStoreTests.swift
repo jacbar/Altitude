@@ -271,7 +271,116 @@ final class ConfigStoreTests: XCTestCase {
     }
 
     func testSaveShapedTextRoundTrip() {
-        let original = AppConfig(
+        let original = sampleConfig()
+        let text = ConfigStore.renderConfig(original)
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(text), original)
+    }
+
+    func testTempDirLoadSaveRoundTrip() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        let original = sampleConfig()
+        try env.store.save(original)
+        XCTAssertEqual(env.store.load(), original)
+    }
+
+    func testOversizedSymlinkTargetUsesDefaults() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        let target = env.home.appendingPathComponent("big.toml")
+        let oversized = String(repeating: "x", count: Int(ConfigStore.maxConfigBytes) + 1)
+        try oversized.write(to: target, atomically: true, encoding: .utf8)
+
+        try FileManager.default.createDirectory(at: env.store.configDirectoryURL, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: env.store.configFileURL,
+            withDestinationURL: target
+        )
+
+        // Symlink itself is tiny; resolved target must still be rejected.
+        XCTAssertEqual(env.store.load(), .default)
+    }
+
+    func testSavePreservesSymlinkAndUpdatesTarget() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        let target = env.home.appendingPathComponent("dotfiles/altitude.toml")
+        try FileManager.default.createDirectory(
+            at: target.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try "version = 1\n".write(to: target, atomically: true, encoding: .utf8)
+
+        try FileManager.default.createDirectory(at: env.store.configDirectoryURL, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: env.store.configFileURL,
+            withDestinationURL: target
+        )
+
+        let updated = sampleConfig()
+        try env.store.save(updated)
+
+        var isDir: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: env.store.configFileURL.path, isDirectory: &isDir)
+        )
+        let attrs = try FileManager.default.attributesOfItem(atPath: env.store.configFileURL.path)
+        XCTAssertEqual(attrs[.type] as? FileAttributeType, .typeSymbolicLink)
+
+        XCTAssertEqual(
+            env.store.configFileURL.resolvingSymlinksInPath().standardizedFileURL.path,
+            target.standardizedFileURL.path
+        )
+        XCTAssertEqual(env.store.load(), updated)
+        let targetText = try String(contentsOf: target, encoding: .utf8)
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(targetText), updated)
+    }
+
+    func testOutsideHomeResolvedPathRefused() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        let outsideHome = FileManager.default.temporaryDirectory
+            .appendingPathComponent("altitude-outside-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideHome, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outsideHome) }
+
+        let outsideTarget = outsideHome.appendingPathComponent("config.toml")
+        try ConfigStore.renderConfig(sampleConfig()).write(to: outsideTarget, atomically: true, encoding: .utf8)
+
+        try FileManager.default.createDirectory(at: env.store.configDirectoryURL, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: env.store.configFileURL,
+            withDestinationURL: outsideTarget
+        )
+
+        XCTAssertEqual(env.store.load(), .default)
+        XCTAssertThrowsError(try env.store.save(sampleConfig()))
+    }
+
+    func testDanglingSymlinkLoadUsesDefaultsAndSaveThrows() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        let missing = env.home.appendingPathComponent("missing.toml")
+        try FileManager.default.createDirectory(at: env.store.configDirectoryURL, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: env.store.configFileURL,
+            withDestinationURL: missing
+        )
+
+        XCTAssertEqual(env.store.load(), .default)
+        XCTAssertThrowsError(try env.store.save(sampleConfig()))
+
+        let attrs = try FileManager.default.attributesOfItem(atPath: env.store.configFileURL.path)
+        XCTAssertEqual(attrs[.type] as? FileAttributeType, .typeSymbolicLink)
+    }
+
+    private func sampleConfig() -> AppConfig {
+        AppConfig(
             version: 2,
             launchAtLogin: true,
             desktop: DesktopConfig(
@@ -295,52 +404,14 @@ final class ConfigStoreTests: XCTestCase {
                 )
             )
         )
-        let text = """
-        version = \(original.version)
+    }
 
-        [app]
-        launch_at_login = true
-
-        [desktop]
-        enabled = true
-        disable_motion = true
-        max_space = \(original.desktop.maxSpace)
-
-        [desktop.switch]
-        alt = true
-        shift = false
-        ctrl = true
-        cmd = false
-
-        [desktop.move]
-        alt = true
-        shift = true
-        ctrl = false
-        cmd = false
-
-        [command_tab]
-        enabled = true
-        disable_motion = false
-
-        [window_management]
-        enabled = true
-        margin = \(original.windowManagement.margin)
-
-        [window_management.maximize]
-        alt = true
-        shift = false
-        ctrl = true
-        cmd = false
-        key = f
-
-        [window_management.equal_split]
-        alt = true
-        shift = false
-        ctrl = true
-        cmd = false
-        key = a
-        """
-        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(text), original)
+    private func makeTempStore() throws -> (home: URL, store: ConfigStore) {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("altitude-config-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        let store = ConfigStore(homeDirectory: home)
+        return (home, store)
     }
 
     private func parseMaxSpace(_ value: Int) -> Int {
