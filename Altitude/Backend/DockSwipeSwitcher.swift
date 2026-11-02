@@ -106,7 +106,7 @@ enum DockSwipeSwitcher {
 
     private static let smoothFrameCount = 24
     private static let smoothFrameInterval: TimeInterval = 0.008
-    private static let smoothStepGap: TimeInterval = 0.28
+    private static let smoothStepGap: TimeInterval = Timing.dockSwipeStepGap
 
     /// Time spent posting gesture frames; the Dock's own animation comes on top.
     static func estimatedDuration(steps: Int, instant: Bool) -> TimeInterval {

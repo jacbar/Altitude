@@ -24,8 +24,8 @@ struct SwipeGestureState: Equatable, Sendable {
     mutating func consume(
         _ sample: SwipeSample,
         now: Date,
-        commitThreshold: Double = 0.08,
-        stuckInterval: TimeInterval = 1.5
+        commitThreshold: Double = Timing.swipeCommitThreshold,
+        stuckInterval: TimeInterval = Timing.swipeStuckInterval
     ) -> SwipeDirection? {
         if sample.began {
             postedForSwipe = false

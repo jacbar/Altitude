@@ -15,13 +15,13 @@ enum DesktopFeature {
             result.append(HotkeyBinding(
                 keyCode: keyCode,
                 modifiers: switchMods,
-                id: UInt32(n),
+                id: HotkeyID.switchDesktop(n),
                 action: .switchTo(n)
             ))
             result.append(HotkeyBinding(
                 keyCode: keyCode,
                 modifiers: moveMods,
-                id: UInt32(100 + n),
+                id: HotkeyID.moveDesktop(n),
                 action: .moveTo(n)
             ))
         }

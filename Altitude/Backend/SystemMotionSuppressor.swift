@@ -71,7 +71,7 @@ final class SystemMotionSuppressor: NSObject {
     /// Accessibility calls that hang on a beachballed app must not block the keyboard tap.
     private let axTimeoutSeconds: Float = 0.1
     /// Finger must travel at least this far before a released swipe commits a Space change.
-    private let swipeCommitThreshold: Double = 0.08
+    private let swipeCommitThreshold: Double = Timing.swipeCommitThreshold
     /// Cancel an open Command-Tab session after this much idle time.
     private let sessionIdleInterval: TimeInterval = 10
 
@@ -275,7 +275,7 @@ final class SystemMotionSuppressor: NSObject {
             sample,
             now: Date(),
             commitThreshold: swipeCommitThreshold,
-            stuckInterval: 1.5
+            stuckInterval: Timing.swipeStuckInterval
         ) {
             _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
         }
@@ -453,7 +453,7 @@ final class SystemMotionSuppressor: NSObject {
             // Let the swipe land before activation, or macOS starts its own slide.
             let delay: TimeInterval
             if instant {
-                delay = 0.08 + 0.06 * Double(max(steps, 1))
+                delay = Timing.instantLandingDelay(steps: steps)
             } else {
                 delay = DockSwipeSwitcher.estimatedDuration(steps: steps, instant: false) + 0.08
             }
@@ -522,16 +522,16 @@ final class SystemMotionSuppressor: NSObject {
         focus(target)
         let donor = NSWorkspace.shared.frontmostApplication ?? .current
         _ = target.app.activate(from: donor, options: [])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryShort) { [weak self] in
             self?.focus(target)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryMid) { [weak self] in
             self?.focus(target)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong) { [weak self] in
             self?.focus(target)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: guardWork)
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.activationGuard, execute: guardWork)
     }
 
     /// Main window if Accessibility marked one; otherwise the first listed window.
@@ -547,7 +547,7 @@ final class SystemMotionSuppressor: NSObject {
         let spaces = target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? []
         switch spaceService.switchInstantly(toPreferredSpaceAmong: spaces) {
         case .posted(let steps):
-            let delay = 0.08 + 0.06 * Double(max(steps, 1))
+            let delay = Timing.instantLandingDelay(steps: steps)
             armActivation(of: target, after: delay)
         case .alreadyThere:
             activate(target)

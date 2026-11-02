@@ -99,7 +99,7 @@ final class MenuBarController: NSObject {
                 return
             }
             // Dock-swipe transitions settle after the gesture frames are posted.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Timing.hotkeyRefresh) { [weak self] in
                 self?.refreshSpacesAndHotkeys()
             }
         } catch SpaceServiceError.accessibilityDenied {
