@@ -10,7 +10,9 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
+  # Matrix expands check names (e.g. "test (macos-14)"); branch protection still
+  # requires the exact context "build-test", so a final gate job keeps that name.
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -41,3 +43,11 @@ jobs:
             -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             CODE_SIGNING_ALLOWED=NO
+
+  build-test:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All matrix jobs passed
+        run: echo "macos-14 and macos-latest succeeded"
