@@ -51,22 +51,25 @@ final class HotkeyRegistrar {
         }
 
         unregisterHotKeys()
-        applied = bindings
         installHandlerIfNeeded()
 
+        var succeeded: [HotkeyBinding] = []
         for binding in bindings {
-            register(
+            if register(
                 keyCode: binding.keyCode,
                 modifiers: binding.modifiers,
                 id: binding.id,
                 action: binding.action
-            )
+            ) {
+                succeeded.append(binding)
+            }
         }
+        applied = succeeded
 
-        log.info("Registered \(bindings.count) hotkey(s)")
+        log.info("Registered \(succeeded.count) hotkey(s)")
     }
 
-    private func register(keyCode: UInt32, modifiers: UInt32, id: UInt32, action: HotkeyAction) {
+    private func register(keyCode: UInt32, modifiers: UInt32, id: UInt32, action: HotkeyAction) -> Bool {
         var hotKeyRef: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: altitudeHotKeySignature, id: id)
         let status = RegisterEventHotKey(
@@ -80,9 +83,10 @@ final class HotkeyRegistrar {
         if status == noErr {
             hotKeyRefs.append(hotKeyRef)
             actionByID[id] = action
-        } else {
-            log.error("RegisterEventHotKey failed for id \(id): \(status)")
+            return true
         }
+        log.error("RegisterEventHotKey failed for id \(id): \(status)")
+        return false
     }
 
     private func installHandlerIfNeeded() {
