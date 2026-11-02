@@ -119,34 +119,34 @@ final class WindowArranger {
     }
 
     private func include(_ element: AXUIElement, on spaceID: CGSSpaceID) -> Candidate? {
-        let role = axString(element, kAXRoleAttribute as String)
+        let role = element.axString(kAXRoleAttribute as String)
         guard WindowArrangement.acceptsArrangeRole(role) else {
             log.debug("Skip window: role=\(role, privacy: .public)")
             return nil
         }
 
-        let subrole = axString(element, kAXSubroleAttribute as String)
+        let subrole = element.axString(kAXSubroleAttribute as String)
         guard WindowArrangement.acceptsArrangeSubrole(subrole) else {
             log.debug("Skip window: subrole=\(subrole, privacy: .public)")
             return nil
         }
 
-        if axBool(element, kAXMinimizedAttribute as String) {
+        if element.axBool(kAXMinimizedAttribute as String) {
             log.debug("Skip window: minimized")
             return nil
         }
-        if axBool(element, Self.fullScreenAttribute) {
+        if element.axBool(Self.fullScreenAttribute) {
             log.debug("Skip window: fullscreen")
             return nil
         }
 
-        guard let size = axSize(element), size.width > 0, size.height > 0 else {
+        guard let size = element.axSize(), size.width > 0, size.height > 0 else {
             log.debug("Skip window: zero-size")
             return nil
         }
 
-        var windowID: CGWindowID = 0
-        guard _AXUIElementGetWindow(element, &windowID) == .success, windowID != 0 else {
+        let windowID = element.axWindowID()
+        guard windowID != 0 else {
             log.debug("Skip window: no CGWindowID")
             return nil
         }
@@ -171,7 +171,7 @@ final class WindowArranger {
             return nil
         }
 
-        guard let position = axPosition(element) else {
+        guard let position = element.axPosition() else {
             log.debug("Skip window \(windowID): no position")
             return nil
         }
@@ -229,47 +229,5 @@ final class WindowArranger {
             return false
         }
         return true
-    }
-
-    private func axString(_ element: AXUIElement, _ attribute: String) -> String {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else {
-            return ""
-        }
-        return ((ref as? String) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func axBool(_ element: AXUIElement, _ attribute: String) -> Bool {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &ref) == .success else {
-            return false
-        }
-        return (ref as? Bool) ?? false
-    }
-
-    private func axSize(_ element: AXUIElement) -> CGSize? {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &ref) == .success,
-              let ref,
-              CFGetTypeID(ref) == AXValueGetTypeID()
-        else {
-            return nil
-        }
-        var size = CGSize.zero
-        guard AXValueGetValue(ref as! AXValue, .cgSize, &size) else { return nil }
-        return size
-    }
-
-    private func axPosition(_ element: AXUIElement) -> CGPoint? {
-        var ref: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &ref) == .success,
-              let ref,
-              CFGetTypeID(ref) == AXValueGetTypeID()
-        else {
-            return nil
-        }
-        var point = CGPoint.zero
-        guard AXValueGetValue(ref as! AXValue, .cgPoint, &point) else { return nil }
-        return point
     }
 }

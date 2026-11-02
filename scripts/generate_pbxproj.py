@@ -2,6 +2,15 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+
+
+def pbx_path(value: str) -> str:
+    """Quote OpenStep path values that contain non-identifier characters (e.g. '+')."""
+    if all(c.isalnum() or c in "._/" for c in value):
+        return value
+    return f'"{value}"'
+
+
 sources = [
     "Altitude/main.swift",
     "Altitude/AppDelegate.swift",
@@ -34,6 +43,7 @@ sources = [
     "Altitude/Domain/SystemMotionMode.swift",
     "Altitude/Domain/CommandTabKeys.swift",
     "Altitude/Domain/SwipeGesture.swift",
+    "Altitude/Backend/AXUIElement+Read.swift",
 ]
 
 test_sources = [
@@ -194,14 +204,14 @@ for src in sources:
     lines.append(
         f"\t\t{file_ids[src]} /* {name} */ = "
         f"{{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; "
-        f'path = {name}; sourceTree = "<group>"; }};'
+        f'path = {pbx_path(name)}; sourceTree = "<group>"; }};'
     )
 for src in test_sources:
     name = Path(src).name
     lines.append(
         f"\t\t{test_file_ids[src]} /* {name} */ = "
         f"{{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; "
-        f'path = {name}; sourceTree = "<group>"; }};'
+        f'path = {pbx_path(name)}; sourceTree = "<group>"; }};'
     )
 lines.append(
     f"\t\t{ids['product_ref']} /* Altitude.app */ = {{isa = PBXFileReference; "

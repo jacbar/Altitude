@@ -37,6 +37,7 @@
 		B20000000000000000000027 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
 		B20000000000000000000028 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* CommandTabKeys.swift */; };
 		B20000000000000000000029 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* SwipeGesture.swift */; };
+		B20000000000000000000030 /* AXUIElement+Read.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* AXUIElement+Read.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -103,6 +104,7 @@
 		B10000000000000000000027 /* SystemMotionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionMode.swift; sourceTree = "<group>"; };
 		B10000000000000000000028 /* CommandTabKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabKeys.swift; sourceTree = "<group>"; };
 		B10000000000000000000029 /* SwipeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeGesture.swift; sourceTree = "<group>"; };
+		B10000000000000000000030 /* AXUIElement+Read.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AXUIElement+Read.swift"; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				B10000000000000000000005 /* SkyLightBridgedSPI.swift */,
 				B10000000000000000000012 /* SystemMotionSuppressor.swift */,
 				B10000000000000000000016 /* WindowArranger.swift */,
+				B10000000000000000000030 /* AXUIElement+Read.swift */,
 			);
 			path = Backend;
 			sourceTree = "<group>";
@@ -414,6 +417,7 @@
 				B20000000000000000000027 /* SystemMotionMode.swift in Sources */,
 				B20000000000000000000028 /* CommandTabKeys.swift in Sources */,
 				B20000000000000000000029 /* SwipeGesture.swift in Sources */,
+				B20000000000000000000030 /* AXUIElement+Read.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
