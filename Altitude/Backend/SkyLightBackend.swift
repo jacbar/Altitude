@@ -187,7 +187,7 @@ final class SkyLightBackend: SpaceService {
         prediction = Prediction(
             spaceID: destinationID,
             displayIdentifier: display.identifier,
-            expiry: Date().addingTimeInterval(duration + 1.0)
+            expiry: Date().addingTimeInterval(duration + Timing.predictionSlack)
         )
     }
 
