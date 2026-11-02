@@ -6,6 +6,20 @@ enum WindowArrangement {
         CGPoint(x: cocoaRect.minX, y: primaryMaxY - cocoaRect.maxY)
     }
 
+    /// True when each of x, y, width, and height differs by at most `tolerance` points.
+    static func framesMatch(
+        expectedOrigin: CGPoint,
+        expectedSize: CGSize,
+        actualOrigin: CGPoint,
+        actualSize: CGSize,
+        tolerance: CGFloat = 2
+    ) -> Bool {
+        abs(expectedOrigin.x - actualOrigin.x) <= tolerance
+            && abs(expectedOrigin.y - actualOrigin.y) <= tolerance
+            && abs(expectedSize.width - actualSize.width) <= tolerance
+            && abs(expectedSize.height - actualSize.height) <= tolerance
+    }
+
     /// Insets `visibleFrame` by `margin` on every side. Nil when width or height is not positive.
     static func maximizedRect(visibleFrame: CGRect, margin: CGFloat) -> CGRect? {
         let rect = visibleFrame.insetBy(dx: margin, dy: margin)
