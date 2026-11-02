@@ -60,7 +60,7 @@ final class WindowArranger {
             targets = rects
         }
 
-        guard let primaryMaxY = NSScreen.screens.map(\.frame.maxY).max() else {
+        guard let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.main?.frame.maxY else {
             return .nothingToDo
         }
 
@@ -180,7 +180,7 @@ final class WindowArranger {
 
     private func setFrame(_ element: AXUIElement, to rect: CGRect, primaryMaxY: CGFloat) -> Bool {
         AXUIElementSetMessagingTimeout(element, Self.axTimeoutSeconds)
-        let axOrigin = CGPoint(x: rect.minX, y: primaryMaxY - rect.maxY)
+        let axOrigin = WindowArrangement.accessibilityOrigin(cocoaRect: rect, primaryMaxY: primaryMaxY)
         let size = rect.size
 
         // Position first so growing a window near an edge is not rejected as off-screen.

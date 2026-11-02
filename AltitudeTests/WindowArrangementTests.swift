@@ -2,6 +2,22 @@ import CoreGraphics
 import XCTest
 
 final class WindowArrangementTests: XCTestCase {
+    func testAccessibilityOriginSingleDisplayMatchesCurrentFormula() {
+        let rect = CGRect(x: 0, y: 0, width: 400, height: 300)
+        let origin = WindowArrangement.accessibilityOrigin(cocoaRect: rect, primaryMaxY: 1080)
+        XCTAssertEqual(origin, CGPoint(x: 0, y: 780))
+    }
+
+    func testAccessibilityOriginStackedDisplayUsesPrimaryNotGlobalMaxY() {
+        // Display above primary: Cocoa maxY 2000. Primary menu-bar display maxY is 1080.
+        let rect = CGRect(x: 100, y: 1700, width: 400, height: 300)
+        XCTAssertEqual(rect.maxY, 2000)
+        let origin = WindowArrangement.accessibilityOrigin(cocoaRect: rect, primaryMaxY: 1080)
+        XCTAssertEqual(origin.y, 1080 - 2000)
+        XCTAssertEqual(origin.y, -920)
+        XCTAssertNotEqual(origin.y, 2160 - 2000)
+    }
+
     func testMaximizedRectDefaultMargin() {
         let visible = CGRect(x: 0, y: 0, width: 1000, height: 800)
         let rect = WindowArrangement.maximizedRect(visibleFrame: visible, margin: 8)

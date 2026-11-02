@@ -1,6 +1,11 @@
 import CoreGraphics
 
 enum WindowArrangement {
+    /// Cocoa bottom-left rect → Accessibility top-left origin using the primary display's `maxY`.
+    static func accessibilityOrigin(cocoaRect: CGRect, primaryMaxY: CGFloat) -> CGPoint {
+        CGPoint(x: cocoaRect.minX, y: primaryMaxY - cocoaRect.maxY)
+    }
+
     /// Insets `visibleFrame` by `margin` on every side. Nil when width or height is not positive.
     static func maximizedRect(visibleFrame: CGRect, margin: CGFloat) -> CGRect? {
         let rect = visibleFrame.insetBy(dx: margin, dy: margin)
