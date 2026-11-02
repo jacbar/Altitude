@@ -65,4 +65,81 @@ final class WindowArrangementTests: XCTestCase {
             [1, 2, 0]
         )
     }
+
+    func testAcceptsArrangeRole() {
+        XCTAssertTrue(WindowArrangement.acceptsArrangeRole(""))
+        XCTAssertTrue(WindowArrangement.acceptsArrangeRole("AXWindow"))
+        XCTAssertFalse(WindowArrangement.acceptsArrangeRole("AXButton"))
+        XCTAssertFalse(WindowArrangement.acceptsArrangeRole("AXGroup"))
+    }
+
+    func testAcceptsArrangeSubrole() {
+        // Empty / standard / Electron-style non-standard all included.
+        XCTAssertTrue(WindowArrangement.acceptsArrangeSubrole(""))
+        XCTAssertTrue(WindowArrangement.acceptsArrangeSubrole("AXStandardWindow"))
+        XCTAssertTrue(WindowArrangement.acceptsArrangeSubrole("AXDialog"))
+        XCTAssertTrue(WindowArrangement.acceptsArrangeSubrole("AXFloatingWindow"))
+        XCTAssertTrue(WindowArrangement.acceptsArrangeSubrole("AXDocumentWindow"))
+        // Match Command-Tab AX exclusions only.
+        XCTAssertFalse(WindowArrangement.acceptsArrangeSubrole("AXUnknown"))
+        XCTAssertFalse(WindowArrangement.acceptsArrangeSubrole("AXSystemDialog"))
+    }
+
+    func testSpaceMembershipOnArrangeSpace() {
+        XCTAssertEqual(
+            WindowArrangement.spaceMembership(
+                windowSpaceIDs: [7, 3],
+                arrangeSpaceID: 3,
+                activeSpaceID: 9
+            ),
+            .onArrangeSpace
+        )
+    }
+
+    func testSpaceMembershipEmptyOnActiveArrangeSpace() {
+        XCTAssertEqual(
+            WindowArrangement.spaceMembership(
+                windowSpaceIDs: [],
+                arrangeSpaceID: 5,
+                activeSpaceID: 5
+            ),
+            .emptyOnActiveArrangeSpace
+        )
+    }
+
+    func testSpaceMembershipEmptyWhenArrangeIsNotActiveIsExcluded() {
+        XCTAssertEqual(
+            WindowArrangement.spaceMembership(
+                windowSpaceIDs: [],
+                arrangeSpaceID: 5,
+                activeSpaceID: 9
+            ),
+            .excluded
+        )
+    }
+
+    func testSpaceMembershipOtherSpaceIsExcluded() {
+        XCTAssertEqual(
+            WindowArrangement.spaceMembership(
+                windowSpaceIDs: [2, 8],
+                arrangeSpaceID: 5,
+                activeSpaceID: 5
+            ),
+            .excluded
+        )
+    }
+
+    func testThreeIncludedWindowsYieldThreeColumnRects() {
+        let visible = CGRect(x: 0, y: 0, width: 940, height: 600)
+        let columns = WindowArrangement.columnRects(visibleFrame: visible, margin: 10, count: 3)
+        XCTAssertEqual(columns?.count, 3)
+        XCTAssertEqual(
+            columns,
+            [
+                CGRect(x: 10, y: 10, width: 300, height: 580),
+                CGRect(x: 320, y: 10, width: 300, height: 580),
+                CGRect(x: 630, y: 10, width: 300, height: 580),
+            ]
+        )
+    }
 }

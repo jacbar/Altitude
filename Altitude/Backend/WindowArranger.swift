@@ -21,7 +21,6 @@ enum ArrangeResult: Equatable {
 final class WindowArranger {
     /// Long enough for Electron / multi-window apps under a burst of AX traffic.
     private static let axTimeoutSeconds: Float = 1.0
-    private static let standardWindowSubrole = "AXStandardWindow"
     private static let fullScreenAttribute = "AXFullScreen"
 
     func arrange(
@@ -121,21 +120,61 @@ final class WindowArranger {
 
     private func include(_ element: AXUIElement, on spaceID: CGSSpaceID) -> Candidate? {
         let role = axString(element, kAXRoleAttribute as String)
-        guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
+        guard WindowArrangement.acceptsArrangeRole(role) else {
+            log.debug("Skip window: role=\(role, privacy: .public)")
+            return nil
+        }
 
         let subrole = axString(element, kAXSubroleAttribute as String)
-        guard subrole.isEmpty || subrole == Self.standardWindowSubrole else { return nil }
+        guard WindowArrangement.acceptsArrangeSubrole(subrole) else {
+            log.debug("Skip window: subrole=\(subrole, privacy: .public)")
+            return nil
+        }
 
-        if axBool(element, kAXMinimizedAttribute as String) { return nil }
-        if axBool(element, Self.fullScreenAttribute) { return nil }
+        if axBool(element, kAXMinimizedAttribute as String) {
+            log.debug("Skip window: minimized")
+            return nil
+        }
+        if axBool(element, Self.fullScreenAttribute) {
+            log.debug("Skip window: fullscreen")
+            return nil
+        }
 
-        guard let size = axSize(element), size.width > 0, size.height > 0 else { return nil }
+        guard let size = axSize(element), size.width > 0, size.height > 0 else {
+            log.debug("Skip window: zero-size")
+            return nil
+        }
 
         var windowID: CGWindowID = 0
-        guard _AXUIElementGetWindow(element, &windowID) == .success, windowID != 0 else { return nil }
-        guard CGSPrivate.spaceIDs(forWindow: windowID).contains(spaceID) else { return nil }
+        guard _AXUIElementGetWindow(element, &windowID) == .success, windowID != 0 else {
+            log.debug("Skip window: no CGWindowID")
+            return nil
+        }
 
-        guard let position = axPosition(element) else { return nil }
+        let windowSpaces = CGSPrivate.spaceIDs(forWindow: windowID)
+        let activeSpace = CGSPrivate.activeSpaceID()
+        switch WindowArrangement.spaceMembership(
+            windowSpaceIDs: windowSpaces,
+            arrangeSpaceID: spaceID,
+            activeSpaceID: activeSpace
+        ) {
+        case .onArrangeSpace:
+            break
+        case .emptyOnActiveArrangeSpace:
+            log.info(
+                "Include window \(windowID) with empty space membership on active arrange Space \(spaceID)"
+            )
+        case .excluded:
+            log.debug(
+                "Skip window \(windowID): spaces=\(windowSpaces.map(String.init).joined(separator: ","), privacy: .public) arrange=\(spaceID)"
+            )
+            return nil
+        }
+
+        guard let position = axPosition(element) else {
+            log.debug("Skip window \(windowID): no position")
+            return nil
+        }
         return Candidate(element: element, position: position)
     }
 
