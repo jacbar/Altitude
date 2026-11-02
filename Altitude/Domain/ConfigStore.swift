@@ -178,54 +178,60 @@ struct ConfigStore {
 
     /// Canonical TOML text written by `save` (also useful for parser round-trip tests).
     static func renderConfig(_ config: AppConfig) -> String {
+        var lines: [String] = []
+        var previousSection: String?
+        var isFirst = true
+
+        for entry in schema {
+            if isFirst || previousSection != entry.section {
+                if !isFirst {
+                    lines.append("")
+                }
+                if let section = entry.section {
+                    lines.append("[\(section)]")
+                }
+                previousSection = entry.section
+                isFirst = false
+            }
+            lines.append("\(entry.key) = \(renderValue(config, field: entry.field))")
+        }
+
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    private static func renderValue(_ config: AppConfig, field: ConfigField) -> String {
         let d = config.desktop
         let c = config.commandTab
         let w = config.windowManagement
-        return """
-        version = \(config.version)
-
-        [app]
-        launch_at_login = \(tomlBool(config.launchAtLogin))
-
-        [desktop]
-        enabled = \(tomlBool(d.enabled))
-        disable_motion = \(tomlBool(d.disableMotion))
-        max_space = \(d.maxSpace)
-
-        [desktop.switch]
-        alt = \(tomlBool(d.switchModifiers.alt))
-        shift = \(tomlBool(d.switchModifiers.shift))
-        ctrl = \(tomlBool(d.switchModifiers.ctrl))
-        cmd = \(tomlBool(d.switchModifiers.cmd))
-
-        [desktop.move]
-        alt = \(tomlBool(d.moveModifiers.alt))
-        shift = \(tomlBool(d.moveModifiers.shift))
-        ctrl = \(tomlBool(d.moveModifiers.ctrl))
-        cmd = \(tomlBool(d.moveModifiers.cmd))
-
-        [command_tab]
-        enabled = \(tomlBool(c.enabled))
-        disable_motion = \(tomlBool(c.disableMotion))
-
-        [window_management]
-        enabled = \(tomlBool(w.enabled))
-        margin = \(w.margin)
-
-        [window_management.maximize]
-        alt = \(tomlBool(w.maximize.modifiers.alt))
-        shift = \(tomlBool(w.maximize.modifiers.shift))
-        ctrl = \(tomlBool(w.maximize.modifiers.ctrl))
-        cmd = \(tomlBool(w.maximize.modifiers.cmd))
-        key = \(w.maximize.key)
-
-        [window_management.equal_split]
-        alt = \(tomlBool(w.equalSplit.modifiers.alt))
-        shift = \(tomlBool(w.equalSplit.modifiers.shift))
-        ctrl = \(tomlBool(w.equalSplit.modifiers.ctrl))
-        cmd = \(tomlBool(w.equalSplit.modifiers.cmd))
-        key = \(w.equalSplit.key)
-        """
+        switch field {
+        case .version: return String(config.version)
+        case .launchAtLogin: return tomlBool(config.launchAtLogin)
+        case .desktopEnabled: return tomlBool(d.enabled)
+        case .desktopDisableMotion: return tomlBool(d.disableMotion)
+        case .maxSpace: return String(d.maxSpace)
+        case .switchAlt: return tomlBool(d.switchModifiers.alt)
+        case .switchShift: return tomlBool(d.switchModifiers.shift)
+        case .switchCtrl: return tomlBool(d.switchModifiers.ctrl)
+        case .switchCmd: return tomlBool(d.switchModifiers.cmd)
+        case .moveAlt: return tomlBool(d.moveModifiers.alt)
+        case .moveShift: return tomlBool(d.moveModifiers.shift)
+        case .moveCtrl: return tomlBool(d.moveModifiers.ctrl)
+        case .moveCmd: return tomlBool(d.moveModifiers.cmd)
+        case .commandTabEnabled: return tomlBool(c.enabled)
+        case .commandTabDisableMotion: return tomlBool(c.disableMotion)
+        case .windowEnabled: return tomlBool(w.enabled)
+        case .margin: return String(w.margin)
+        case .maximizeAlt: return tomlBool(w.maximize.modifiers.alt)
+        case .maximizeShift: return tomlBool(w.maximize.modifiers.shift)
+        case .maximizeCtrl: return tomlBool(w.maximize.modifiers.ctrl)
+        case .maximizeCmd: return tomlBool(w.maximize.modifiers.cmd)
+        case .maximizeKey: return String(w.maximize.key)
+        case .equalSplitAlt: return tomlBool(w.equalSplit.modifiers.alt)
+        case .equalSplitShift: return tomlBool(w.equalSplit.modifiers.shift)
+        case .equalSplitCtrl: return tomlBool(w.equalSplit.modifiers.ctrl)
+        case .equalSplitCmd: return tomlBool(w.equalSplit.modifiers.cmd)
+        case .equalSplitKey: return String(w.equalSplit.key)
+        }
     }
 
     private static func tomlBool(_ value: Bool) -> String {
@@ -264,11 +270,74 @@ struct ConfigStore {
     }
 }
 
+/// Shared ordered schema driving both `ConfigStore.renderConfig` and parsing.
+private enum ConfigField {
+    case version
+    case launchAtLogin
+    case desktopEnabled
+    case desktopDisableMotion
+    case maxSpace
+    case switchAlt, switchShift, switchCtrl, switchCmd
+    case moveAlt, moveShift, moveCtrl, moveCmd
+    case commandTabEnabled
+    case commandTabDisableMotion
+    case windowEnabled
+    case margin
+    case maximizeAlt, maximizeShift, maximizeCtrl, maximizeCmd, maximizeKey
+    case equalSplitAlt, equalSplitShift, equalSplitCtrl, equalSplitCmd, equalSplitKey
+}
+
+private struct ConfigSchemaEntry {
+    let section: String?
+    let key: String
+    let field: ConfigField
+}
+
+private let schema: [ConfigSchemaEntry] = [
+    .init(section: nil, key: "version", field: .version),
+    .init(section: "app", key: "launch_at_login", field: .launchAtLogin),
+    .init(section: "desktop", key: "enabled", field: .desktopEnabled),
+    .init(section: "desktop", key: "disable_motion", field: .desktopDisableMotion),
+    .init(section: "desktop", key: "max_space", field: .maxSpace),
+    .init(section: "desktop.switch", key: "alt", field: .switchAlt),
+    .init(section: "desktop.switch", key: "shift", field: .switchShift),
+    .init(section: "desktop.switch", key: "ctrl", field: .switchCtrl),
+    .init(section: "desktop.switch", key: "cmd", field: .switchCmd),
+    .init(section: "desktop.move", key: "alt", field: .moveAlt),
+    .init(section: "desktop.move", key: "shift", field: .moveShift),
+    .init(section: "desktop.move", key: "ctrl", field: .moveCtrl),
+    .init(section: "desktop.move", key: "cmd", field: .moveCmd),
+    .init(section: "command_tab", key: "enabled", field: .commandTabEnabled),
+    .init(section: "command_tab", key: "disable_motion", field: .commandTabDisableMotion),
+    .init(section: "window_management", key: "enabled", field: .windowEnabled),
+    .init(section: "window_management", key: "margin", field: .margin),
+    .init(section: "window_management.maximize", key: "alt", field: .maximizeAlt),
+    .init(section: "window_management.maximize", key: "shift", field: .maximizeShift),
+    .init(section: "window_management.maximize", key: "ctrl", field: .maximizeCtrl),
+    .init(section: "window_management.maximize", key: "cmd", field: .maximizeCmd),
+    .init(section: "window_management.maximize", key: "key", field: .maximizeKey),
+    .init(section: "window_management.equal_split", key: "alt", field: .equalSplitAlt),
+    .init(section: "window_management.equal_split", key: "shift", field: .equalSplitShift),
+    .init(section: "window_management.equal_split", key: "ctrl", field: .equalSplitCtrl),
+    .init(section: "window_management.equal_split", key: "cmd", field: .equalSplitCmd),
+    .init(section: "window_management.equal_split", key: "key", field: .equalSplitKey),
+]
+
+struct ConfigParseResult: Equatable {
+    var config: AppConfig
+    var ignoredKeys: [String]
+}
+
 /// Tiny TOML subset parser for Altitude's schema (avoids an SPM dependency in v1).
 enum MinimalTOML {
     /// Invalid typed values keep the field default and are logged; unknown keys are ignored.
     static func parseAltitudeConfig(_ text: String) -> AppConfig {
+        parseAltitudeConfigDetail(text).config
+    }
+
+    static func parseAltitudeConfigDetail(_ text: String) -> ConfigParseResult {
         var config = AppConfig.default
+        var ignoredKeys: [String] = []
         var section: String?
 
         var switchPartial = PartialModifierFlags()
@@ -300,91 +369,23 @@ enum MinimalTOML {
                 continue
             }
 
-            switch (section, key) {
-            case (nil, "version"), ("", "version"):
-                if let int = Int(value) { config.version = int } else { warnInvalid(qualifiedKey, value) }
-
-            case ("app", "launch_at_login"):
-                if let bool = parseBool(value) { config.launchAtLogin = bool } else { warnInvalid(qualifiedKey, value) }
-
-            case ("desktop", "enabled"):
-                if let bool = parseBool(value) { config.desktop.enabled = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("desktop", "disable_motion"):
-                if let bool = parseBool(value) { config.desktop.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("desktop", "max_space"):
-                if let int = Int(value) {
-                    config.desktop.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
-                } else {
-                    warnInvalid(qualifiedKey, value)
-                }
-
-            case ("desktop.switch", "alt"):
-                assignModifier(&switchPartial.alt, value, qualifiedKey)
-            case ("desktop.switch", "shift"):
-                assignModifier(&switchPartial.shift, value, qualifiedKey)
-            case ("desktop.switch", "ctrl"):
-                assignModifier(&switchPartial.ctrl, value, qualifiedKey)
-            case ("desktop.switch", "cmd"):
-                assignModifier(&switchPartial.cmd, value, qualifiedKey)
-
-            case ("desktop.move", "alt"):
-                assignModifier(&movePartial.alt, value, qualifiedKey)
-            case ("desktop.move", "shift"):
-                assignModifier(&movePartial.shift, value, qualifiedKey)
-            case ("desktop.move", "ctrl"):
-                assignModifier(&movePartial.ctrl, value, qualifiedKey)
-            case ("desktop.move", "cmd"):
-                assignModifier(&movePartial.cmd, value, qualifiedKey)
-
-            case ("command_tab", "enabled"):
-                if let bool = parseBool(value) { config.commandTab.enabled = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("command_tab", "disable_motion"):
-                if let bool = parseBool(value) { config.commandTab.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
-
-            case ("window_management", "enabled"):
-                if let bool = parseBool(value) { config.windowManagement.enabled = bool } else { warnInvalid(qualifiedKey, value) }
-            case ("window_management", "margin"):
-                if let int = Int(value) {
-                    config.windowManagement.margin = max(0, min(int, 256))
-                } else {
-                    warnInvalid(qualifiedKey, value)
-                }
-
-            case ("window_management.maximize", "alt"):
-                assignModifier(&maximizePartial.modifiers.alt, value, qualifiedKey)
-            case ("window_management.maximize", "shift"):
-                assignModifier(&maximizePartial.modifiers.shift, value, qualifiedKey)
-            case ("window_management.maximize", "ctrl"):
-                assignModifier(&maximizePartial.modifiers.ctrl, value, qualifiedKey)
-            case ("window_management.maximize", "cmd"):
-                assignModifier(&maximizePartial.modifiers.cmd, value, qualifiedKey)
-            case ("window_management.maximize", "key"):
-                if let letter = parseKeyLetter(value) {
-                    maximizePartial.key = letter
-                } else {
-                    warnInvalid(qualifiedKey, value)
-                    maximizePartial.key = nil
-                }
-
-            case ("window_management.equal_split", "alt"):
-                assignModifier(&equalSplitPartial.modifiers.alt, value, qualifiedKey)
-            case ("window_management.equal_split", "shift"):
-                assignModifier(&equalSplitPartial.modifiers.shift, value, qualifiedKey)
-            case ("window_management.equal_split", "ctrl"):
-                assignModifier(&equalSplitPartial.modifiers.ctrl, value, qualifiedKey)
-            case ("window_management.equal_split", "cmd"):
-                assignModifier(&equalSplitPartial.modifiers.cmd, value, qualifiedKey)
-            case ("window_management.equal_split", "key"):
-                if let letter = parseKeyLetter(value) {
-                    equalSplitPartial.key = letter
-                } else {
-                    warnInvalid(qualifiedKey, value)
-                    equalSplitPartial.key = nil
-                }
-
-            default:
+            let normalizedSection: String? = (section == nil || section == "") ? nil : section
+            guard let field = schemaField(section: normalizedSection, key: key) else {
+                ignoredKeys.append(qualifiedKey)
                 log.warning("Ignoring unknown config key \(qualifiedKey, privacy: .public)")
+                continue
             }
+
+            applyField(
+                field,
+                value: value,
+                qualifiedKey: qualifiedKey,
+                config: &config,
+                switchPartial: &switchPartial,
+                movePartial: &movePartial,
+                maximizePartial: &maximizePartial,
+                equalSplitPartial: &equalSplitPartial
+            )
         }
 
         let desktopResolved = resolveDesktopShortcuts(switch: switchPartial, move: movePartial)
@@ -401,7 +402,97 @@ enum MinimalTOML {
         config.windowManagement.maximize = windowResolved.maximize
         config.windowManagement.equalSplit = windowResolved.equalSplit
 
-        return config
+        return ConfigParseResult(config: config, ignoredKeys: ignoredKeys)
+    }
+
+    private static func schemaField(section: String?, key: String) -> ConfigField? {
+        schema.first { $0.section == section && $0.key == key }?.field
+    }
+
+    private static func applyField(
+        _ field: ConfigField,
+        value: String,
+        qualifiedKey: String,
+        config: inout AppConfig,
+        switchPartial: inout PartialModifierFlags,
+        movePartial: inout PartialModifierFlags,
+        maximizePartial: inout PartialKeyChord,
+        equalSplitPartial: inout PartialKeyChord
+    ) {
+        switch field {
+        case .version:
+            if let int = Int(value) { config.version = int } else { warnInvalid(qualifiedKey, value) }
+        case .launchAtLogin:
+            if let bool = parseBool(value) { config.launchAtLogin = bool } else { warnInvalid(qualifiedKey, value) }
+        case .desktopEnabled:
+            if let bool = parseBool(value) { config.desktop.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+        case .desktopDisableMotion:
+            if let bool = parseBool(value) { config.desktop.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
+        case .maxSpace:
+            if let int = Int(value) {
+                config.desktop.maxSpace = max(1, min(int, ConfigStore.maxHotkeySpace))
+            } else {
+                warnInvalid(qualifiedKey, value)
+            }
+        case .switchAlt:
+            assignModifier(&switchPartial.alt, value, qualifiedKey)
+        case .switchShift:
+            assignModifier(&switchPartial.shift, value, qualifiedKey)
+        case .switchCtrl:
+            assignModifier(&switchPartial.ctrl, value, qualifiedKey)
+        case .switchCmd:
+            assignModifier(&switchPartial.cmd, value, qualifiedKey)
+        case .moveAlt:
+            assignModifier(&movePartial.alt, value, qualifiedKey)
+        case .moveShift:
+            assignModifier(&movePartial.shift, value, qualifiedKey)
+        case .moveCtrl:
+            assignModifier(&movePartial.ctrl, value, qualifiedKey)
+        case .moveCmd:
+            assignModifier(&movePartial.cmd, value, qualifiedKey)
+        case .commandTabEnabled:
+            if let bool = parseBool(value) { config.commandTab.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+        case .commandTabDisableMotion:
+            if let bool = parseBool(value) { config.commandTab.disableMotion = bool } else { warnInvalid(qualifiedKey, value) }
+        case .windowEnabled:
+            if let bool = parseBool(value) { config.windowManagement.enabled = bool } else { warnInvalid(qualifiedKey, value) }
+        case .margin:
+            if let int = Int(value) {
+                config.windowManagement.margin = max(0, min(int, 256))
+            } else {
+                warnInvalid(qualifiedKey, value)
+            }
+        case .maximizeAlt:
+            assignModifier(&maximizePartial.modifiers.alt, value, qualifiedKey)
+        case .maximizeShift:
+            assignModifier(&maximizePartial.modifiers.shift, value, qualifiedKey)
+        case .maximizeCtrl:
+            assignModifier(&maximizePartial.modifiers.ctrl, value, qualifiedKey)
+        case .maximizeCmd:
+            assignModifier(&maximizePartial.modifiers.cmd, value, qualifiedKey)
+        case .maximizeKey:
+            if let letter = parseKeyLetter(value) {
+                maximizePartial.key = letter
+            } else {
+                warnInvalid(qualifiedKey, value)
+                maximizePartial.key = nil
+            }
+        case .equalSplitAlt:
+            assignModifier(&equalSplitPartial.modifiers.alt, value, qualifiedKey)
+        case .equalSplitShift:
+            assignModifier(&equalSplitPartial.modifiers.shift, value, qualifiedKey)
+        case .equalSplitCtrl:
+            assignModifier(&equalSplitPartial.modifiers.ctrl, value, qualifiedKey)
+        case .equalSplitCmd:
+            assignModifier(&equalSplitPartial.modifiers.cmd, value, qualifiedKey)
+        case .equalSplitKey:
+            if let letter = parseKeyLetter(value) {
+                equalSplitPartial.key = letter
+            } else {
+                warnInvalid(qualifiedKey, value)
+                equalSplitPartial.key = nil
+            }
+        }
     }
 
     private static func assignModifier(_ target: inout Bool?, _ value: String, _ qualifiedKey: String) {
