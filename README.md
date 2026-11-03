@@ -142,7 +142,9 @@ key = a
 
 ### Parsing & safety
 
-- Files larger than **64 KB** of resolved bytes are rejected; Altitude falls back to defaults (the limit applies to the real file behind a symlink, not the symlink node size)
+- Files larger than **64 KB** of resolved bytes, non-UTF-8 contents, or a resolved path outside `$HOME` fail the load (distinct from a missing file). If a config is already in memory, Altitude keeps it; otherwise it uses defaults that cannot be saved and does not change Launch at Login. The status menu shows a disabled **Config was not loaded** line until a successful Reload
+- A missing file (including a dangling symlink) uses defaults, may write a starter config, and still reconciles Launch at Login
+- Invalid fields inside a readable file keep that field's default; the load still counts as success
 - Stow-style symlinks are allowed only when the resolved target stays under `$HOME`; Settings / menu saves write through the symlink to that target and leave the link in place
 - Bools accept `true` / `false` / `yes` / `no` / `1` / `0`
 - `#` starts a comment to end of line
@@ -156,12 +158,14 @@ key = a
 ### Settings & menu
 
 - **Settings…** (Cmd+comma) writes `~/.config/altitude/config.toml` immediately and reapplies hotkeys and motion
+- Before any Settings or menu save (including Launch at Login), if the on-disk file changed since the last successful load, Altitude reloads it, beeps, refreshes Settings, drops the edit, and does not overwrite the file or change Launch at Login
+- While a load has failed, Settings and Launch at Login saves stay locked (beep and redisplay) until a successful **Reload Config**
 - **Desktop** tab — Switch/Move record modifiers only (digits 1–9 stay fixed); **Use Default** restores `⌥` / `⌥⇧`
 - **Windows** tab — Maximize/Equal Split record a letter chord; **Use Default** restores `⌃⌥F` / `⌃⌥A`
 - Same-tab sibling conflicts beep, revert the control, and show a red **already in use** message (clears on a successful change or when the window redisplays)
-- **Open Config…** / **Reload Config** for hand edits; Reload refreshes an open Settings window from disk
+- **Open Config…** / **Reload Config** for hand edits; Reload refreshes an open Settings window from disk. A failed Reload keeps memory, shows **Config was not loaded**, and does not reconcile Launch at Login
 - **Launch at Login** (menu or General) writes `launch_at_login` immediately; a failed write beeps, leaves the file unchanged, and restores the Login Item
-- Reload and relaunch reconcile the Login Item to config (pending approval stays while true, removed when false)
+- Reload and relaunch reconcile the Login Item to config (pending approval stays while true, removed when false) except after a failed load
 - While macOS waits for Login Items approval, the menu item and General switch stay unchecked; clicking the menu item cancels that pending registration
 
 ## Permissions
