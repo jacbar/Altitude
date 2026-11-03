@@ -52,4 +52,80 @@ final class MenuBarMutationTests: XCTestCase {
             .succeeded
         )
     }
+
+    func testConfigSaveGuardProceedWhenBothAbsent() {
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: false,
+                recordedModifiedAt: nil,
+                currentModifiedAt: nil
+            ),
+            .proceed
+        )
+    }
+
+    func testConfigSaveGuardProceedWhenDatesMatch() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: false,
+                recordedModifiedAt: date,
+                currentModifiedAt: date
+            ),
+            .proceed
+        )
+    }
+
+    func testConfigSaveGuardBlockedWhenLoadFailed() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: true,
+                recordedModifiedAt: date,
+                currentModifiedAt: date
+            ),
+            .blocked
+        )
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: true,
+                recordedModifiedAt: nil,
+                currentModifiedAt: nil
+            ),
+            .blocked
+        )
+    }
+
+    func testConfigSaveGuardReloadWhenFileAppeared() {
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: false,
+                recordedModifiedAt: nil,
+                currentModifiedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            ),
+            .reload
+        )
+    }
+
+    func testConfigSaveGuardReloadWhenFileDisappeared() {
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: false,
+                recordedModifiedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                currentModifiedAt: nil
+            ),
+            .reload
+        )
+    }
+
+    func testConfigSaveGuardReloadWhenDateChanged() {
+        XCTAssertEqual(
+            MenuBarMutation.configSaveGuard(
+                loadFailed: false,
+                recordedModifiedAt: Date(timeIntervalSince1970: 1_700_000_000),
+                currentModifiedAt: Date(timeIntervalSince1970: 1_700_000_001)
+            ),
+            .reload
+        )
+    }
 }
