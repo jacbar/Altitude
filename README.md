@@ -63,7 +63,7 @@ make install # force-quit, Release-build, install to /Applications, open
 make clean   # remove ./build
 ```
 
-- `make test` runs **hostless** `AltitudeTests` (`CODE_SIGNING_ALLOWED=NO`): it does not launch `Altitude.app`, write `~/.config/altitude`, touch Login Items, or install event taps. PRs and pushes to `main` run the same unsigned build+test path in GitHub Actions on **macos-14** and **macos-latest**.
+- `make test` runs **hostless** `AltitudeTests` (`CODE_SIGNING_ALLOWED=NO`): it does not launch `Altitude.app`, write `~/.config/altitude`, touch Login Items, or install event taps. PRs and pushes to `main` run the same unsigned build+test path in GitHub Actions on the arm64 images **macos-26** (macOS 26) and **xcode-27** (macOS 27).
 - `make install` force-quits running Altitude, builds **Release**, codesigns with `SIGN_ID`, replaces `/Applications/Altitude.app`, and opens it. It does not fetch or check out git.
 - Override without a file: `make SIGN_ID="Apple Development: …" run`
 - Or open `Altitude.xcodeproj` and run the **Altitude** scheme (Product → Test runs `AltitudeTests`)
