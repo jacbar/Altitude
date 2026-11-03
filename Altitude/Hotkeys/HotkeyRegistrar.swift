@@ -167,6 +167,55 @@ final class HotkeyRegistrar: HotkeyApplying, @unchecked Sendable {
     }
 }
 
+/// Resolves a lowercase letter to the virtual key code that types it on a keyboard layout.
+protocol LetterKeyResolving {
+    func keyCode(for letter: Character) -> UInt32?
+}
+
+/// Maps letters via the active input source layout (`UCKeyTranslate`), not a fixed US table.
+struct LayoutLetterKeyResolver: LetterKeyResolving {
+    func keyCode(for letter: Character) -> UInt32? {
+        guard let source = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue(),
+              let rawLayout = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+        else {
+            return nil
+        }
+        let layoutData = Unmanaged<CFData>.fromOpaque(rawLayout).takeUnretainedValue() as Data
+        return layoutData.withUnsafeBytes { buffer -> UInt32? in
+            guard let layoutPtr = buffer.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else {
+                return nil
+            }
+            let keyboardType = UInt32(LMGetKbdType())
+            for virtualKey in 0..<128 {
+                var deadKeyState: UInt32 = 0
+                var chars = [UniChar](repeating: 0, count: 4)
+                var actualLength = 0
+                let status = UCKeyTranslate(
+                    layoutPtr,
+                    UInt16(virtualKey),
+                    UInt16(kUCKeyActionDisplay),
+                    0,
+                    keyboardType,
+                    OptionBits(kUCKeyTranslateNoDeadKeysBit),
+                    &deadKeyState,
+                    chars.count,
+                    &actualLength,
+                    &chars
+                )
+                guard status == noErr, actualLength > 0,
+                      let scalar = UnicodeScalar(chars[0]) else {
+                    continue
+                }
+                let produced = Character(scalar)
+                if produced.lowercased() == String(letter) {
+                    return UInt32(virtualKey)
+                }
+            }
+            return nil
+        }
+    }
+}
+
 enum HotkeyChordMapping {
     /// Carbon modifier mask from config flags.
     static func carbonModifiers(_ flags: ModifierFlags) -> UInt32 {
@@ -188,20 +237,12 @@ enum HotkeyChordMapping {
         return codes[n - 1]
     }
 
-    /// ANSI letter key codes are layout-based, not alphabetical.
-    private static let letterCodes: [Character: UInt32] = [
-        "a": UInt32(kVK_ANSI_A), "b": UInt32(kVK_ANSI_B), "c": UInt32(kVK_ANSI_C),
-        "d": UInt32(kVK_ANSI_D), "e": UInt32(kVK_ANSI_E), "f": UInt32(kVK_ANSI_F),
-        "g": UInt32(kVK_ANSI_G), "h": UInt32(kVK_ANSI_H), "i": UInt32(kVK_ANSI_I),
-        "j": UInt32(kVK_ANSI_J), "k": UInt32(kVK_ANSI_K), "l": UInt32(kVK_ANSI_L),
-        "m": UInt32(kVK_ANSI_M), "n": UInt32(kVK_ANSI_N), "o": UInt32(kVK_ANSI_O),
-        "p": UInt32(kVK_ANSI_P), "q": UInt32(kVK_ANSI_Q), "r": UInt32(kVK_ANSI_R),
-        "s": UInt32(kVK_ANSI_S), "t": UInt32(kVK_ANSI_T), "u": UInt32(kVK_ANSI_U),
-        "v": UInt32(kVK_ANSI_V), "w": UInt32(kVK_ANSI_W), "x": UInt32(kVK_ANSI_X),
-        "y": UInt32(kVK_ANSI_Y), "z": UInt32(kVK_ANSI_Z),
-    ]
-
-    static func letterKeyCode(_ key: Character) -> UInt32? {
-        letterCodes[key]
+    /// Key code for a lowercase a–z letter on the active layout (via `resolver`).
+    static func letterKeyCode(
+        _ key: Character,
+        resolver: LetterKeyResolving = LayoutLetterKeyResolver()
+    ) -> UInt32? {
+        guard ("a"..."z").contains(key) else { return nil }
+        return resolver.keyCode(for: key)
     }
 }

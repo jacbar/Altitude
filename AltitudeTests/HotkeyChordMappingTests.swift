@@ -21,10 +21,25 @@ final class HotkeyChordMappingTests: XCTestCase {
         XCTAssertNil(HotkeyChordMapping.digitKeyCode(10))
     }
 
-    func testLetterKeyCodes() {
-        XCTAssertEqual(HotkeyChordMapping.letterKeyCode("a"), UInt32(kVK_ANSI_A))
-        XCTAssertEqual(HotkeyChordMapping.letterKeyCode("z"), UInt32(kVK_ANSI_Z))
-        XCTAssertNil(HotkeyChordMapping.letterKeyCode("A"))
-        XCTAssertNil(HotkeyChordMapping.letterKeyCode("1"))
+    func testLetterKeyCodesUsesResolver() {
+        let nonUSA = UInt32(kVK_ANSI_A) &+ 1
+        XCTAssertNotEqual(nonUSA, UInt32(kVK_ANSI_A))
+
+        struct FakeResolver: LetterKeyResolving {
+            let aCode: UInt32
+            func keyCode(for letter: Character) -> UInt32? {
+                switch letter {
+                case "a": return aCode
+                case "q": return nil
+                default: return nil
+                }
+            }
+        }
+
+        let resolver = FakeResolver(aCode: nonUSA)
+        XCTAssertEqual(HotkeyChordMapping.letterKeyCode("a", resolver: resolver), nonUSA)
+        XCTAssertNil(HotkeyChordMapping.letterKeyCode("q", resolver: resolver))
+        XCTAssertNil(HotkeyChordMapping.letterKeyCode("A", resolver: resolver))
+        XCTAssertNil(HotkeyChordMapping.letterKeyCode("1", resolver: resolver))
     }
 }
