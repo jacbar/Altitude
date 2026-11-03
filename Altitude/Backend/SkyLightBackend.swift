@@ -84,19 +84,34 @@ final class SkyLightBackend: SpaceService {
         expirePredictionIfNeeded(activeID: liveID)
         let prediction = self.prediction
 
-        guard let activeDisplayID = activeDisplayIdentifier(in: layout, prediction: prediction),
-              let display = layout.displays.first(where: { $0.identifier == activeDisplayID }),
-              let currentID = currentSpaceID(on: display, prediction: prediction)
-        else {
-            return .unavailable
+        let displays = layout.displays.compactMap { display -> DisplaySpaceRouteInput? in
+            guard let currentID = currentSpaceID(on: display, prediction: prediction) else { return nil }
+            return DisplaySpaceRouteInput(
+                identifier: display.identifier,
+                spaceIDs: display.spaceIDs,
+                currentID: currentID
+            )
         }
+        guard !displays.isEmpty else { return .unavailable }
 
-        let route = preferredSpaceRoute(
+        let (resolvedDisplayID, route) = preferredSpaceRoute(
             candidateIDs: spaceIDs,
-            displaySpaceIDs: display.spaceIDs,
-            currentID: currentID
+            displays: displays,
+            activeDisplayIdentifier: activeDisplayIdentifier(in: layout, prediction: prediction)
         )
-        return apply(route, on: display, instant: instant)
+        switch route {
+        case .alreadyThere:
+            return .alreadyThere
+        case .otherDisplay:
+            return .otherDisplay
+        case .posted:
+            guard let resolvedDisplayID,
+                  let display = layout.displays.first(where: { $0.identifier == resolvedDisplayID })
+            else {
+                return .unavailable
+            }
+            return apply(route, on: display, instant: instant)
+        }
     }
 
     func switchInstantly(toPreferredSpaceAmong spaceIDs: [CGSSpaceID]) -> InstantSwitchResult {

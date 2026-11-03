@@ -499,7 +499,8 @@ extension SystemMotionSuppressor {
         return makeTarget(app: app, window: preferred)
     }
 
-    /// Instant hop when an external activator focuses a running app on another same-display Space.
+    /// Instant hop when an external activator focuses a running app whose window is on another Space
+    /// (including on another managed display). Leaves the window where it is.
     private func hopForExternalActivation(of app: NSRunningApplication) {
         guard let target = preferredTarget(for: app) else { return }
         let spaces = target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? []
