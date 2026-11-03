@@ -8,6 +8,9 @@ private let log = Logger(subsystem: "com.altitude.app", category: "FocusedWindow
 
 /// Resolves the focused window's `CGWindowID` via Accessibility.
 final class FocusedWindowResolver: @unchecked Sendable {
+    /// Keep focused-window lookups short so a hung app cannot stall Space hops.
+    private let axTimeoutSeconds: Float = 0.1
+
     var isAccessibilityTrusted: Bool {
         AXIsProcessTrusted()
     }
@@ -27,6 +30,7 @@ final class FocusedWindowResolver: @unchecked Sendable {
         }
 
         let systemWide = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(systemWide, axTimeoutSeconds)
         var focusedAppObject: CFTypeRef?
         let appStatus = AXUIElementCopyAttributeValue(
             systemWide,
@@ -40,11 +44,13 @@ final class FocusedWindowResolver: @unchecked Sendable {
         }
 
         let focusedApp = unsafeBitCast(focusedAppObject, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(focusedApp, axTimeoutSeconds)
         return focusedWindowID(fromAppElement: focusedApp)
     }
 
     private func focusedWindowID(forPID pid: pid_t) -> CGWindowID? {
         let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, axTimeoutSeconds)
         return focusedWindowID(fromAppElement: appElement)
     }
 
@@ -61,6 +67,7 @@ final class FocusedWindowResolver: @unchecked Sendable {
         }
 
         let window = unsafeBitCast(focusedWindowObject, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(window, axTimeoutSeconds)
         guard let windowID = AXUIElementGetWindow.windowID(of: window) else {
             log.error("_AXUIElementGetWindow unavailable or failed")
             return nil
