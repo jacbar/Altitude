@@ -2,8 +2,9 @@ import Foundation
 
 /// Load / save of `config.toml` for MenuBarController seams.
 protocol ConfigPersisting {
-    func load() -> AppConfig
+    func load() -> ConfigLoadResult
     func save(_ config: AppConfig) throws
+    func resolvedModificationDate() -> Date?
 }
 
 extension ConfigStore: ConfigPersisting {}
@@ -41,8 +42,37 @@ protocol AccessibilityTrusting: AnyObject {
 
 extension FocusedWindowResolver: AccessibilityTrusting {}
 
+/// Whether a Settings / menu save may proceed against the on-disk config.
+enum ConfigSaveGuard: Equatable {
+    /// Disk matches the last successful load (or both are absent); write may proceed.
+    case proceed
+    /// On-disk file appeared, disappeared, or changed since the last successful load.
+    case reload
+    /// A previous load failed; writes stay locked until a successful Reload.
+    case blocked
+}
+
 /// Pure rollback decisions shared by MenuBarController and tests.
 enum MenuBarMutation {
+    /// Decides whether a Settings or menu save may write / change Launch at Login.
+    static func configSaveGuard(
+        loadFailed: Bool,
+        recordedModifiedAt: Date?,
+        currentModifiedAt: Date?
+    ) -> ConfigSaveGuard {
+        if loadFailed { return .blocked }
+        switch (recordedModifiedAt, currentModifiedAt) {
+        case (nil, nil):
+            return .proceed
+        case (nil, .some), (.some, nil):
+            return .reload
+        case let (recorded?, current?) where recorded != current:
+            return .reload
+        case (.some, .some):
+            return .proceed
+        }
+    }
+
     enum LaunchAtLoginOutcome: Equatable {
         /// `setEnabled` threw; config must stay at `previous`.
         case serviceFailed

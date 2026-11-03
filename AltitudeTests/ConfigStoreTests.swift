@@ -303,10 +303,18 @@ final class ConfigStoreTests: XCTestCase {
 
         let original = sampleConfig()
         try env.store.save(original)
-        XCTAssertEqual(env.store.load(), original)
+        guard case .loaded(let loaded, let modifiedAt) = env.store.load() else {
+            return XCTFail("Expected .loaded")
+        }
+        XCTAssertEqual(loaded, original)
+        let expected = try FileManager.default.attributesOfItem(
+            atPath: env.store.configFileURL.path
+        )[.modificationDate] as? Date
+        XCTAssertEqual(modifiedAt, expected)
+        XCTAssertEqual(env.store.resolvedModificationDate(), expected)
     }
 
-    func testOversizedSymlinkTargetUsesDefaults() throws {
+    func testOversizedSymlinkTargetFailsLoad() throws {
         let env = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: env.home) }
 
@@ -321,7 +329,19 @@ final class ConfigStoreTests: XCTestCase {
         )
 
         // Symlink itself is tiny; resolved target must still be rejected.
-        XCTAssertEqual(env.store.load(), .default)
+        XCTAssertEqual(env.store.load(), .failed)
+    }
+
+    func testNonUTF8ConfigFailsLoad() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        try FileManager.default.createDirectory(at: env.store.configDirectoryURL, withIntermediateDirectories: true)
+        // Invalid UTF-8 sequence.
+        let data = Data([0xFF, 0xFE, 0xFD])
+        try data.write(to: env.store.configFileURL, options: .atomic)
+
+        XCTAssertEqual(env.store.load(), .failed)
     }
 
     func testSavePreservesSymlinkAndUpdatesTarget() throws {
@@ -355,12 +375,15 @@ final class ConfigStoreTests: XCTestCase {
             env.store.configFileURL.resolvingSymlinksInPath().standardizedFileURL.path,
             target.standardizedFileURL.path
         )
-        XCTAssertEqual(env.store.load(), updated)
+        guard case .loaded(let loaded, _) = env.store.load() else {
+            return XCTFail("Expected .loaded")
+        }
+        XCTAssertEqual(loaded, updated)
         let targetText = try String(contentsOf: target, encoding: .utf8)
         XCTAssertEqual(MinimalTOML.parseAltitudeConfig(targetText), updated)
     }
 
-    func testOutsideHomeResolvedPathRefused() throws {
+    func testOutsideHomeResolvedPathFailsLoad() throws {
         let env = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: env.home) }
 
@@ -378,11 +401,11 @@ final class ConfigStoreTests: XCTestCase {
             withDestinationURL: outsideTarget
         )
 
-        XCTAssertEqual(env.store.load(), .default)
+        XCTAssertEqual(env.store.load(), .failed)
         XCTAssertThrowsError(try env.store.save(sampleConfig()))
     }
 
-    func testDanglingSymlinkLoadUsesDefaultsAndSaveThrows() throws {
+    func testDanglingSymlinkLoadIsMissingAndSaveThrows() throws {
         let env = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: env.home) }
 
@@ -393,11 +416,20 @@ final class ConfigStoreTests: XCTestCase {
             withDestinationURL: missing
         )
 
-        XCTAssertEqual(env.store.load(), .default)
+        XCTAssertEqual(env.store.load(), .missing)
+        XCTAssertNil(env.store.resolvedModificationDate())
         XCTAssertThrowsError(try env.store.save(sampleConfig()))
 
         let attrs = try FileManager.default.attributesOfItem(atPath: env.store.configFileURL.path)
         XCTAssertEqual(attrs[.type] as? FileAttributeType, .typeSymbolicLink)
+    }
+
+    func testMissingFileLoadIsMissing() throws {
+        let env = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: env.home) }
+
+        XCTAssertEqual(env.store.load(), .missing)
+        XCTAssertNil(env.store.resolvedModificationDate())
     }
 
     private func sampleConfig() -> AppConfig {
