@@ -16,7 +16,7 @@ Switch Mission Control desktops and move the focused window with digit hotkeys. 
 
 - Switch — default `⌥` + `1`…`N`
 - Move focused window — default `⌥⇧` + `1`…`N`
-- `disable_motion` — while enabled, skips Space slides for hotkeys, trackpad swipes, Control-Left/Right, and same-display app activation
+- `disable_motion` — while enabled, skips Space slides for hotkeys, trackpad swipes, Control-Left/Right, and external app activation (Reef, Spotlight, Dock, …), including when the window lives on another display's Space
 - `max_space` — highest desktop number with a hotkey (default 9; clamped to 1…9 and existing Spaces)
 
 ### Command-Tab
@@ -90,8 +90,9 @@ launch_at_login = false
 # Switch and move desktops with digit hotkeys; optionally skip Space slides.
 enabled = true
 # When true (and desktop is enabled), hotkey switches, trackpad Space swipes,
-# Control-Left/Right, and activating an app already on another same-display Space
-# jump with no slide and no edge bounce.
+# Control-Left/Right, and external activators (Reef, Spotlight, Dock, …) focusing
+# an app on another Space — including on another display — jump with no slide
+# and no edge bounce. Digit hotkeys still refuse cross-display switches.
 disable_motion = false
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
