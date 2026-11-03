@@ -10,13 +10,14 @@ permissions:
   contents: read
 
 jobs:
-  # Matrix expands check names (e.g. "test (macos-14)"); branch protection still
-  # requires the exact context "build-test", so a final gate job keeps that name.
+  # Matrix expands check names (e.g. "test (macos-26)", "test (xcode-27)"); branch
+  # protection still requires the exact context "build-test", so a final gate job
+  # keeps that name.
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-latest]
+        os: [macos-26, xcode-27]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
