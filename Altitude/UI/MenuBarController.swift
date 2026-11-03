@@ -22,6 +22,7 @@ final class MenuBarController: NSObject {
     private var config: AppConfig
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
+    private var lastAccessibilityTrusted: Bool?
     private var motionSuppressor: SystemMotionSuppressor?
     private lazy var settings: SettingsWindowController = SettingsWindowController(menuBar: self)
 
@@ -66,7 +67,7 @@ final class MenuBarController: NSObject {
         refreshSpacesAndHotkeys()
         startPolling()
         observeWorkspace()
-        settings.display(config)
+        settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
         log.info("Status item created (visible=\(self.statusItem.isVisible, privacy: .public))")
     }
 
@@ -153,7 +154,7 @@ final class MenuBarController: NSObject {
     }
 
     @objc func showSettings() {
-        settings.display(config)
+        settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
         settings.show()
     }
 
@@ -180,7 +181,7 @@ final class MenuBarController: NSObject {
         case .succeeded(let value):
             config.launchAtLogin = value
         }
-        settings.display(config)
+        settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
         buildMenu()
     }
 
@@ -194,7 +195,7 @@ final class MenuBarController: NSObject {
             log.error("Could not write config")
             config = previous
             NSSound.beep()
-            settings.display(config)
+            settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
             buildMenu()
             return
         case .succeeded:
@@ -209,7 +210,7 @@ final class MenuBarController: NSObject {
         }
         updateSystemMotions()
         refreshSpacesAndHotkeys()
-        settings.display(config)
+        settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
         buildMenu()
     }
 
@@ -349,6 +350,12 @@ final class MenuBarController: NSObject {
     }
 
     private func pollSpaces() {
+        let trusted = focusResolver.isAccessibilityTrusted
+        if trusted != lastAccessibilityTrusted {
+            lastAccessibilityTrusted = trusted
+            refreshIndicator()
+            buildMenu()
+        }
         let snapshot = spaceService.snapshot()
         if snapshot.spaces.map(\.id) != lastSnapshot.spaces.map(\.id)
             || snapshot.currentIndex != lastSnapshot.currentIndex

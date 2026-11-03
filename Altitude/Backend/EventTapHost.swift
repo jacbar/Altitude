@@ -112,6 +112,8 @@ final class EventTapHost {
             return nil
         }
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
             return nil
         }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
