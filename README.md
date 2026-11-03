@@ -151,7 +151,7 @@ key = a
 - A missing or empty shortcut uses the default chord; a missing modifier flag keeps that flag's default
 - If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used (`⌥` / `⌥⇧`)
 - A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used (`⌃⌥F` / `⌃⌥A`)
-- Unquoted key letters are case-insensitive; a quoted key is invalid
+- Unquoted key letters are case-insensitive; a quoted key is invalid. The stored letter is resolved through the active keyboard layout when the hotkey is registered; if that layout has no such key, the chord stays unregistered until the next apply
 - Invalid bools/ints keep the field default; unknown keys are ignored
 - Old `[spaces]`, `[hotkeys]`, and `[arrange]` sections are ignored
 
