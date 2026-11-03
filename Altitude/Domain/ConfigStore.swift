@@ -56,6 +56,16 @@ struct AppConfig: Equatable, Sendable {
     )
 }
 
+/// Outcome of reading `config.toml` from disk.
+enum ConfigLoadResult: Equatable {
+    /// No file (including a dangling symlink). Caller may use defaults and write a starter.
+    case missing
+    /// Readable file parsed successfully (invalid fields still count as success).
+    case loaded(AppConfig, modifiedAt: Date)
+    /// File exists but could not be read (oversized, non-UTF-8, outside `$HOME`, I/O error).
+    case failed
+}
+
 struct ConfigStore {
     /// Hard cap matching Carbon digit hotkeys (1…9).
     static let maxHotkeySpace = 9
@@ -93,7 +103,7 @@ struct ConfigStore {
     static var configDirectoryURL: URL { standard.configDirectoryURL }
     static var configFileURL: URL { standard.configFileURL }
 
-    static func load() -> AppConfig { standard.load() }
+    static func load() -> ConfigLoadResult { standard.load() }
 
     static func save(_ config: AppConfig) throws { try standard.save(config) }
 
@@ -101,11 +111,20 @@ struct ConfigStore {
 
     // MARK: - Instance API
 
-    func load() -> AppConfig {
+    /// Modification date of the resolved config file, or `nil` when no file exists.
+    func resolvedModificationDate() -> Date? {
+        let url = configFileURL
+        guard fileManager.fileExists(atPath: url.path) else { return nil }
+        let resolved = url.resolvingSymlinksInPath().standardizedFileURL
+        let attrs = try? fileManager.attributesOfItem(atPath: resolved.path)
+        return attrs?[.modificationDate] as? Date
+    }
+
+    func load() -> ConfigLoadResult {
         let url = configFileURL
         guard fileManager.fileExists(atPath: url.path) else {
             log.info("No config at \(url.path, privacy: .public); using defaults")
-            return .default
+            return .missing
         }
 
         do {
@@ -119,19 +138,21 @@ struct ConfigStore {
             let data = handle.readData(ofLength: Int(Self.maxConfigBytes) + 1)
             if data.count > Int(Self.maxConfigBytes) {
                 log.error(
-                    "Config at \(resolved.path, privacy: .public) exceeds \(Self.maxConfigBytes) bytes; using defaults"
+                    "Config at \(resolved.path, privacy: .public) exceeds \(Self.maxConfigBytes) bytes; load failed"
                 )
-                return .default
+                return .failed
             }
             guard let text = String(data: data, encoding: .utf8) else {
                 throw CocoaError(.fileReadCorruptFile)
             }
             let config = MinimalTOML.parseAltitudeConfig(text)
+            let modifiedAt = (try? fileManager.attributesOfItem(atPath: resolved.path))?[.modificationDate] as? Date
+                ?? Date.distantPast
             log.info("Loaded config version \(config.version) from \(url.path, privacy: .public)")
-            return config
+            return .loaded(config, modifiedAt: modifiedAt)
         } catch {
-            log.error("Failed to load config: \(error.localizedDescription, privacy: .public); using defaults")
-            return .default
+            log.error("Failed to load config: \(error.localizedDescription, privacy: .public)")
+            return .failed
         }
     }
 

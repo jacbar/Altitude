@@ -20,6 +20,8 @@ final class MenuBarController: NSObject {
         }
     }
     private var config: AppConfig
+    private var configLoadFailed: Bool
+    private var configModifiedAt: Date?
     private var pollTimer: Timer?
     private var lastSnapshot = SpaceSnapshot.empty
     private var lastAccessibilityTrusted: Bool?
@@ -39,7 +41,21 @@ final class MenuBarController: NSObject {
         self.focusResolver = focusResolver
         self.configStore = configStore
         self.launchAtLogin = launchAtLogin
-        self.config = configStore.load()
+        let loadResult = configStore.load()
+        switch loadResult {
+        case .missing:
+            self.config = .default
+            self.configLoadFailed = false
+            self.configModifiedAt = nil
+        case .loaded(let loaded, let modifiedAt):
+            self.config = loaded
+            self.configLoadFailed = false
+            self.configModifiedAt = modifiedAt
+        case .failed:
+            self.config = .default
+            self.configLoadFailed = true
+            self.configModifiedAt = nil
+        }
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
 
@@ -60,7 +76,9 @@ final class MenuBarController: NSObject {
         }
 
         spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
-        if !launchAtLogin.apply(desired: config.launchAtLogin) {
+        if case .failed = loadResult {
+            log.error("Config load failed during launch; keeping defaults and skipping Launch at Login reconcile")
+        } else if !launchAtLogin.apply(desired: config.launchAtLogin) {
             log.error("Launch at Login reconcile failed during launch")
         }
         updateSystemMotions()
@@ -142,8 +160,21 @@ final class MenuBarController: NSObject {
     }
 
     @objc private func refreshFromMenu() {
-        let loaded = configStore.load()
-        apply(loaded, write: false)
+        switch configStore.load() {
+        case .loaded(let loaded, let modifiedAt):
+            configLoadFailed = false
+            configModifiedAt = modifiedAt
+            apply(loaded, write: false)
+        case .missing:
+            configLoadFailed = false
+            configModifiedAt = nil
+            apply(.default, write: false)
+        case .failed:
+            configLoadFailed = true
+            NSSound.beep()
+            settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
+            buildMenu()
+        }
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -160,6 +191,19 @@ final class MenuBarController: NSObject {
 
     /// Updates Launch at Login via SMAppService, writes config, and rolls back on failure.
     func setLaunchAtLogin(_ desired: Bool) {
+        switch configSaveGuardDecision() {
+        case .blocked:
+            NSSound.beep()
+            settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
+            buildMenu()
+            return
+        case .reload:
+            reloadConfigDroppingEdit()
+            return
+        case .proceed:
+            break
+        }
+
         let previous = config.launchAtLogin
         let outcome = MenuBarMutation.setLaunchAtLogin(
             desired: desired,
@@ -180,6 +224,7 @@ final class MenuBarController: NSObject {
             NSSound.beep()
         case .succeeded(let value):
             config.launchAtLogin = value
+            configModifiedAt = configStore.resolvedModificationDate()
         }
         settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
         buildMenu()
@@ -187,6 +232,21 @@ final class MenuBarController: NSObject {
 
     /// Replaces in-memory config, optionally writes TOML, then reapplies hotkeys and motion.
     func apply(_ newConfig: AppConfig, write: Bool) {
+        if write {
+            switch configSaveGuardDecision() {
+            case .blocked:
+                NSSound.beep()
+                settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
+                buildMenu()
+                return
+            case .reload:
+                reloadConfigDroppingEdit()
+                return
+            case .proceed:
+                break
+            }
+        }
+
         let previous = config
         config = newConfig
 
@@ -199,7 +259,9 @@ final class MenuBarController: NSObject {
             buildMenu()
             return
         case .succeeded:
-            break
+            if write {
+                configModifiedAt = configStore.resolvedModificationDate()
+            }
         }
 
         spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
@@ -208,6 +270,45 @@ final class MenuBarController: NSObject {
             log.error("Launch at Login reconcile failed")
             NSSound.beep()
         }
+        updateSystemMotions()
+        refreshSpacesAndHotkeys()
+        settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
+        buildMenu()
+    }
+
+    private func configSaveGuardDecision() -> ConfigSaveGuard {
+        MenuBarMutation.configSaveGuard(
+            loadFailed: configLoadFailed,
+            recordedModifiedAt: configModifiedAt,
+            currentModifiedAt: configStore.resolvedModificationDate()
+        )
+    }
+
+    /// Reloads from disk after the save guard detects an external change. Never writes or reconciles Launch at Login.
+    private func reloadConfigDroppingEdit() {
+        switch configStore.load() {
+        case .loaded(let loaded, let modifiedAt):
+            config = loaded
+            configModifiedAt = modifiedAt
+            configLoadFailed = false
+            reapplyRuntimeWithoutLoginReconcile()
+            NSSound.beep()
+        case .missing:
+            config = .default
+            configModifiedAt = nil
+            configLoadFailed = false
+            reapplyRuntimeWithoutLoginReconcile()
+            NSSound.beep()
+        case .failed:
+            configLoadFailed = true
+            NSSound.beep()
+            settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
+            buildMenu()
+        }
+    }
+
+    private func reapplyRuntimeWithoutLoginReconcile() {
+        spaceService.instantSwitching = DesktopFeature.instantSwitching(config: config)
         updateSystemMotions()
         refreshSpacesAndHotkeys()
         settings.display(config, launchAtLoginEnabled: launchAtLogin.isEnabled)
@@ -239,6 +340,12 @@ final class MenuBarController: NSObject {
     private func buildMenu() {
         let menu = NSMenu()
         let axOK = focusResolver.isAccessibilityTrusted
+
+        if configLoadFailed {
+            let failed = NSMenuItem(title: "Config was not loaded", action: nil, keyEquivalent: "")
+            failed.isEnabled = false
+            menu.addItem(failed)
+        }
 
         if !axOK {
             let warn = NSMenuItem(
