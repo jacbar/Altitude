@@ -106,6 +106,83 @@ final class SpaceLayoutTests: XCTestCase {
         XCTAssertEqual(route, .alreadyThere)
     }
 
+    func testMultiDisplayPreferredRouteAlreadyThereOnOtherDisplayCurrent() {
+        let displays = [
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10, 11], currentID: 10),
+            DisplaySpaceRouteInput(identifier: "b", spaceIDs: [20, 21], currentID: 21),
+        ]
+        let result = preferredSpaceRoute(
+            candidateIDs: [21],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertEqual(result.displayIdentifier, "b")
+        XCTAssertEqual(result.route, .alreadyThere)
+    }
+
+    func testMultiDisplayPreferredRoutePostsHopOnOtherDisplay() {
+        let displays = [
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10, 11], currentID: 10),
+            DisplaySpaceRouteInput(identifier: "b", spaceIDs: [20, 21, 22], currentID: 20),
+        ]
+        let result = preferredSpaceRoute(
+            candidateIDs: [22],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertEqual(result.displayIdentifier, "b")
+        XCTAssertEqual(
+            result.route,
+            .posted(steps: 2, from: 0, to: 2, destinationID: 22)
+        )
+    }
+
+    func testMultiDisplayPreferredRouteEmptyCandidatesAreAlreadyThere() {
+        let displays = [
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10], currentID: 10),
+        ]
+        let result = preferredSpaceRoute(
+            candidateIDs: [],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertEqual(result.displayIdentifier, "a")
+        XCTAssertEqual(result.route, .alreadyThere)
+    }
+
+    func testMultiDisplayPreferredRouteUnknownCandidatesAreOtherDisplay() {
+        let displays = [
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10, 11], currentID: 10),
+            DisplaySpaceRouteInput(identifier: "b", spaceIDs: [20], currentID: 20),
+        ]
+        let result = preferredSpaceRoute(
+            candidateIDs: [99, 100],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertNil(result.displayIdentifier)
+        XCTAssertEqual(result.route, .otherDisplay)
+    }
+
+    func testMultiDisplayPreferredRouteSameDisplayNearestWinsOverOtherDisplay() {
+        let displays = [
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10, 11, 12], currentID: 10),
+            DisplaySpaceRouteInput(identifier: "b", spaceIDs: [20, 21], currentID: 21),
+        ]
+        // Active display owns 12; other display's current (21) is also a candidate —
+        // same-display nearest must still win.
+        let result = preferredSpaceRoute(
+            candidateIDs: [12, 21],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertEqual(result.displayIdentifier, "a")
+        XCTAssertEqual(
+            result.route,
+            .posted(steps: 2, from: 0, to: 2, destinationID: 12)
+        )
+    }
+
     func testOneSpaceRouteEdgesAreAlreadyThere() {
         let spaces: [CGSSpaceID] = [10, 20, 30]
         XCTAssertEqual(
