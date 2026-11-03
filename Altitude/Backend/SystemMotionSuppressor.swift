@@ -7,9 +7,19 @@ import os.log
 
 private let log = Logger(subsystem: "com.altitude.app", category: "SystemMotion")
 
+/// Decision state read by the tap callback. Mutated only on the tap thread.
+private final class TapDecisionState: @unchecked Sendable {
+    var mode: SystemMotionMode = .off
+    var swipeGesture = SwipeGestureState()
+    var sessionOpen = false
+    var switcherBuildInFlight = false
+}
+
 /// Weak box so CGEvent tap callbacks no-op after the suppressor is released.
 private final class MotionTapContext: @unchecked Sendable {
     weak var suppressor: SystemMotionSuppressor?
+    weak var tapHost: EventTapHost?
+    let decision = TapDecisionState()
 }
 
 /// Replaces animated Space changes from the trackpad, Control-Left/Right, Command-Tab,
@@ -33,27 +43,18 @@ final class SystemMotionSuppressor: NSObject {
     private var didLogTapFailure = false
     private var mode: SystemMotionMode = .off
 
-    private var swipeGesture = SwipeGestureState()
-
     private var session: CommandTabSession<SwitchTarget>?
-    private var switcherBuildInFlight = false
     private var sessionIdle: DispatchWorkItem?
     private var mru: [pid_t] = []
     private var pendingActivation: SwitchTarget?
     private var activationFallback: DispatchWorkItem?
     private var activationPoll: DispatchWorkItem?
 
-    /// Finger must travel at least this far before a released swipe commits a Space change.
-    private let swipeCommitThreshold: Double = Timing.swipeCommitThreshold
-
-    private let tabKeyCode: Int64 = Int64(kVK_Tab)
-    private let leftArrowKeyCode: Int64 = Int64(kVK_LeftArrow)
-    private let rightArrowKeyCode: Int64 = Int64(kVK_RightArrow)
-
     init(spaceService: SpaceService) {
         self.spaceService = spaceService
         super.init()
         tapContext.suppressor = self
+        tapContext.tapHost = tapHost
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appActivated(_:)),
@@ -63,18 +64,16 @@ final class SystemMotionSuppressor: NSObject {
     }
 
     deinit {
-        // Taps are installed on the main run loop; teardown stays there.
-        MainActor.assumeIsolated {
-            let center = NSWorkspace.shared.notificationCenter
-            center.removeObserver(self)
-            tapContext.suppressor = nil
-            tapHost.tearDown()
-        }
+        let center = NSWorkspace.shared.notificationCenter
+        center.removeObserver(self)
+        tapContext.suppressor = nil
+        tapHost.tearDown()
     }
 
     func apply(_ newMode: SystemMotionMode) {
         let previous = mode
         mode = newMode
+        publishDecision { $0.mode = newMode }
 
         if previous.commandTabEnabled, !newMode.commandTabEnabled {
             cancelSession()
@@ -120,8 +119,16 @@ final class SystemMotionSuppressor: NSObject {
         activationPoll?.cancel()
         activationPoll = nil
         focuser.reset()
-        swipeGesture = SwipeGestureState()
+        publishDecision { $0.swipeGesture = SwipeGestureState() }
         tapHost.tearDown()
+    }
+
+    /// Mirror callback decision fields onto the tap thread.
+    private func publishDecision(_ update: @escaping (TapDecisionState) -> Void) {
+        let decision = tapContext.decision
+        tapHost.asyncOnTapThread {
+            update(decision)
+        }
     }
 
     // MARK: - Tap
@@ -129,22 +136,29 @@ final class SystemMotionSuppressor: NSObject {
     private static let callback: CGEventTapCallBack = { _, type, event, userInfo in
         guard let userInfo else { return Unmanaged.passUnretained(event) }
         let context = Unmanaged<MotionTapContext>.fromOpaque(userInfo).takeUnretainedValue()
-        guard let suppressor = context.suppressor else {
+        guard context.suppressor != nil else {
             return Unmanaged.passUnretained(event)
         }
-        // Tap sources are added to the main run loop.
-        return MainActor.assumeIsolated {
-            if let forwarded = suppressor.handle(type: type, event: event) {
-                return Unmanaged.passUnretained(forwarded)
-            }
-            return nil
+        if let forwarded = context.handleOnTapThread(type: type, event: event) {
+            return Unmanaged.passUnretained(forwarded)
         }
+        return nil
     }
+}
 
-    private func handle(type: CGEventType, event: CGEvent) -> CGEvent? {
+extension MotionTapContext {
+    private static let tabKeyCode: Int64 = Int64(kVK_Tab)
+    private static let leftArrowKeyCode: Int64 = Int64(kVK_LeftArrow)
+    private static let rightArrowKeyCode: Int64 = Int64(kVK_RightArrow)
+    private static let swipeCommitThreshold: Double = Timing.swipeCommitThreshold
+
+    /// Decide forward vs drop on the tap thread. Schedule main-actor effects with async only.
+    fileprivate func handleOnTapThread(type: CGEventType, event: CGEvent) -> CGEvent? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            cancelSession()
-            tapHost.reenable()
+            tapHost?.reenable()
+            DispatchQueue.main.async { [weak suppressor] in
+                suppressor?.cancelSessionFromTap()
+            }
             log.error("Event tap was disabled (\(type.rawValue, privacy: .public)); re-enabled")
             return event
         }
@@ -152,106 +166,90 @@ final class SystemMotionSuppressor: NSObject {
         if DockSwipeSwitcher.isOwnEvent(event) {
             return event
         }
-        if mode.suppressDesktopMotion {
-            _ = swipeGesture.expireIfStuck(now: Date())
+        if decision.mode.suppressDesktopMotion {
+            _ = decision.swipeGesture.expireIfStuck(now: Date())
 
             if let swipe = DockSwipeSwitcher.horizontalSwipe(in: event) {
-                consume(swipe)
+                consumeSwipe(swipe)
                 return nil
             }
-            if swipeGesture.swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
+            if decision.swipeGesture.swallowingSwipe, DockSwipeSwitcher.isGestureCompanion(event) {
                 return nil
             }
         }
         return handleKeyboard(type: type, event: event)
     }
 
-    /// Swallow the live gesture and only jump when the finger lifts past the commit threshold.
-    /// That lets a reversed or aborted swipe cancel, matching Mission Control's habit.
-    private func consume(_ swipe: DockSwipeSwitcher.HorizontalSwipe) {
+    private func consumeSwipe(_ swipe: DockSwipeSwitcher.HorizontalSwipe) {
         let sample = SwipeSample(
             progress: swipe.progress,
-            direction: swipe.direction.map(swipeDirection(from:)),
+            direction: swipe.direction.map(Self.swipeDirection(from:)),
             began: swipe.began,
             ended: swipe.ended
         )
-        if let direction = swipeGesture.consume(
+        if let direction = decision.swipeGesture.consume(
             sample,
             now: Date(),
-            commitThreshold: swipeCommitThreshold,
+            commitThreshold: Self.swipeCommitThreshold,
             stuckInterval: Timing.swipeStuckInterval
         ) {
-            _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
+            let hop = Self.hopDirection(direction)
+            DispatchQueue.main.async { [weak suppressor] in
+                suppressor?.hopOneSpaceFromTap(direction: hop)
+            }
         }
     }
 
-    // MARK: - Command-Tab
-
     private func handleKeyboard(type: CGEventType, event: CGEvent) -> CGEvent? {
         if type == .flagsChanged {
-            if session != nil, !event.flags.contains(.maskCommand) {
-                commitSession()
+            if decision.sessionOpen, !event.flags.contains(.maskCommand) {
+                DispatchQueue.main.async { [weak suppressor] in
+                    suppressor?.commitSessionFromTap()
+                }
             }
             return event
         }
 
-        if session != nil {
+        if decision.sessionOpen {
             return handleSwitcherKey(type: type, event: event)
         }
 
-        if mode.suppressDesktopMotion, let direction = controlArrowDirection(type: type, event: event) {
+        if decision.mode.suppressDesktopMotion, let direction = controlArrowDirection(type: type, event: event) {
             if type == .keyDown, event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
-                _ = spaceService.moveOneSpaceInstantly(direction: hopDirection(direction))
+                let hop = Self.hopDirection(direction)
+                DispatchQueue.main.async { [weak suppressor] in
+                    suppressor?.hopOneSpaceFromTap(direction: hop)
+                }
             }
             return nil
         }
 
-        guard mode.commandTabEnabled else { return event }
+        guard decision.mode.commandTabEnabled else { return event }
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let command = event.flags.contains(.maskCommand)
         let shift = event.flags.contains(.maskShift)
         let extra = event.flags.contains(.maskAlternate) || event.flags.contains(.maskControl)
 
-        guard command, !extra, keyCode == tabKeyCode else { return event }
+        guard command, !extra, keyCode == Self.tabKeyCode else { return event }
         if type == .keyUp {
             return nil
         }
         guard type == .keyDown else { return event }
 
         // Swallow the opening keyDown before enumerating windows; build on the next turn.
-        if switcherBuildInFlight || event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
+        if decision.switcherBuildInFlight || event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
             return nil
         }
 
-        switcherBuildInFlight = true
+        decision.switcherBuildInFlight = true
         let forward = !shift
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            defer { self.switcherBuildInFlight = false }
-            guard NSEvent.modifierFlags.contains(.command) else { return }
-
-            let apps = self.orderedApps()
-            guard let front = apps.first else { return }
-            let targets = self.switchTargets(apps: apps)
-            let index = commandTabOpeningIndex(
-                appIDs: targets.map { Int64($0.app.processIdentifier) },
-                frontAppID: Int64(front.processIdentifier),
-                forward: forward
-            )
-            let now = Date()
-            guard let opened = CommandTabSession.open(targets: targets, index: index, now: now) else {
-                return
-            }
-            self.session = opened
-            self.hud.show(targets: targets, selectedIndex: index)
-            self.armSessionIdle()
+        DispatchQueue.main.async { [weak suppressor] in
+            suppressor?.openCommandTabFromTap(forward: forward)
         }
         return nil
     }
 
-    /// While the switcher is open, keys go to Altitude — not the frontmost app.
-    /// Tab / arrows move, Escape cancels, Q quits and H hides the highlighted app.
     private func handleSwitcherKey(type: CGEventType, event: CGEvent) -> CGEvent? {
         let action = CommandTabKeys.action(
             keyCode: event.getIntegerValueField(.keyboardEventKeycode),
@@ -262,6 +260,95 @@ final class SystemMotionSuppressor: NSObject {
             isKeyDown: type == .keyDown,
             isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
         )
+        DispatchQueue.main.async { [weak suppressor] in
+            suppressor?.performSwitcherActionFromTap(action)
+        }
+        return nil
+    }
+
+    private func controlArrowDirection(type: CGEventType, event: CGEvent) -> DockSwipeSwitcher.Direction? {
+        guard type == .keyDown || type == .keyUp else { return nil }
+        let flags = event.flags
+        guard flags.contains(.maskControl),
+              !flags.contains(.maskCommand),
+              !flags.contains(.maskAlternate),
+              !flags.contains(.maskShift)
+        else {
+            return nil
+        }
+        switch event.getIntegerValueField(.keyboardEventKeycode) {
+        case Self.leftArrowKeyCode:
+            return .left
+        case Self.rightArrowKeyCode:
+            return .right
+        default:
+            return nil
+        }
+    }
+
+    private static func swipeDirection(from direction: DockSwipeSwitcher.Direction) -> SwipeDirection {
+        switch direction {
+        case .left:
+            return .left
+        case .right:
+            return .right
+        }
+    }
+
+    private static func hopDirection(_ direction: DockSwipeSwitcher.Direction) -> SpaceHopDirection {
+        hopDirection(swipeDirection(from: direction))
+    }
+
+    private static func hopDirection(_ direction: SwipeDirection) -> SpaceHopDirection {
+        switch direction {
+        case .left:
+            return .previous
+        case .right:
+            return .next
+        }
+    }
+}
+
+extension SystemMotionSuppressor {
+    // MARK: - Effects scheduled from the tap thread
+
+    fileprivate func hopOneSpaceFromTap(direction: SpaceHopDirection) {
+        _ = spaceService.moveOneSpaceInstantly(direction: direction)
+    }
+
+    fileprivate func cancelSessionFromTap() {
+        cancelSession()
+    }
+
+    fileprivate func commitSessionFromTap() {
+        commitSession()
+    }
+
+    fileprivate func openCommandTabFromTap(forward: Bool) {
+        defer {
+            publishDecision { $0.switcherBuildInFlight = false }
+        }
+        guard NSEvent.modifierFlags.contains(.command) else { return }
+
+        let apps = orderedApps()
+        guard let front = apps.first else { return }
+        let targets = switchTargets(apps: apps)
+        let index = commandTabOpeningIndex(
+            appIDs: targets.map { Int64($0.app.processIdentifier) },
+            frontAppID: Int64(front.processIdentifier),
+            forward: forward
+        )
+        let now = Date()
+        guard let opened = CommandTabSession.open(targets: targets, index: index, now: now) else {
+            return
+        }
+        session = opened
+        publishDecision { $0.sessionOpen = true }
+        hud.show(targets: targets, selectedIndex: index)
+        armSessionIdle()
+    }
+
+    fileprivate func performSwitcherActionFromTap(_ action: CommandTabSwitcherAction) {
         switch action {
         case .move(let delta):
             moveSelection(by: delta)
@@ -276,7 +363,6 @@ final class SystemMotionSuppressor: NSObject {
         case .swallow:
             break
         }
-        return nil
     }
 
     private func moveSelection(by delta: Int) {
@@ -302,54 +388,12 @@ final class SystemMotionSuppressor: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
-    /// Control-Left/Right is the system "move a space" shortcut. Command, Option, and Shift stay free.
-    private func controlArrowDirection(type: CGEventType, event: CGEvent) -> DockSwipeSwitcher.Direction? {
-        guard type == .keyDown || type == .keyUp else { return nil }
-        let flags = event.flags
-        guard flags.contains(.maskControl),
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskAlternate),
-              !flags.contains(.maskShift)
-        else {
-            return nil
-        }
-        switch event.getIntegerValueField(.keyboardEventKeycode) {
-        case leftArrowKeyCode:
-            return .left
-        case rightArrowKeyCode:
-            return .right
-        default:
-            return nil
-        }
-    }
-
-    private func swipeDirection(from direction: DockSwipeSwitcher.Direction) -> SwipeDirection {
-        switch direction {
-        case .left:
-            return .left
-        case .right:
-            return .right
-        }
-    }
-
-    private func hopDirection(_ direction: DockSwipeSwitcher.Direction) -> SpaceHopDirection {
-        hopDirection(swipeDirection(from: direction))
-    }
-
-    private func hopDirection(_ direction: SwipeDirection) -> SpaceHopDirection {
-        switch direction {
-        case .left:
-            return .previous
-        case .right:
-            return .next
-        }
-    }
-
     private func commitSession() {
         sessionIdle?.cancel()
         sessionIdle = nil
         guard let session else { return }
         self.session = nil
+        publishDecision { $0.sessionOpen = false }
         hud.hide()
         guard session.targets.indices.contains(session.index), session.index != 0 else { return }
         let target = session.targets[session.index]
@@ -374,6 +418,7 @@ final class SystemMotionSuppressor: NSObject {
         sessionIdle?.cancel()
         sessionIdle = nil
         session = nil
+        publishDecision { $0.sessionOpen = false }
         hud.hide()
     }
 
@@ -420,14 +465,11 @@ final class SystemMotionSuppressor: NSObject {
                     self.promotePendingActivation(matching: target)
                     return
                 }
-                // Keep the window raised on the far Space while we wait.
-                self.focuser.focus(target)
-                schedulePoll(after: 0.004)
+                schedulePoll(after: Timing.activationPollInterval)
             }
             self.activationPoll = work
             DispatchQueue.main.asyncAfter(deadline: .now() + interval, execute: work)
         }
-        focuser.focus(target)
         schedulePoll(after: 0)
 
         // Absolute fallback if Space never reports (same as prior landing delay).
@@ -475,9 +517,16 @@ final class SystemMotionSuppressor: NSObject {
     /// Front app's windows as one block, then other apps in MRU order; empty apps trail.
     private func switchTargets(apps: [NSRunningApplication]) -> [SwitchTarget] {
         let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.processIdentifier, $0) })
+        let windowsByPID = windowListGroupedByPID()
+        let activeSpaceID = CGSPrivate.activeSpaceID()
         let slots = commandTabRow(
             apps: apps.map { app in
-                (appID: Int64(app.processIdentifier), windows: userWindows(for: app))
+                let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                let rows = windowsByPID[app.processIdentifier] ?? []
+                return (
+                    appID: Int64(app.processIdentifier),
+                    windows: userWindows(for: app, cgRows: rows, activeSpaceID: activeSpaceID, appName: appName)
+                )
             }
         )
         return slots.compactMap { slot in
@@ -506,16 +555,46 @@ final class SystemMotionSuppressor: NSObject {
         )
     }
 
+    /// One window-server copy, grouped by owner PID for the Command-Tab build.
+    private func windowListGroupedByPID() -> [pid_t: [[String: Any]]] {
+        guard let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return [:]
+        }
+        var grouped: [pid_t: [[String: Any]]] = [:]
+        for dict in info {
+            guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber else { continue }
+            let pid = pid_t(owner.int32Value)
+            grouped[pid, default: []].append(dict)
+        }
+        return grouped
+    }
+
     /// Accessibility covers the current Space; the window-server list adds windows on other Spaces.
     private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            return userWindows(for: app, cgRows: [], activeSpaceID: CGSPrivate.activeSpaceID(), appName: appName)
+        }
+        let pid = app.processIdentifier
+        let rows = info.filter { dict in
+            guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber else { return false }
+            return owner.int32Value == pid
+        }
+        return userWindows(for: app, cgRows: rows, activeSpaceID: CGSPrivate.activeSpaceID(), appName: appName)
+    }
+
+    private func userWindows(
+        for app: NSRunningApplication,
+        cgRows: [[String: Any]],
+        activeSpaceID: CGSSpaceID,
+        appName: String
+    ) -> [ListedWindow] {
         let ax = accessibilityWindows(for: app)
-        let cg = WindowCatalog.dedupe(cgWindows(pid: app.processIdentifier, appName: appName), appName: appName)
+        let cg = WindowCatalog.dedupe(cgWindows(appName: appName, rows: cgRows), appName: appName)
         let isOnActiveSpace: ((CGWindowID) -> Bool)?
         if ax.isEmpty {
             isOnActiveSpace = nil
         } else {
-            let activeSpaceID = CGSPrivate.activeSpaceID()
             isOnActiveSpace = { id in
                 CGSPrivate.spaceIDs(forWindow: id).contains(activeSpaceID)
             }
@@ -560,20 +639,14 @@ final class SystemMotionSuppressor: NSObject {
         .sorted { $0.main && !$1.main }
     }
 
-    /// Window-server list. Includes off-Space windows and drops Electron's untitled / app-named copies.
-    private func cgWindows(pid: pid_t, appName: String) -> [ListedWindow] {
-        guard let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return []
-        }
+    /// Window-server list slice for one app. Includes off-Space windows and drops Electron helpers.
+    private func cgWindows(appName: String, rows: [[String: Any]]) -> [ListedWindow] {
         var seen = Set<CGWindowID>()
-        let candidates: [(ListedWindow, Bool)] = info.compactMap { dict in
+        let candidates: [(ListedWindow, Bool)] = rows.compactMap { dict in
             let layer = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
             guard layer == 0 else { return nil }
             let alpha = (dict[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
             guard alpha > 0.01 else { return nil }
-            guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber, owner.int32Value == pid else {
-                return nil
-            }
             guard let number = dict[kCGWindowNumber as String] as? NSNumber else { return nil }
             let windowID = number.uint32Value
             guard seen.insert(windowID).inserted else { return nil }

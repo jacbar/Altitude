@@ -17,6 +17,9 @@ enum Timing {
     /// Cancel an open Command-Tab session after this much idle time.
     static let commandTabIdle: TimeInterval = 10
 
+    /// Landing poll interval after an instant Space hop (activeSpaceID only).
+    static let activationPollInterval: TimeInterval = 0.016
+
     static let instantLandingBase: TimeInterval = 0.08
     static let instantLandingPerStep: TimeInterval = 0.06
 
