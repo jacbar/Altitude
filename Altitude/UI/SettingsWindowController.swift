@@ -169,11 +169,11 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         _ = NSApp.setActivationPolicy(.accessory)
     }
 
-    func display(_ config: AppConfig) {
+    func display(_ config: AppConfig, launchAtLoginEnabled: Bool) {
         suppressActions = true
         defer { suppressActions = false }
 
-        launchAtLoginSwitch.state = LaunchAtLogin.isEnabled ? .on : .off
+        launchAtLoginSwitch.state = launchAtLoginEnabled ? .on : .off
 
         desktopEnabledSwitch.state = config.desktop.enabled ? .on : .off
         desktopDisableMotionSwitch.state = config.desktop.disableMotion ? .on : .off

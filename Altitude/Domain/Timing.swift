@@ -21,7 +21,7 @@ enum Timing {
     static let instantLandingPerStep: TimeInterval = 0.06
 
     static func instantLandingDelay(steps: Int) -> TimeInterval {
-        0.08 + 0.06 * Double(max(steps, 1))
+        instantLandingBase + instantLandingPerStep * Double(max(steps, 1))
     }
 
     /// SwipeGesture defaults and the suppressor call.

@@ -24,7 +24,12 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install SwiftLint
-        run: brew install swiftlint
+        run: |
+          curl -fsSL -o /tmp/portable_swiftlint.zip \
+            https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swiftlint.zip
+          unzip -q /tmp/portable_swiftlint.zip -d /tmp/swiftlint
+          sudo mv /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
+          swiftlint version
 
       - name: SwiftLint
         run: swiftlint
@@ -45,9 +50,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
   build-test:
+    if: always()
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: All matrix jobs passed
-        run: echo "macos-14 and macos-latest succeeded"
+        run: test "${{ needs.test.result }}" = "success"
