@@ -31,11 +31,13 @@ func validatedDesktopModifiers(
     return .accepted(proposed)
 }
 
-/// Accepts a…z with modifiers that differ from `other`; otherwise invalid or conflict.
+/// Accepts a…z with modifiers that differ from `other` and `additionalConflicts`.
 /// Callers keep the prior value on `.invalid` / `.conflict`.
+/// Desktop digit bindings cannot collide with letter chords, so they are not listed here.
 func validatedWindowChord(
     other: KeyChord,
-    proposed: KeyChord
+    proposed: KeyChord,
+    additionalConflicts: [KeyChord] = []
 ) -> ShortcutValidationResult<KeyChord> {
     guard let lower = proposed.key.lowercased().first,
           ("a"..."z").contains(lower),
@@ -44,6 +46,27 @@ func validatedWindowChord(
         return .invalid
     }
     let normalized = KeyChord(modifiers: proposed.modifiers, key: lower)
-    guard normalized != other else { return .conflict }
+    if normalized == other || additionalConflicts.contains(normalized) {
+        return .conflict
+    }
+    return .accepted(normalized)
+}
+
+/// Accepts a…z with modifiers that do not collide with window or sibling app-shortcut chords.
+/// Desktop digit bindings cannot collide with letter chords.
+func validatedAppShortcutChord(
+    proposed: KeyChord,
+    conflicting: [KeyChord]
+) -> ShortcutValidationResult<KeyChord> {
+    guard let lower = proposed.key.lowercased().first,
+          ("a"..."z").contains(lower),
+          proposed.modifiers.hasAny
+    else {
+        return .invalid
+    }
+    let normalized = KeyChord(modifiers: proposed.modifiers, key: lower)
+    if conflicting.contains(normalized) {
+        return .conflict
+    }
     return .accepted(normalized)
 }

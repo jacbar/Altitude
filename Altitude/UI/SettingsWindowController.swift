@@ -2,12 +2,13 @@ import AppKit
 import ApplicationServices
 
 @MainActor
-final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowDelegate {
+final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSWindowDelegate, NSTextFieldDelegate {
     private enum Tab: String, CaseIterable {
         case general = "General"
         case desktop = "Desktop"
         case commandTab = "Command-Tab"
         case windows = "Windows"
+        case appShortcuts = "App Shortcuts"
 
         var icon: String {
             switch self {
@@ -15,7 +16,33 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             case .desktop: return "rectangle.3.group"
             case .commandTab: return "command"
             case .windows: return "rectangle.split.3x1"
+            case .appShortcuts: return "app.badge.checkmark"
             }
+        }
+    }
+
+    private final class AppShortcutRowViews {
+        let stack: NSStackView
+        let bundleField: NSTextField
+        let recorder: ShortcutRecorderControl
+        let removeButton: NSButton
+        let conflictLabel: NSTextField
+        var index: Int
+
+        init(
+            stack: NSStackView,
+            bundleField: NSTextField,
+            recorder: ShortcutRecorderControl,
+            removeButton: NSButton,
+            conflictLabel: NSTextField,
+            index: Int
+        ) {
+            self.stack = stack
+            self.bundleField = bundleField
+            self.recorder = recorder
+            self.removeButton = removeButton
+            self.conflictLabel = conflictLabel
+            self.index = index
         }
     }
 
@@ -60,6 +87,13 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
     private let maximizeConflictLabel = SettingsWindowController.conflictLabel()
     private let equalSplitConflictLabel = SettingsWindowController.conflictLabel()
     private var windowsDependentControls: [NSView] = []
+
+    // App Shortcuts
+    private let appShortcutsEnabledSwitch = NSSwitch()
+    private let appShortcutsRowsStack = NSStackView()
+    private let appShortcutsAddButton = NSButton(title: "Add", target: nil, action: nil)
+    private var appShortcutRows: [AppShortcutRowViews] = []
+    private var appShortcutsDependentControls: [NSView] = []
 
     init(menuBar: MenuBarController) {
         self.menuBar = menuBar
@@ -197,6 +231,10 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         clearConflict(maximizeConflictLabel)
         clearConflict(equalSplitConflictLabel)
         setEnabled(config.windowManagement.enabled, controls: windowsDependentControls)
+
+        appShortcutsEnabledSwitch.state = config.appShortcuts.enabled ? .on : .off
+        rebuildAppShortcutRows(entries: config.appShortcuts.entries)
+        setEnabled(config.appShortcuts.enabled, controls: appShortcutsDependentControls)
     }
 
     // MARK: - Build
@@ -226,6 +264,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         panes[.desktop] = makeDesktopPane()
         panes[.commandTab] = makeCommandTabPane()
         panes[.windows] = makeWindowsPane()
+        panes[.appShortcuts] = makeAppShortcutsPane()
 
         // Size to the Desktop pane (largest). Cap width: horizontal stacks use a
         // flexible spacer whose fittingSize can match the full display width.
@@ -379,6 +418,124 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         return stack
     }
 
+    private func makeAppShortcutsPane() -> NSView {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 12
+
+        stack.addArrangedSubview(
+            labeledSwitchRow(title: "App Shortcuts module", switchControl: appShortcutsEnabledSwitch)
+        )
+
+        let help = NSTextField(labelWithString: "Jump to an app by bundle ID. Already frontmost does nothing.")
+        help.textColor = .secondaryLabelColor
+        help.font = NSFont.systemFont(ofSize: 11)
+        help.maximumNumberOfLines = 2
+        help.preferredMaxLayoutWidth = 420
+        stack.addArrangedSubview(help)
+
+        appShortcutsRowsStack.orientation = .vertical
+        appShortcutsRowsStack.alignment = .leading
+        appShortcutsRowsStack.spacing = 10
+        appShortcutsRowsStack.translatesAutoresizingMaskIntoConstraints = true
+        appShortcutsRowsStack.autoresizingMask = [.width]
+
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.drawsBackground = false
+        scroll.borderType = .bezelBorder
+        scroll.documentView = appShortcutsRowsStack
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.heightAnchor.constraint(equalToConstant: 280).isActive = true
+        scroll.widthAnchor.constraint(greaterThanOrEqualToConstant: 420).isActive = true
+        stack.addArrangedSubview(scroll)
+
+        appShortcutsAddButton.bezelStyle = .rounded
+        stack.addArrangedSubview(appShortcutsAddButton)
+
+        appShortcutsDependentControls = [help, scroll, appShortcutsAddButton, appShortcutsRowsStack]
+        return stack
+    }
+
+    private func rebuildAppShortcutRows(entries: [AppShortcutEntry]) {
+        appShortcutsRowsStack.arrangedSubviews.forEach {
+            appShortcutsRowsStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        appShortcutRows.removeAll()
+
+        let enabled = appShortcutsEnabledSwitch.state == .on
+        for (index, entry) in entries.enumerated() {
+            let row = makeAppShortcutRow(entry: entry, index: index)
+            row.bundleField.isEnabled = enabled
+            row.recorder.isEnabled = enabled
+            row.removeButton.isEnabled = enabled
+            appShortcutRows.append(row)
+            appShortcutsRowsStack.addArrangedSubview(row.stack)
+        }
+        appShortcutsRowsStack.layoutSubtreeIfNeeded()
+        let width = max(appShortcutsRowsStack.fittingSize.width, 400)
+        let height = max(appShortcutsRowsStack.fittingSize.height, 1)
+        appShortcutsRowsStack.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        appShortcutsAddButton.isEnabled = enabled && entries.count < ConfigStore.maxAppShortcuts
+    }
+
+    private func makeAppShortcutRow(entry: AppShortcutEntry, index: Int) -> AppShortcutRowViews {
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 4
+
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.spacing = 8
+        row.alignment = .centerY
+
+        let bundleField = NSTextField(string: entry.bundleID)
+        bundleField.placeholderString = "bundle id"
+        bundleField.font = NSFont.systemFont(ofSize: 12)
+        bundleField.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        bundleField.tag = index
+        bundleField.delegate = self
+        bundleField.target = self
+        bundleField.action = #selector(appShortcutBundleChanged(_:))
+        bundleField.isEditable = true
+        bundleField.isBordered = true
+        bundleField.bezelStyle = .roundedBezel
+
+        let recorder = ShortcutRecorderControl()
+        recorder.mode = .letterChord
+        recorder.display(chord: entry.chord)
+        recorder.widthAnchor.constraint(greaterThanOrEqualToConstant: 100).isActive = true
+        let capturedIndex = index
+        recorder.onRecord = { [weak self] chord in
+            self?.applyAppShortcutChord(chord, at: capturedIndex)
+        }
+
+        let remove = NSButton(title: "Remove", target: self, action: #selector(removeAppShortcutRow(_:)))
+        remove.bezelStyle = .rounded
+        remove.tag = index
+
+        row.addArrangedSubview(bundleField)
+        row.addArrangedSubview(recorder)
+        row.addArrangedSubview(remove)
+        stack.addArrangedSubview(row)
+
+        let conflict = SettingsWindowController.conflictLabel()
+        stack.addArrangedSubview(conflict)
+
+        return AppShortcutRowViews(
+            stack: stack,
+            bundleField: bundleField,
+            recorder: recorder,
+            removeButton: remove,
+            conflictLabel: conflict,
+            index: index
+        )
+    }
+
     private func labeledSwitchRow(title: String, switchControl: NSSwitch) -> NSView {
         let row = NSStackView()
         row.orientation = .horizontal
@@ -496,6 +653,11 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         maximizeDefaultButton.action = #selector(useMaximizeDefault)
         equalSplitDefaultButton.target = self
         equalSplitDefaultButton.action = #selector(useEqualSplitDefault)
+
+        appShortcutsEnabledSwitch.target = self
+        appShortcutsEnabledSwitch.action = #selector(appShortcutsChanged)
+        appShortcutsAddButton.target = self
+        appShortcutsAddButton.action = #selector(addAppShortcut)
     }
 
     @objc private func launchAtLoginChanged() {
@@ -597,7 +759,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         var config = menuBar.currentConfig
         switch validatedWindowChord(
             other: config.windowManagement.equalSplit,
-            proposed: proposed
+            proposed: proposed,
+            additionalConflicts: config.appShortcuts.entries.map(\.chord)
         ) {
         case .accepted(let value):
             clearConflict(maximizeConflictLabel)
@@ -618,7 +781,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         var config = menuBar.currentConfig
         switch validatedWindowChord(
             other: config.windowManagement.maximize,
-            proposed: proposed
+            proposed: proposed,
+            additionalConflicts: config.appShortcuts.entries.map(\.chord)
         ) {
         case .accepted(let value):
             clearConflict(equalSplitConflictLabel)
@@ -640,6 +804,114 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
 
     @objc private func useEqualSplitDefault() {
         applyEqualSplit(.equalSplitDefault)
+    }
+
+    @objc private func appShortcutsChanged() {
+        guard !suppressActions, let menuBar else { return }
+        var config = menuBar.currentConfig
+        config.appShortcuts.enabled = appShortcutsEnabledSwitch.state == .on
+        menuBar.apply(config, write: true)
+        setEnabled(config.appShortcuts.enabled, controls: appShortcutsDependentControls)
+        appShortcutsAddButton.isEnabled = config.appShortcuts.enabled
+            && config.appShortcuts.entries.count < ConfigStore.maxAppShortcuts
+        for row in appShortcutRows {
+            row.bundleField.isEnabled = config.appShortcuts.enabled
+            row.recorder.isEnabled = config.appShortcuts.enabled
+            row.removeButton.isEnabled = config.appShortcuts.enabled
+        }
+    }
+
+    @objc private func addAppShortcut() {
+        guard !suppressActions, let menuBar else { return }
+        var config = menuBar.currentConfig
+        guard config.appShortcuts.entries.count < ConfigStore.maxAppShortcuts else {
+            NSSound.beep()
+            return
+        }
+        guard let chord = nextFreeAppShortcutChord(config: config) else {
+            NSSound.beep()
+            return
+        }
+        config.appShortcuts.entries.append(AppShortcutEntry(bundleID: "", chord: chord))
+        menuBar.apply(config, write: true)
+        rebuildAppShortcutRows(entries: config.appShortcuts.entries)
+        setEnabled(config.appShortcuts.enabled, controls: appShortcutsDependentControls)
+    }
+
+    @objc private func removeAppShortcutRow(_ sender: NSButton) {
+        guard !suppressActions, let menuBar else { return }
+        var config = menuBar.currentConfig
+        let index = sender.tag
+        guard config.appShortcuts.entries.indices.contains(index) else { return }
+        config.appShortcuts.entries.remove(at: index)
+        menuBar.apply(config, write: true)
+        rebuildAppShortcutRows(entries: config.appShortcuts.entries)
+        setEnabled(config.appShortcuts.enabled, controls: appShortcutsDependentControls)
+    }
+
+    @objc private func appShortcutBundleChanged(_ sender: NSTextField) {
+        commitAppShortcutBundle(sender)
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField else { return }
+        commitAppShortcutBundle(field)
+    }
+
+    private func commitAppShortcutBundle(_ sender: NSTextField) {
+        guard !suppressActions, let menuBar else { return }
+        var config = menuBar.currentConfig
+        let index = sender.tag
+        guard config.appShortcuts.entries.indices.contains(index) else { return }
+        let trimmed = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard config.appShortcuts.entries[index].bundleID != trimmed else { return }
+        config.appShortcuts.entries[index].bundleID = trimmed
+        sender.stringValue = trimmed
+        menuBar.apply(config, write: true)
+    }
+
+    private func applyAppShortcutChord(_ proposed: KeyChord, at index: Int) {
+        guard let menuBar else { return }
+        var config = menuBar.currentConfig
+        guard config.appShortcuts.entries.indices.contains(index) else { return }
+        var conflicting = [
+            config.windowManagement.maximize,
+            config.windowManagement.equalSplit,
+        ]
+        for (i, entry) in config.appShortcuts.entries.enumerated() where i != index {
+            conflicting.append(entry.chord)
+        }
+        let row = appShortcutRows.first { $0.index == index }
+        switch validatedAppShortcutChord(proposed: proposed, conflicting: conflicting) {
+        case .accepted(let value):
+            if let row { clearConflict(row.conflictLabel) }
+            config.appShortcuts.entries[index].chord = value
+            menuBar.apply(config, write: true)
+        case .conflict:
+            NSSound.beep()
+            if let row { showConflict(row.conflictLabel) }
+            row?.recorder.display(chord: config.appShortcuts.entries[index].chord)
+        case .invalid:
+            NSSound.beep()
+            row?.recorder.display(chord: config.appShortcuts.entries[index].chord)
+        }
+    }
+
+    /// Prefer Control+Option+Command + first free letter a…z.
+    private func nextFreeAppShortcutChord(config: AppConfig) -> KeyChord? {
+        let modifiers = ModifierFlags(alt: true, shift: false, ctrl: true, cmd: true)
+        let taken = Set(
+            [config.windowManagement.maximize, config.windowManagement.equalSplit]
+                + config.appShortcuts.entries.map(\.chord)
+        )
+        for scalar in UnicodeScalar("a").value...UnicodeScalar("z").value {
+            let key = Character(UnicodeScalar(scalar)!)
+            let chord = KeyChord(modifiers: modifiers, key: key)
+            if !taken.contains(chord) {
+                return chord
+            }
+        }
+        return nil
     }
 
     // MARK: - Helpers

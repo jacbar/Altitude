@@ -455,8 +455,79 @@ final class ConfigStoreTests: XCTestCase {
                     modifiers: ModifierFlags(alt: true, shift: false, ctrl: true, cmd: false),
                     key: "a"
                 )
+            ),
+            appShortcuts: AppShortcutsConfig(
+                enabled: true,
+                entries: [
+                    AppShortcutEntry(
+                        bundleID: "com.apple.Safari",
+                        chord: KeyChord(
+                            modifiers: ModifierFlags(alt: true, shift: false, ctrl: true, cmd: false),
+                            key: "s"
+                        )
+                    ),
+                    AppShortcutEntry(
+                        bundleID: "com.apple.Terminal",
+                        chord: KeyChord(
+                            modifiers: ModifierFlags(alt: true, shift: true, ctrl: false, cmd: false),
+                            key: "t"
+                        )
+                    ),
+                ]
             )
         )
+    }
+
+    func testAppShortcutsParseAndRoundTrip() {
+        let text = """
+        [app_shortcuts]
+        enabled = true
+
+        [app_shortcuts.entry.2]
+        bundle_id = com.apple.Terminal
+        alt = true
+        shift = true
+        ctrl = false
+        cmd = false
+        key = t
+
+        [app_shortcuts.entry.1]
+        bundle_id = com.apple.Safari
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
+        key = s
+        """
+        let config = MinimalTOML.parseAltitudeConfig(text)
+        XCTAssertTrue(config.appShortcuts.enabled)
+        XCTAssertEqual(config.appShortcuts.entries.count, 2)
+        XCTAssertEqual(config.appShortcuts.entries[0].bundleID, "com.apple.Safari")
+        XCTAssertEqual(config.appShortcuts.entries[0].chord.key, "s")
+        XCTAssertEqual(config.appShortcuts.entries[1].bundleID, "com.apple.Terminal")
+
+        let rendered = ConfigStore.renderConfig(config)
+        XCTAssertEqual(MinimalTOML.parseAltitudeConfig(rendered).appShortcuts, config.appShortcuts)
+    }
+
+    func testAppShortcutsDefaultOffAndCap() {
+        XCTAssertFalse(AppConfig.default.appShortcuts.enabled)
+        XCTAssertTrue(AppConfig.default.appShortcuts.entries.isEmpty)
+
+        var blocks = ["[app_shortcuts]", "enabled = true"]
+        for n in 1...40 {
+            blocks.append("""
+            [app_shortcuts.entry.\(n)]
+            bundle_id = com.example.app\(n)
+            alt = true
+            shift = false
+            ctrl = false
+            cmd = false
+            key = a
+            """)
+        }
+        let config = MinimalTOML.parseAltitudeConfig(blocks.joined(separator: "\n"))
+        XCTAssertEqual(config.appShortcuts.entries.count, ConfigStore.maxAppShortcuts)
     }
 
     private func makeTempStore() throws -> (home: URL, store: ConfigStore) {

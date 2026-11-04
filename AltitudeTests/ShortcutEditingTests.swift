@@ -79,4 +79,39 @@ final class ShortcutEditingTests: XCTestCase {
             .accepted(KeyChord(modifiers: .controlOption, key: "x"))
         )
     }
+
+    func testValidatedWindowChordConflictsWithAdditional() {
+        let other = KeyChord.equalSplitDefault
+        let safari = KeyChord(modifiers: .controlOption, key: "s")
+        XCTAssertEqual(
+            validatedWindowChord(
+                other: other,
+                proposed: safari,
+                additionalConflicts: [safari]
+            ),
+            .conflict
+        )
+    }
+
+    func testValidatedAppShortcutChordRejectsWindowConflict() {
+        let proposed = KeyChord.maximizeDefault
+        XCTAssertEqual(
+            validatedAppShortcutChord(
+                proposed: proposed,
+                conflicting: [.maximizeDefault, .equalSplitDefault]
+            ),
+            .conflict
+        )
+    }
+
+    func testValidatedAppShortcutChordAcceptsDistinct() {
+        let proposed = KeyChord(modifiers: .controlOption, key: "S")
+        XCTAssertEqual(
+            validatedAppShortcutChord(
+                proposed: proposed,
+                conflicting: [.maximizeDefault, .equalSplitDefault]
+            ),
+            .accepted(KeyChord(modifiers: .controlOption, key: "s"))
+        )
+    }
 }

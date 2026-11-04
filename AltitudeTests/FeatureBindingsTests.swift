@@ -30,6 +30,40 @@ final class FeatureBindingsTests: XCTestCase {
         XCTAssertEqual(bindings.map(\.id), [HotkeyID.maximize, HotkeyID.equalSplit])
     }
 
+    func testAppShortcutsBindingsDisabledEmpty() {
+        var config = AppConfig.default
+        config.appShortcuts.enabled = false
+        config.appShortcuts.entries = [
+            AppShortcutEntry(
+                bundleID: "com.apple.Safari",
+                chord: KeyChord(modifiers: .controlOption, key: "s")
+            ),
+        ]
+        XCTAssertTrue(AppShortcutsFeature.bindings(config: config).isEmpty)
+    }
+
+    func testAppShortcutsBindingsEnabledIdsSkipEmptyBundle() {
+        var config = AppConfig.default
+        config.appShortcuts.enabled = true
+        config.appShortcuts.entries = [
+            AppShortcutEntry(
+                bundleID: "com.apple.Safari",
+                chord: KeyChord(modifiers: .controlOption, key: "s")
+            ),
+            AppShortcutEntry(
+                bundleID: "",
+                chord: KeyChord(modifiers: .controlOption, key: "t")
+            ),
+            AppShortcutEntry(
+                bundleID: "com.apple.Terminal",
+                chord: KeyChord(modifiers: .optionShift, key: "t")
+            ),
+        ]
+        let bindings = AppShortcutsFeature.bindings(config: config)
+        XCTAssertEqual(bindings.map(\.id), [HotkeyID.appShortcut(0), HotkeyID.appShortcut(2)])
+        XCTAssertEqual(bindings.map(\.action), [.jumpToApp(0), .jumpToApp(2)])
+    }
+
     func testCommandTabMotionMode() {
         let off = CommandTabFeature.motionMode(config: .default)
         XCTAssertEqual(off, .off)

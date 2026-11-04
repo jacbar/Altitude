@@ -29,28 +29,30 @@
 		B20000000000000000000019 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
 		B20000000000000000000020 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
 		B20000000000000000000021 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
-		B20000000000000000000022 /* ShortcutEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ShortcutEditing.swift */; };
-		B20000000000000000000023 /* AppMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* AppMenu.swift */; };
-		B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* ShortcutRecorderControl.swift */; };
-		B20000000000000000000025 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* SettingsWindowController.swift */; };
-		B20000000000000000000026 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
-		B20000000000000000000027 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
-		B20000000000000000000028 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* CommandTabKeys.swift */; };
-		B20000000000000000000029 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* SwipeGesture.swift */; };
-		B20000000000000000000030 /* AXUIElement+Read.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* AXUIElement+Read.swift */; };
-		B20000000000000000000031 /* Timing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000031 /* Timing.swift */; };
-		B20000000000000000000032 /* HotkeyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* HotkeyID.swift */; };
-		B20000000000000000000033 /* SpaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* SpaceLayout.swift */; };
-		B20000000000000000000034 /* SpaceRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* SpaceRouting.swift */; };
-		B20000000000000000000035 /* MotionTapPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* MotionTapPlan.swift */; };
-		B20000000000000000000036 /* CommandTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* CommandTabSession.swift */; };
-		B20000000000000000000037 /* SwitchTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* SwitchTarget.swift */; };
-		B20000000000000000000038 /* EventTapHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* EventTapHost.swift */; };
-		B20000000000000000000039 /* WindowFocuser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000039 /* WindowFocuser.swift */; };
-		B20000000000000000000040 /* AppSwitchHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* AppSwitchHUD.swift */; };
-		B20000000000000000000041 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000041 /* AXUIElementGetWindow.swift */; };
-		B20000000000000000000042 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000042 /* MenuBarDependencies.swift */; };
-		B20000000000000000000043 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000043 /* DockSwipeTiming.swift */; };
+		B20000000000000000000022 /* AppShortcutsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* AppShortcutsFeature.swift */; };
+		B20000000000000000000023 /* ShortcutEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* ShortcutEditing.swift */; };
+		B20000000000000000000024 /* AppMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000024 /* AppMenu.swift */; };
+		B20000000000000000000025 /* ShortcutRecorderControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000025 /* ShortcutRecorderControl.swift */; };
+		B20000000000000000000026 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* SettingsWindowController.swift */; };
+		B20000000000000000000027 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* WindowCatalog.swift */; };
+		B20000000000000000000028 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* SystemMotionMode.swift */; };
+		B20000000000000000000029 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* CommandTabKeys.swift */; };
+		B20000000000000000000030 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* SwipeGesture.swift */; };
+		B20000000000000000000031 /* AXUIElement+Read.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000031 /* AXUIElement+Read.swift */; };
+		B20000000000000000000032 /* Timing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* Timing.swift */; };
+		B20000000000000000000033 /* HotkeyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* HotkeyID.swift */; };
+		B20000000000000000000034 /* SpaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* SpaceLayout.swift */; };
+		B20000000000000000000035 /* SpaceRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* SpaceRouting.swift */; };
+		B20000000000000000000036 /* MotionTapPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* MotionTapPlan.swift */; };
+		B20000000000000000000037 /* CommandTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* CommandTabSession.swift */; };
+		B20000000000000000000038 /* SwitchTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000038 /* SwitchTarget.swift */; };
+		B20000000000000000000039 /* EventTapHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000039 /* EventTapHost.swift */; };
+		B20000000000000000000040 /* WindowFocuser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000040 /* WindowFocuser.swift */; };
+		B20000000000000000000041 /* AppShortcutJumper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000041 /* AppShortcutJumper.swift */; };
+		B20000000000000000000042 /* AppSwitchHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000042 /* AppSwitchHUD.swift */; };
+		B20000000000000000000043 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000043 /* AXUIElementGetWindow.swift */; };
+		B20000000000000000000044 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000044 /* MenuBarDependencies.swift */; };
+		B20000000000000000000045 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000045 /* DockSwipeTiming.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -76,24 +78,25 @@
 		E20000000000000000000005 /* WindowArrangement.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* WindowArrangement.swift */; };
 		E20000000000000000000006 /* CommandTabOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000017 /* CommandTabOrder.swift */; };
 		E20000000000000000000007 /* ShortcutChord.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000018 /* ShortcutChord.swift */; };
-		E20000000000000000000008 /* ShortcutEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* ShortcutEditing.swift */; };
-		E20000000000000000000009 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000026 /* WindowCatalog.swift */; };
-		E20000000000000000000010 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* SystemMotionMode.swift */; };
-		E20000000000000000000011 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* CommandTabKeys.swift */; };
-		E20000000000000000000012 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* SwipeGesture.swift */; };
-		E20000000000000000000013 /* Timing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000031 /* Timing.swift */; };
-		E20000000000000000000014 /* HotkeyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* HotkeyID.swift */; };
-		E20000000000000000000015 /* SpaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* SpaceLayout.swift */; };
-		E20000000000000000000016 /* SpaceRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* SpaceRouting.swift */; };
-		E20000000000000000000017 /* MotionTapPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* MotionTapPlan.swift */; };
-		E20000000000000000000018 /* CommandTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* CommandTabSession.swift */; };
-		E20000000000000000000019 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000041 /* AXUIElementGetWindow.swift */; };
-		E20000000000000000000020 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000042 /* MenuBarDependencies.swift */; };
-		E20000000000000000000021 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000043 /* DockSwipeTiming.swift */; };
+		E20000000000000000000008 /* ShortcutEditing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000023 /* ShortcutEditing.swift */; };
+		E20000000000000000000009 /* WindowCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000027 /* WindowCatalog.swift */; };
+		E20000000000000000000010 /* SystemMotionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000028 /* SystemMotionMode.swift */; };
+		E20000000000000000000011 /* CommandTabKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000029 /* CommandTabKeys.swift */; };
+		E20000000000000000000012 /* SwipeGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000030 /* SwipeGesture.swift */; };
+		E20000000000000000000013 /* Timing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000032 /* Timing.swift */; };
+		E20000000000000000000014 /* HotkeyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000033 /* HotkeyID.swift */; };
+		E20000000000000000000015 /* SpaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000034 /* SpaceLayout.swift */; };
+		E20000000000000000000016 /* SpaceRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000035 /* SpaceRouting.swift */; };
+		E20000000000000000000017 /* MotionTapPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000036 /* MotionTapPlan.swift */; };
+		E20000000000000000000018 /* CommandTabSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000037 /* CommandTabSession.swift */; };
+		E20000000000000000000019 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000043 /* AXUIElementGetWindow.swift */; };
+		E20000000000000000000020 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000044 /* MenuBarDependencies.swift */; };
+		E20000000000000000000021 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000045 /* DockSwipeTiming.swift */; };
 		E20000000000000000000022 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
 		E20000000000000000000023 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
 		E20000000000000000000024 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
-		E20000000000000000000025 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
+		E20000000000000000000025 /* AppShortcutsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* AppShortcutsFeature.swift */; };
+		E20000000000000000000026 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -127,28 +130,30 @@
 		B10000000000000000000019 /* DesktopFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopFeature.swift; sourceTree = "<group>"; };
 		B10000000000000000000020 /* CommandTabFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabFeature.swift; sourceTree = "<group>"; };
 		B10000000000000000000021 /* WindowManagementFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowManagementFeature.swift; sourceTree = "<group>"; };
-		B10000000000000000000022 /* ShortcutEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutEditing.swift; sourceTree = "<group>"; };
-		B10000000000000000000023 /* AppMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMenu.swift; sourceTree = "<group>"; };
-		B10000000000000000000024 /* ShortcutRecorderControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderControl.swift; sourceTree = "<group>"; };
-		B10000000000000000000025 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
-		B10000000000000000000026 /* WindowCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCatalog.swift; sourceTree = "<group>"; };
-		B10000000000000000000027 /* SystemMotionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionMode.swift; sourceTree = "<group>"; };
-		B10000000000000000000028 /* CommandTabKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabKeys.swift; sourceTree = "<group>"; };
-		B10000000000000000000029 /* SwipeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeGesture.swift; sourceTree = "<group>"; };
-		B10000000000000000000030 /* AXUIElement+Read.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AXUIElement+Read.swift"; sourceTree = "<group>"; };
-		B10000000000000000000031 /* Timing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timing.swift; sourceTree = "<group>"; };
-		B10000000000000000000032 /* HotkeyID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyID.swift; sourceTree = "<group>"; };
-		B10000000000000000000033 /* SpaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLayout.swift; sourceTree = "<group>"; };
-		B10000000000000000000034 /* SpaceRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRouting.swift; sourceTree = "<group>"; };
-		B10000000000000000000035 /* MotionTapPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionTapPlan.swift; sourceTree = "<group>"; };
-		B10000000000000000000036 /* CommandTabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabSession.swift; sourceTree = "<group>"; };
-		B10000000000000000000037 /* SwitchTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchTarget.swift; sourceTree = "<group>"; };
-		B10000000000000000000038 /* EventTapHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapHost.swift; sourceTree = "<group>"; };
-		B10000000000000000000039 /* WindowFocuser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocuser.swift; sourceTree = "<group>"; };
-		B10000000000000000000040 /* AppSwitchHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitchHUD.swift; sourceTree = "<group>"; };
-		B10000000000000000000041 /* AXUIElementGetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXUIElementGetWindow.swift; sourceTree = "<group>"; };
-		B10000000000000000000042 /* MenuBarDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDependencies.swift; sourceTree = "<group>"; };
-		B10000000000000000000043 /* DockSwipeTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSwipeTiming.swift; sourceTree = "<group>"; };
+		B10000000000000000000022 /* AppShortcutsFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShortcutsFeature.swift; sourceTree = "<group>"; };
+		B10000000000000000000023 /* ShortcutEditing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutEditing.swift; sourceTree = "<group>"; };
+		B10000000000000000000024 /* AppMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMenu.swift; sourceTree = "<group>"; };
+		B10000000000000000000025 /* ShortcutRecorderControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderControl.swift; sourceTree = "<group>"; };
+		B10000000000000000000026 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		B10000000000000000000027 /* WindowCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowCatalog.swift; sourceTree = "<group>"; };
+		B10000000000000000000028 /* SystemMotionMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMotionMode.swift; sourceTree = "<group>"; };
+		B10000000000000000000029 /* CommandTabKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabKeys.swift; sourceTree = "<group>"; };
+		B10000000000000000000030 /* SwipeGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeGesture.swift; sourceTree = "<group>"; };
+		B10000000000000000000031 /* AXUIElement+Read.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AXUIElement+Read.swift"; sourceTree = "<group>"; };
+		B10000000000000000000032 /* Timing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Timing.swift; sourceTree = "<group>"; };
+		B10000000000000000000033 /* HotkeyID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyID.swift; sourceTree = "<group>"; };
+		B10000000000000000000034 /* SpaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLayout.swift; sourceTree = "<group>"; };
+		B10000000000000000000035 /* SpaceRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceRouting.swift; sourceTree = "<group>"; };
+		B10000000000000000000036 /* MotionTapPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MotionTapPlan.swift; sourceTree = "<group>"; };
+		B10000000000000000000037 /* CommandTabSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTabSession.swift; sourceTree = "<group>"; };
+		B10000000000000000000038 /* SwitchTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchTarget.swift; sourceTree = "<group>"; };
+		B10000000000000000000039 /* EventTapHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapHost.swift; sourceTree = "<group>"; };
+		B10000000000000000000040 /* WindowFocuser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowFocuser.swift; sourceTree = "<group>"; };
+		B10000000000000000000041 /* AppShortcutJumper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShortcutJumper.swift; sourceTree = "<group>"; };
+		B10000000000000000000042 /* AppSwitchHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSwitchHUD.swift; sourceTree = "<group>"; };
+		B10000000000000000000043 /* AXUIElementGetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXUIElementGetWindow.swift; sourceTree = "<group>"; };
+		B10000000000000000000044 /* MenuBarDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDependencies.swift; sourceTree = "<group>"; };
+		B10000000000000000000045 /* DockSwipeTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSwipeTiming.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -250,10 +255,11 @@
 				B10000000000000000000005 /* SkyLightBridgedSPI.swift */,
 				B10000000000000000000012 /* SystemMotionSuppressor.swift */,
 				B10000000000000000000016 /* WindowArranger.swift */,
-				B10000000000000000000030 /* AXUIElement+Read.swift */,
-				B10000000000000000000037 /* SwitchTarget.swift */,
-				B10000000000000000000038 /* EventTapHost.swift */,
-				B10000000000000000000039 /* WindowFocuser.swift */,
+				B10000000000000000000031 /* AXUIElement+Read.swift */,
+				B10000000000000000000038 /* SwitchTarget.swift */,
+				B10000000000000000000039 /* EventTapHost.swift */,
+				B10000000000000000000040 /* WindowFocuser.swift */,
+				B10000000000000000000041 /* AppShortcutJumper.swift */,
 			);
 			path = Backend;
 			sourceTree = "<group>";
@@ -269,20 +275,20 @@
 				B10000000000000000000015 /* WindowArrangement.swift */,
 				B10000000000000000000017 /* CommandTabOrder.swift */,
 				B10000000000000000000018 /* ShortcutChord.swift */,
-				B10000000000000000000022 /* ShortcutEditing.swift */,
-				B10000000000000000000026 /* WindowCatalog.swift */,
-				B10000000000000000000027 /* SystemMotionMode.swift */,
-				B10000000000000000000028 /* CommandTabKeys.swift */,
-				B10000000000000000000029 /* SwipeGesture.swift */,
-				B10000000000000000000031 /* Timing.swift */,
-				B10000000000000000000032 /* HotkeyID.swift */,
-				B10000000000000000000033 /* SpaceLayout.swift */,
-				B10000000000000000000034 /* SpaceRouting.swift */,
-				B10000000000000000000035 /* MotionTapPlan.swift */,
-				B10000000000000000000036 /* CommandTabSession.swift */,
-				B10000000000000000000041 /* AXUIElementGetWindow.swift */,
-				B10000000000000000000042 /* MenuBarDependencies.swift */,
-				B10000000000000000000043 /* DockSwipeTiming.swift */,
+				B10000000000000000000023 /* ShortcutEditing.swift */,
+				B10000000000000000000027 /* WindowCatalog.swift */,
+				B10000000000000000000028 /* SystemMotionMode.swift */,
+				B10000000000000000000029 /* CommandTabKeys.swift */,
+				B10000000000000000000030 /* SwipeGesture.swift */,
+				B10000000000000000000032 /* Timing.swift */,
+				B10000000000000000000033 /* HotkeyID.swift */,
+				B10000000000000000000034 /* SpaceLayout.swift */,
+				B10000000000000000000035 /* SpaceRouting.swift */,
+				B10000000000000000000036 /* MotionTapPlan.swift */,
+				B10000000000000000000037 /* CommandTabSession.swift */,
+				B10000000000000000000043 /* AXUIElementGetWindow.swift */,
+				B10000000000000000000044 /* MenuBarDependencies.swift */,
+				B10000000000000000000045 /* DockSwipeTiming.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -293,6 +299,7 @@
 				A10000000000000000000031 /* Desktop */,
 				A10000000000000000000032 /* CommandTab */,
 				A10000000000000000000033 /* WindowManagement */,
+				A10000000000000000000034 /* AppShortcuts */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -321,6 +328,14 @@
 			path = WindowManagement;
 			sourceTree = "<group>";
 		};
+		A10000000000000000000034 /* AppShortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000022 /* AppShortcutsFeature.swift */,
+			);
+			path = AppShortcuts;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000016 /* Hotkeys */ = {
 			isa = PBXGroup;
 			children = (
@@ -334,10 +349,10 @@
 			children = (
 				B10000000000000000000010 /* MenuBarController.swift */,
 				B10000000000000000000011 /* SpaceIndicatorRenderer.swift */,
-				B10000000000000000000023 /* AppMenu.swift */,
-				B10000000000000000000024 /* ShortcutRecorderControl.swift */,
-				B10000000000000000000025 /* SettingsWindowController.swift */,
-				B10000000000000000000040 /* AppSwitchHUD.swift */,
+				B10000000000000000000024 /* AppMenu.swift */,
+				B10000000000000000000025 /* ShortcutRecorderControl.swift */,
+				B10000000000000000000026 /* SettingsWindowController.swift */,
+				B10000000000000000000042 /* AppSwitchHUD.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -484,28 +499,30 @@
 				B20000000000000000000019 /* DesktopFeature.swift in Sources */,
 				B20000000000000000000020 /* CommandTabFeature.swift in Sources */,
 				B20000000000000000000021 /* WindowManagementFeature.swift in Sources */,
-				B20000000000000000000022 /* ShortcutEditing.swift in Sources */,
-				B20000000000000000000023 /* AppMenu.swift in Sources */,
-				B20000000000000000000024 /* ShortcutRecorderControl.swift in Sources */,
-				B20000000000000000000025 /* SettingsWindowController.swift in Sources */,
-				B20000000000000000000026 /* WindowCatalog.swift in Sources */,
-				B20000000000000000000027 /* SystemMotionMode.swift in Sources */,
-				B20000000000000000000028 /* CommandTabKeys.swift in Sources */,
-				B20000000000000000000029 /* SwipeGesture.swift in Sources */,
-				B20000000000000000000030 /* AXUIElement+Read.swift in Sources */,
-				B20000000000000000000031 /* Timing.swift in Sources */,
-				B20000000000000000000032 /* HotkeyID.swift in Sources */,
-				B20000000000000000000033 /* SpaceLayout.swift in Sources */,
-				B20000000000000000000034 /* SpaceRouting.swift in Sources */,
-				B20000000000000000000035 /* MotionTapPlan.swift in Sources */,
-				B20000000000000000000036 /* CommandTabSession.swift in Sources */,
-				B20000000000000000000037 /* SwitchTarget.swift in Sources */,
-				B20000000000000000000038 /* EventTapHost.swift in Sources */,
-				B20000000000000000000039 /* WindowFocuser.swift in Sources */,
-				B20000000000000000000040 /* AppSwitchHUD.swift in Sources */,
-				B20000000000000000000041 /* AXUIElementGetWindow.swift in Sources */,
-				B20000000000000000000042 /* MenuBarDependencies.swift in Sources */,
-				B20000000000000000000043 /* DockSwipeTiming.swift in Sources */,
+				B20000000000000000000022 /* AppShortcutsFeature.swift in Sources */,
+				B20000000000000000000023 /* ShortcutEditing.swift in Sources */,
+				B20000000000000000000024 /* AppMenu.swift in Sources */,
+				B20000000000000000000025 /* ShortcutRecorderControl.swift in Sources */,
+				B20000000000000000000026 /* SettingsWindowController.swift in Sources */,
+				B20000000000000000000027 /* WindowCatalog.swift in Sources */,
+				B20000000000000000000028 /* SystemMotionMode.swift in Sources */,
+				B20000000000000000000029 /* CommandTabKeys.swift in Sources */,
+				B20000000000000000000030 /* SwipeGesture.swift in Sources */,
+				B20000000000000000000031 /* AXUIElement+Read.swift in Sources */,
+				B20000000000000000000032 /* Timing.swift in Sources */,
+				B20000000000000000000033 /* HotkeyID.swift in Sources */,
+				B20000000000000000000034 /* SpaceLayout.swift in Sources */,
+				B20000000000000000000035 /* SpaceRouting.swift in Sources */,
+				B20000000000000000000036 /* MotionTapPlan.swift in Sources */,
+				B20000000000000000000037 /* CommandTabSession.swift in Sources */,
+				B20000000000000000000038 /* SwitchTarget.swift in Sources */,
+				B20000000000000000000039 /* EventTapHost.swift in Sources */,
+				B20000000000000000000040 /* WindowFocuser.swift in Sources */,
+				B20000000000000000000041 /* AppShortcutJumper.swift in Sources */,
+				B20000000000000000000042 /* AppSwitchHUD.swift in Sources */,
+				B20000000000000000000043 /* AXUIElementGetWindow.swift in Sources */,
+				B20000000000000000000044 /* MenuBarDependencies.swift in Sources */,
+				B20000000000000000000045 /* DockSwipeTiming.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -555,7 +572,8 @@
 				E20000000000000000000022 /* DesktopFeature.swift in Sources */,
 				E20000000000000000000023 /* CommandTabFeature.swift in Sources */,
 				E20000000000000000000024 /* WindowManagementFeature.swift in Sources */,
-				E20000000000000000000025 /* HotkeyRegistrar.swift in Sources */,
+				E20000000000000000000025 /* AppShortcutsFeature.swift in Sources */,
+				E20000000000000000000026 /* HotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

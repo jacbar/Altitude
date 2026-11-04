@@ -35,6 +35,7 @@ sources = [
     "Altitude/Features/Desktop/DesktopFeature.swift",
     "Altitude/Features/CommandTab/CommandTabFeature.swift",
     "Altitude/Features/WindowManagement/WindowManagementFeature.swift",
+    "Altitude/Features/AppShortcuts/AppShortcutsFeature.swift",
     "Altitude/Domain/ShortcutEditing.swift",
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
@@ -53,6 +54,7 @@ sources = [
     "Altitude/Backend/SwitchTarget.swift",
     "Altitude/Backend/EventTapHost.swift",
     "Altitude/Backend/WindowFocuser.swift",
+    "Altitude/Backend/AppShortcutJumper.swift",
     "Altitude/UI/AppSwitchHUD.swift",
     "Altitude/Domain/AXUIElementGetWindow.swift",
     "Altitude/Domain/MenuBarDependencies.swift",
@@ -119,6 +121,7 @@ ids = {
     "features_desktop_group": "A10000000000000000000031",
     "features_command_tab_group": "A10000000000000000000032",
     "features_window_management_group": "A10000000000000000000033",
+    "features_app_shortcuts_group": "A10000000000000000000034",
     # AltitudeTests unit-test target
     "test_target": "C10000000000000000000001",
     "test_sources_phase": "C10000000000000000000002",
@@ -309,6 +312,7 @@ ui_srcs = [s for s in sources if "/UI/" in s]
 features_desktop_srcs = [s for s in sources if "/Features/Desktop/" in s]
 features_command_tab_srcs = [s for s in sources if "/Features/CommandTab/" in s]
 features_window_management_srcs = [s for s in sources if "/Features/WindowManagement/" in s]
+features_app_shortcuts_srcs = [s for s in sources if "/Features/AppShortcuts/" in s]
 root_srcs = [s for s in sources if s.count("/") == 1]
 
 lines.append("/* Begin PBXFrameworksBuildPhase section */")
@@ -394,6 +398,7 @@ emit_group(
         f"{ids['features_desktop_group']} /* Desktop */",
         f"{ids['features_command_tab_group']} /* CommandTab */",
         f"{ids['features_window_management_group']} /* WindowManagement */",
+        f"{ids['features_app_shortcuts_group']} /* AppShortcuts */",
     ],
 )
 emit_group(
@@ -413,6 +418,12 @@ emit_group(
     "WindowManagement",
     "WindowManagement",
     [f"{file_ids[s]} /* {Path(s).name} */" for s in features_window_management_srcs],
+)
+emit_group(
+    ids["features_app_shortcuts_group"],
+    "AppShortcuts",
+    "AppShortcuts",
+    [f"{file_ids[s]} /* {Path(s).name} */" for s in features_app_shortcuts_srcs],
 )
 emit_group(
     ids["hotkeys_group"],
