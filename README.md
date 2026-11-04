@@ -93,7 +93,7 @@ enabled = true
 # Control-Left/Right, and external activators (Reef, Spotlight, Dock, …) focusing
 # an app on another Space — including on another display — jump with no slide
 # and no edge bounce. Digit hotkeys also switch desktops on other displays
-# (best-effort focus via pointer warp, then a dock-swipe on that display).
+# (best-effort focus via pointer warp + click, then a dock-swipe on that display).
 disable_motion = false
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9
@@ -179,7 +179,7 @@ key = a
 ## Good to know
 
 - Desktops are numbered 1–9 in Mission Control order across all displays.
-- Digit Switch warps the pointer onto the target display when needed, then dock-swipes that display's Space strip; keyboard focus may still land on the previous app if nothing on the target Space accepts focus.
+- Digit Switch warps the pointer onto the target display when needed, posts a synthetic click so that display becomes active (menu bar / keyboard focus), then dock-swipes that display's Space strip; the click may raise whatever is under the pointer, and focus can still miss if nothing on the target Space accepts it.
 - A hotkey that failed to register is tried again on the next reload or Settings save.
 - Hotkeys and window arrangement need Accessibility.
 - If a private SkyLight or Accessibility symbol is missing, Altitude skips that operation instead of crashing at launch.

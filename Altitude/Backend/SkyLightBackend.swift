@@ -268,22 +268,58 @@ final class SkyLightBackend: SpaceService {
         return fallbackCurrentSpaceID(in: layout, prediction: prediction)
     }
 
-    /// Best-effort: move the pointer to the center of the managed display so dock-swipe hits it.
+    /// Best-effort: put keyboard/menu-bar focus on the managed display so dock-swipe hits it.
+    ///
+    /// `CGWarpMouseCursorPosition` alone does not generate mouse events, so the active
+    /// display (and which Space strip a dock-swipe moves) can stay on the previous screen.
     private func focusDisplayBestEffort(_ displayIdentifier: String) {
-        guard let screen = nsScreen(matchingDisplayIdentifier: displayIdentifier) else {
+        guard let screen = nsScreen(matchingDisplayIdentifier: displayIdentifier),
+              let displayID = cgDisplayID(for: screen)
+        else {
             log.error("Could not match managed display to NSScreen for focus warp")
             return
         }
-        guard let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.main?.frame.maxY else {
+        // Quartz global coords (origin top-left of the menu-bar display).
+        let bounds = CGDisplayBounds(displayID)
+        let point = CGPoint(x: bounds.midX, y: bounds.midY)
+
+        _ = CGAssociateMouseAndMouseCursorPosition(1)
+        let warpError = CGWarpMouseCursorPosition(point)
+        if warpError != .success {
+            log.error("CGWarpMouseCursorPosition failed: \(warpError.rawValue)")
+        }
+        postSyntheticClick(at: point)
+        // WindowServer needs a beat to adopt the new active display before the swipe posts.
+        CFRunLoopRunInMode(.defaultMode, 0.05, false)
+    }
+
+    private func postSyntheticClick(at point: CGPoint) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        guard let moved = CGEvent(
+            mouseEventSource: source,
+            mouseType: .mouseMoved,
+            mouseCursorPosition: point,
+            mouseButton: .left
+        ),
+            let down = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseDown,
+                mouseCursorPosition: point,
+                mouseButton: .left
+            ),
+            let up = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseUp,
+                mouseCursorPosition: point,
+                mouseButton: .left
+            )
+        else {
+            log.error("Could not build synthetic click to activate display")
             return
         }
-        let frame = screen.visibleFrame
-        // Cocoa bottom-left → Quartz top-left (same primary maxY flip as AX).
-        let point = CGPoint(x: frame.midX, y: primaryMaxY - frame.midY)
-        let error = CGWarpMouseCursorPosition(point)
-        if error != .success {
-            log.error("CGWarpMouseCursorPosition failed: \(error.rawValue)")
-        }
+        moved.post(tap: .cghidEventTap)
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
     }
 
     private func nsScreen(matchingDisplayIdentifier identifier: String) -> NSScreen? {
@@ -296,13 +332,17 @@ final class SkyLightBackend: SpaceService {
         return nil
     }
 
-    private func displayUUIDString(for screen: NSScreen) -> String? {
+    private func cgDisplayID(for screen: NSScreen) -> CGDirectDisplayID? {
         let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
         guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
             log.error("NSScreen missing NSScreenNumber")
             return nil
         }
-        let displayID = CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
+        return CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
+    }
+
+    private func displayUUIDString(for screen: NSScreen) -> String? {
+        guard let displayID = cgDisplayID(for: screen) else { return nil }
         guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
               let uuidString = CFUUIDCreateString(nil, uuid) as String?
         else {
