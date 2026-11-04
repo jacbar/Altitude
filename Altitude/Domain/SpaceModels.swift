@@ -25,7 +25,6 @@ struct SpaceSnapshot: Sendable {
 enum SpaceServiceError: Error, LocalizedError {
     case spacesUnavailable
     case invalidSpaceIndex(Int)
-    case crossDisplaySwitch(Int)
     case noFocusedWindow
     case accessibilityDenied
 
@@ -35,8 +34,6 @@ enum SpaceServiceError: Error, LocalizedError {
             return "Unable to read macOS Spaces (SkyLight unavailable)"
         case .invalidSpaceIndex(let index):
             return "No desktop at index \(index)"
-        case .crossDisplaySwitch(let index):
-            return "Desktop \(index) is on another display; switching across displays is not supported"
         case .noFocusedWindow:
             return "No focused window to move"
         case .accessibilityDenied:

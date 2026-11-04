@@ -14,7 +14,8 @@ enabled = true
 # When true (and desktop is enabled), hotkey switches, trackpad Space swipes,
 # Control-Left/Right, and external activators (Reef, Spotlight, Dock, …) focusing
 # an app on another Space — including on another display — jump with no slide
-# and no edge bounce. Digit hotkeys still refuse cross-display switches.
+# and no edge bounce. Digit hotkeys also switch desktops on other displays
+# (best-effort focus via pointer warp, then a dock-swipe on that display).
 disable_motion = false
 # Highest desktop number that gets a hotkey (1...max). Clamped to existing Spaces at runtime.
 max_space = 9

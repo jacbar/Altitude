@@ -52,29 +52,36 @@ final class SkyLightBackend: SpaceService {
         guard let display = layout.displays.first(where: { $0.identifier == target.displayIdentifier }) else {
             throw SpaceServiceError.spacesUnavailable
         }
-        // A dock-swipe only moves the active display.
+
+        // Dock-swipe follows the display under the pointer; warp there first when needed.
         if let activeDisplay = activeDisplayIdentifier(in: layout, prediction: prediction),
            activeDisplay != display.identifier
         {
-            throw SpaceServiceError.crossDisplaySwitch(index)
-        }
-        guard let currentID = currentSpaceID(on: display, prediction: prediction),
-              let from = display.spaceIDs.firstIndex(of: currentID),
-              let to = display.spaceIDs.firstIndex(of: target.id)
-        else {
-            throw SpaceServiceError.spacesUnavailable
-        }
-        if from == to {
-            return
+            focusDisplayBestEffort(display.identifier)
         }
 
-        performSwipe(
-            on: display,
-            from: from,
-            to: to,
-            destinationID: target.id,
-            instant: instantSwitching
+        guard let currentID = currentSpaceID(on: display, prediction: prediction) else {
+            throw SpaceServiceError.spacesUnavailable
+        }
+        let route = digitSwitchRoute(
+            targetSpaceID: target.id,
+            displaySpaceIDs: display.spaceIDs,
+            currentID: currentID
         )
+        switch route {
+        case .alreadyThere:
+            return
+        case .otherDisplay:
+            throw SpaceServiceError.spacesUnavailable
+        case .posted(_, let from, let to, let destinationID):
+            performSwipe(
+                on: display,
+                from: from,
+                to: to,
+                destinationID: destinationID,
+                instant: instantSwitching
+            )
+        }
     }
 
     func switchToPreferredSpace(among spaceIDs: [CGSSpaceID], instant: Bool) -> InstantSwitchResult {
@@ -248,16 +255,7 @@ final class SkyLightBackend: SpaceService {
         guard !layout.displays.isEmpty else { return nil }
         let prediction = livePrediction(activeID: CGSPrivate.activeSpaceID())
 
-        let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
-        guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
-            log.error("NSScreen missing NSScreenNumber")
-            return fallbackCurrentSpaceID(in: layout, prediction: prediction)
-        }
-        let displayID = CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
-        guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
-              let uuidString = CFUUIDCreateString(nil, uuid) as String?
-        else {
-            log.error("Could not resolve display UUID for screen")
+        guard let uuidString = displayUUIDString(for: screen) else {
             return fallbackCurrentSpaceID(in: layout, prediction: prediction)
         }
 
@@ -268,6 +266,50 @@ final class SkyLightBackend: SpaceService {
         }
 
         return fallbackCurrentSpaceID(in: layout, prediction: prediction)
+    }
+
+    /// Best-effort: move the pointer to the center of the managed display so dock-swipe hits it.
+    private func focusDisplayBestEffort(_ displayIdentifier: String) {
+        guard let screen = nsScreen(matchingDisplayIdentifier: displayIdentifier) else {
+            log.error("Could not match managed display to NSScreen for focus warp")
+            return
+        }
+        guard let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.main?.frame.maxY else {
+            return
+        }
+        let frame = screen.visibleFrame
+        // Cocoa bottom-left → Quartz top-left (same primary maxY flip as AX).
+        let point = CGPoint(x: frame.midX, y: primaryMaxY - frame.midY)
+        let error = CGWarpMouseCursorPosition(point)
+        if error != .success {
+            log.error("CGWarpMouseCursorPosition failed: \(error.rawValue)")
+        }
+    }
+
+    private func nsScreen(matchingDisplayIdentifier identifier: String) -> NSScreen? {
+        for screen in NSScreen.screens {
+            guard let uuidString = displayUUIDString(for: screen) else { continue }
+            if identifier.caseInsensitiveCompare(uuidString) == .orderedSame {
+                return screen
+            }
+        }
+        return nil
+    }
+
+    private func displayUUIDString(for screen: NSScreen) -> String? {
+        let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
+        guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
+            log.error("NSScreen missing NSScreenNumber")
+            return nil
+        }
+        let displayID = CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
+              let uuidString = CFUUIDCreateString(nil, uuid) as String?
+        else {
+            log.error("Could not resolve display UUID for screen")
+            return nil
+        }
+        return uuidString
     }
 
     private func fallbackCurrentSpaceID(
