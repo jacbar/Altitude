@@ -12,6 +12,7 @@ enum HotkeyAction: Equatable {
     case moveTo(Int)
     case maximizeAll
     case tileColumns
+    case jumpToApp(Int)
 }
 
 /// One registered Carbon hotkey.

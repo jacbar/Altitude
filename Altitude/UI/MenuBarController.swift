@@ -14,6 +14,11 @@ final class MenuBarController: NSObject {
     private let configStore: ConfigPersisting
     private let launchAtLogin: LaunchAtLoginControlling
     private let arranger = WindowArranger()
+    private let windowFocuser = WindowFocuser()
+    private lazy var appShortcutJumper = AppShortcutJumper(
+        spaceService: spaceService,
+        focuser: windowFocuser
+    )
     private lazy var hotkeys: HotkeyApplying = HotkeyRegistrar { [weak self] action in
         Task { @MainActor [weak self] in
             self?.handle(action: action)
@@ -117,6 +122,9 @@ final class MenuBarController: NSObject {
             performSpaceHotkey { try spaceService.switchTo(index: index) }
         case .moveTo(let index):
             performSpaceHotkey { try spaceService.moveFocusedWindow(to: index) }
+        case .jumpToApp(let index):
+            guard config.appShortcuts.entries.indices.contains(index) else { return }
+            appShortcutJumper.jump(toBundleID: config.appShortcuts.entries[index].bundleID)
         }
     }
 
@@ -422,6 +430,7 @@ final class MenuBarController: NSObject {
         lastSnapshot = spaceService.snapshot()
         let bindings = DesktopFeature.bindings(config: config, spaceCount: lastSnapshot.spaces.count)
             + WindowManagementFeature.bindings(config: config)
+            + AppShortcutsFeature.bindings(config: config)
         hotkeys.apply(bindings)
         refreshIndicator()
         buildMenu()
@@ -470,6 +479,7 @@ final class MenuBarController: NSObject {
             lastSnapshot = snapshot
             let bindings = DesktopFeature.bindings(config: config, spaceCount: snapshot.spaces.count)
                 + WindowManagementFeature.bindings(config: config)
+                + AppShortcutsFeature.bindings(config: config)
             hotkeys.apply(bindings)
             refreshIndicator()
             buildMenu()
@@ -482,7 +492,10 @@ final class MenuBarController: NSObject {
         let mode = CommandTabFeature.motionMode(config: config)
         if mode.wantsTaps {
             if motionSuppressor == nil {
-                motionSuppressor = SystemMotionSuppressor(spaceService: spaceService)
+                motionSuppressor = SystemMotionSuppressor(
+                    spaceService: spaceService,
+                    focuser: windowFocuser
+                )
             }
             motionSuppressor?.apply(mode)
         } else {
