@@ -1,7 +1,7 @@
 import Foundation
 
 /// Modifier combination for a hotkey chord.
-struct ModifierFlags: Equatable, Sendable {
+struct ModifierFlags: Equatable, Hashable, Sendable {
     var alt: Bool
     var shift: Bool
     var ctrl: Bool
@@ -32,7 +32,7 @@ struct PartialModifierFlags: Equatable, Sendable {
 }
 
 /// A letter key plus modifiers (window-management chords).
-struct KeyChord: Equatable, Sendable {
+struct KeyChord: Equatable, Hashable, Sendable {
     var modifiers: ModifierFlags
     /// Lowercase ASCII letter `a`…`z`.
     var key: Character
@@ -44,6 +44,13 @@ struct KeyChord: Equatable, Sendable {
 /// Partial window chord; `nil` key means missing / empty / invalid.
 struct PartialKeyChord: Equatable, Sendable {
     var modifiers: PartialModifierFlags
+    var key: Character?
+}
+
+/// Partial app-shortcut entry while parsing `[app_shortcuts.entry.N]`.
+struct PartialAppShortcutEntry: Equatable, Sendable {
+    var bundleID: String?
+    var modifiers: PartialModifierFlags = PartialModifierFlags()
     var key: Character?
 }
 
