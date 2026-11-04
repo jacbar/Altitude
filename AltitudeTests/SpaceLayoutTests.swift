@@ -183,6 +183,52 @@ final class SpaceLayoutTests: XCTestCase {
         )
     }
 
+    func testDigitSwitchRouteSameDisplayHop() {
+        let route = digitSwitchRoute(
+            targetSpaceID: 30,
+            displaySpaceIDs: [10, 20, 30],
+            currentID: 10
+        )
+        XCTAssertEqual(
+            route,
+            .posted(steps: 2, from: 0, to: 2, destinationID: 30)
+        )
+    }
+
+    func testDigitSwitchRouteAlreadyThere() {
+        let route = digitSwitchRoute(
+            targetSpaceID: 20,
+            displaySpaceIDs: [10, 20, 30],
+            currentID: 20
+        )
+        XCTAssertEqual(route, .alreadyThere)
+    }
+
+    func testDigitSwitchRouteMultiStepOnNonActiveDisplayStrip() {
+        // External display strip while focus is elsewhere: hop from that strip's current Space.
+        let otherDisplayStrip: [CGSSpaceID] = [40, 41, 42, 43]
+        let route = digitSwitchRoute(
+            targetSpaceID: 43,
+            displaySpaceIDs: otherDisplayStrip,
+            currentID: 41
+        )
+        XCTAssertEqual(
+            route,
+            .posted(steps: 2, from: 1, to: 3, destinationID: 43)
+        )
+    }
+
+    func testDigitSwitchRouteMissingIDsAreOtherDisplay() {
+        XCTAssertEqual(
+            digitSwitchRoute(targetSpaceID: 99, displaySpaceIDs: [10, 20], currentID: 10),
+            .otherDisplay
+        )
+        XCTAssertEqual(
+            digitSwitchRoute(targetSpaceID: 20, displaySpaceIDs: [10, 20], currentID: 99),
+            .otherDisplay
+        )
+    }
+
     func testOneSpaceRouteEdgesAreAlreadyThere() {
         let spaces: [CGSSpaceID] = [10, 20, 30]
         XCTAssertEqual(

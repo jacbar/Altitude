@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreGraphics
 import Foundation
 import os.log
@@ -52,29 +53,36 @@ final class SkyLightBackend: SpaceService {
         guard let display = layout.displays.first(where: { $0.identifier == target.displayIdentifier }) else {
             throw SpaceServiceError.spacesUnavailable
         }
-        // A dock-swipe only moves the active display.
+
+        guard let currentID = currentSpaceID(on: display, prediction: prediction) else {
+            throw SpaceServiceError.spacesUnavailable
+        }
+
+        // Dock-swipe follows the active display; pull focus there before hopping.
         if let activeDisplay = activeDisplayIdentifier(in: layout, prediction: prediction),
            activeDisplay != display.identifier
         {
-            throw SpaceServiceError.crossDisplaySwitch(index)
+            focusDisplayBestEffort(displayIdentifier: display.identifier, spaceID: currentID)
         }
-        guard let currentID = currentSpaceID(on: display, prediction: prediction),
-              let from = display.spaceIDs.firstIndex(of: currentID),
-              let to = display.spaceIDs.firstIndex(of: target.id)
-        else {
-            throw SpaceServiceError.spacesUnavailable
-        }
-        if from == to {
-            return
-        }
-
-        performSwipe(
-            on: display,
-            from: from,
-            to: to,
-            destinationID: target.id,
-            instant: instantSwitching
+        let route = digitSwitchRoute(
+            targetSpaceID: target.id,
+            displaySpaceIDs: display.spaceIDs,
+            currentID: currentID
         )
+        switch route {
+        case .alreadyThere:
+            return
+        case .otherDisplay:
+            throw SpaceServiceError.spacesUnavailable
+        case .posted(_, let from, let to, let destinationID):
+            performSwipe(
+                on: display,
+                from: from,
+                to: to,
+                destinationID: destinationID,
+                instant: instantSwitching
+            )
+        }
     }
 
     func switchToPreferredSpace(among spaceIDs: [CGSSpaceID], instant: Bool) -> InstantSwitchResult {
@@ -248,16 +256,7 @@ final class SkyLightBackend: SpaceService {
         guard !layout.displays.isEmpty else { return nil }
         let prediction = livePrediction(activeID: CGSPrivate.activeSpaceID())
 
-        let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
-        guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
-            log.error("NSScreen missing NSScreenNumber")
-            return fallbackCurrentSpaceID(in: layout, prediction: prediction)
-        }
-        let displayID = CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
-        guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
-              let uuidString = CFUUIDCreateString(nil, uuid) as String?
-        else {
-            log.error("Could not resolve display UUID for screen")
+        guard let uuidString = displayUUIDString(for: screen) else {
             return fallbackCurrentSpaceID(in: layout, prediction: prediction)
         }
 
@@ -268,6 +267,146 @@ final class SkyLightBackend: SpaceService {
         }
 
         return fallbackCurrentSpaceID(in: layout, prediction: prediction)
+    }
+
+    /// Best-effort: put keyboard/menu-bar focus on the managed display so dock-swipe hits it.
+    ///
+    /// Prefer raising a window on that display's current Space (same idea as Command-Tab
+    /// landing). A pointer warp alone does not move focus; a click while ⌥ is held would be
+    /// an Option-click and can hide other apps — only used as a flags-cleared fallback.
+    private func focusDisplayBestEffort(displayIdentifier: String, spaceID: CGSSpaceID) {
+        if activateAnyWindow(on: spaceID) {
+            CFRunLoopRunInMode(.defaultMode, 0.05, false)
+            return
+        }
+
+        guard let screen = nsScreen(matchingDisplayIdentifier: displayIdentifier),
+              let displayID = cgDisplayID(for: screen)
+        else {
+            log.error("Could not match managed display to NSScreen for focus warp")
+            return
+        }
+        // Quartz global coords. Aim at the menu-bar strip, not window content.
+        let bounds = CGDisplayBounds(displayID)
+        let point = CGPoint(x: bounds.midX, y: bounds.minY + 10)
+
+        _ = CGAssociateMouseAndMouseCursorPosition(1)
+        let warpError = CGWarpMouseCursorPosition(point)
+        if warpError != .success {
+            log.error("CGWarpMouseCursorPosition failed: \(warpError.rawValue)")
+        }
+        postSyntheticClick(at: point)
+        CFRunLoopRunInMode(.defaultMode, 0.05, false)
+    }
+
+    /// Activate any on-screen user window that belongs to `spaceID`.
+    @discardableResult
+    private func activateAnyWindow(on spaceID: CGSSpaceID) -> Bool {
+        guard let info = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else {
+            return false
+        }
+        let selfPID = ProcessInfo.processInfo.processIdentifier
+        for dict in info {
+            let layer = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
+            guard layer == 0 else { continue }
+            guard let number = dict[kCGWindowNumber as String] as? NSNumber else { continue }
+            let windowID = CGWindowID(truncatingIfNeeded: number.uint32Value)
+            guard windowID != 0, CGSPrivate.spaceIDs(forWindow: windowID).contains(spaceID) else {
+                continue
+            }
+            guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber else { continue }
+            let pid = pid_t(owner.int32Value)
+            guard pid != selfPID,
+                  let app = NSRunningApplication(processIdentifier: pid),
+                  app.activationPolicy == .regular,
+                  !app.isTerminated
+            else { continue }
+
+            let donor = NSWorkspace.shared.frontmostApplication ?? .current
+            _ = app.activate(from: donor, options: [])
+            raiseWindow(windowID: windowID, pid: pid)
+            log.info("Activated pid \(pid) window \(windowID) for cross-display focus")
+            return true
+        }
+        return false
+    }
+
+    private func raiseWindow(windowID: CGWindowID, pid: pid_t) {
+        let axApp = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(axApp, 0.1)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
+              let windows = value as? [AXUIElement]
+        else { return }
+        guard let window = windows.first(where: { $0.axWindowID() == windowID }) else { return }
+        AXUIElementSetAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, window)
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, kCFBooleanTrue)
+        AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    }
+
+    /// Click with modifiers cleared — hotkeys are ⌥N, and Option-click hides other apps.
+    private func postSyntheticClick(at point: CGPoint) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        guard let moved = CGEvent(
+            mouseEventSource: source,
+            mouseType: .mouseMoved,
+            mouseCursorPosition: point,
+            mouseButton: .left
+        ),
+            let down = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseDown,
+                mouseCursorPosition: point,
+                mouseButton: .left
+            ),
+            let up = CGEvent(
+                mouseEventSource: source,
+                mouseType: .leftMouseUp,
+                mouseCursorPosition: point,
+                mouseButton: .left
+            )
+        else {
+            log.error("Could not build synthetic click to activate display")
+            return
+        }
+        for event in [moved, down, up] {
+            event.flags = []
+            event.post(tap: .cghidEventTap)
+        }
+    }
+
+    private func nsScreen(matchingDisplayIdentifier identifier: String) -> NSScreen? {
+        for screen in NSScreen.screens {
+            guard let uuidString = displayUUIDString(for: screen) else { continue }
+            if identifier.caseInsensitiveCompare(uuidString) == .orderedSame {
+                return screen
+            }
+        }
+        return nil
+    }
+
+    private func cgDisplayID(for screen: NSScreen) -> CGDirectDisplayID? {
+        let screenNumberKey = NSDeviceDescriptionKey(rawValue: "NSScreenNumber")
+        guard let number = screen.deviceDescription[screenNumberKey] as? NSNumber else {
+            log.error("NSScreen missing NSScreenNumber")
+            return nil
+        }
+        return CGDirectDisplayID(truncatingIfNeeded: number.uint32Value)
+    }
+
+    private func displayUUIDString(for screen: NSScreen) -> String? {
+        guard let displayID = cgDisplayID(for: screen) else { return nil }
+        guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
+              let uuidString = CFUUIDCreateString(nil, uuid) as String?
+        else {
+            log.error("Could not resolve display UUID for screen")
+            return nil
+        }
+        return uuidString
     }
 
     private func fallbackCurrentSpaceID(

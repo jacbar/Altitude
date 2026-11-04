@@ -102,6 +102,32 @@ func preferredSpaceRoute(
     return (nil, .otherDisplay)
 }
 
+/// Digit hotkey hop to one Space on a single display strip (active or not).
+///
+/// - Returns `.alreadyThere` when `targetSpaceID` is already current.
+/// - Returns `.posted` when both IDs sit on the strip and differ.
+/// - Returns `.otherDisplay` when either ID is missing from the strip.
+func digitSwitchRoute(
+    targetSpaceID: CGSSpaceID,
+    displaySpaceIDs: [CGSSpaceID],
+    currentID: CGSSpaceID
+) -> SpaceRoute {
+    guard let from = displaySpaceIDs.firstIndex(of: currentID),
+          let to = displaySpaceIDs.firstIndex(of: targetSpaceID)
+    else {
+        return .otherDisplay
+    }
+    if from == to {
+        return .alreadyThere
+    }
+    return .posted(
+        steps: abs(to - from),
+        from: from,
+        to: to,
+        destinationID: targetSpaceID
+    )
+}
+
 /// Move one Space left or right on the active display.
 func oneSpaceRoute(
     direction: SpaceHopDirection,
