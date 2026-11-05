@@ -38,7 +38,7 @@ final class SystemMotionSuppressor: NSObject {
     private let spaceService: SpaceService
     private let hud = AppSwitchHUD()
     private let tapHost = EventTapHost()
-    private let focuser = WindowFocuser()
+    private let focuser: WindowFocuser
     private let tapContext = MotionTapContext()
     private var didLogTapFailure = false
     private var mode: SystemMotionMode = .off
@@ -50,8 +50,10 @@ final class SystemMotionSuppressor: NSObject {
     private var activationFallback: DispatchWorkItem?
     private var activationPoll: DispatchWorkItem?
 
-    init(spaceService: SpaceService) {
+    /// Shared `focuser` lets App Shortcuts mark internal activation so external hops do not double-fire.
+    init(spaceService: SpaceService, focuser: WindowFocuser = WindowFocuser()) {
         self.spaceService = spaceService
+        self.focuser = focuser
         super.init()
         tapContext.suppressor = self
         tapContext.tapHost = tapHost

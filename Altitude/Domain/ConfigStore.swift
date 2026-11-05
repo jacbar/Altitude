@@ -40,19 +40,33 @@ struct WindowManagementConfig: Equatable, Sendable {
     )
 }
 
+struct AppShortcutEntry: Equatable, Sendable {
+    var bundleID: String
+    var chord: KeyChord
+}
+
+struct AppShortcutsConfig: Equatable, Sendable {
+    var enabled: Bool
+    var entries: [AppShortcutEntry]
+
+    static let `default` = AppShortcutsConfig(enabled: false, entries: [])
+}
+
 struct AppConfig: Equatable, Sendable {
     var version: Int
     var launchAtLogin: Bool
     var desktop: DesktopConfig
     var commandTab: CommandTabConfig
     var windowManagement: WindowManagementConfig
+    var appShortcuts: AppShortcutsConfig
 
     static let `default` = AppConfig(
         version: 2,
         launchAtLogin: false,
         desktop: .default,
         commandTab: .default,
-        windowManagement: .default
+        windowManagement: .default,
+        appShortcuts: .default
     )
 }
 
@@ -69,6 +83,8 @@ enum ConfigLoadResult: Equatable {
 struct ConfigStore {
     /// Hard cap matching Carbon digit hotkeys (1…9).
     static let maxHotkeySpace = 9
+    /// Hard cap for `[app_shortcuts.entry.N]` rows.
+    static let maxAppShortcuts = 32
     /// Reject absurdly large config files (symlink / DoS guard). Measured on resolved bytes.
     static let maxConfigBytes: UInt64 = 64 * 1024
 
@@ -217,6 +233,19 @@ struct ConfigStore {
             lines.append("\(entry.key) = \(renderValue(config, field: entry.field))")
         }
 
+        let capped = Array(config.appShortcuts.entries.prefix(maxAppShortcuts))
+        for (offset, entry) in capped.enumerated() {
+            let n = offset + 1
+            lines.append("")
+            lines.append("[app_shortcuts.entry.\(n)]")
+            lines.append("bundle_id = \(entry.bundleID)")
+            lines.append("alt = \(tomlBool(entry.chord.modifiers.alt))")
+            lines.append("shift = \(tomlBool(entry.chord.modifiers.shift))")
+            lines.append("ctrl = \(tomlBool(entry.chord.modifiers.ctrl))")
+            lines.append("cmd = \(tomlBool(entry.chord.modifiers.cmd))")
+            lines.append("key = \(entry.chord.key)")
+        }
+
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -224,6 +253,7 @@ struct ConfigStore {
         let d = config.desktop
         let c = config.commandTab
         let w = config.windowManagement
+        let a = config.appShortcuts
         switch field {
         case .version: return String(config.version)
         case .launchAtLogin: return tomlBool(config.launchAtLogin)
@@ -252,6 +282,7 @@ struct ConfigStore {
         case .equalSplitCtrl: return tomlBool(w.equalSplit.modifiers.ctrl)
         case .equalSplitCmd: return tomlBool(w.equalSplit.modifiers.cmd)
         case .equalSplitKey: return String(w.equalSplit.key)
+        case .appShortcutsEnabled: return tomlBool(a.enabled)
         }
     }
 
@@ -306,6 +337,7 @@ private enum ConfigField {
     case margin
     case maximizeAlt, maximizeShift, maximizeCtrl, maximizeCmd, maximizeKey
     case equalSplitAlt, equalSplitShift, equalSplitCtrl, equalSplitCmd, equalSplitKey
+    case appShortcutsEnabled
 }
 
 private struct ConfigSchemaEntry {
@@ -342,6 +374,7 @@ private let schema: [ConfigSchemaEntry] = [
     .init(section: "window_management.equal_split", key: "ctrl", field: .equalSplitCtrl),
     .init(section: "window_management.equal_split", key: "cmd", field: .equalSplitCmd),
     .init(section: "window_management.equal_split", key: "key", field: .equalSplitKey),
+    .init(section: "app_shortcuts", key: "enabled", field: .appShortcutsEnabled),
 ]
 
 struct ConfigParseResult: Equatable {
@@ -365,6 +398,7 @@ enum MinimalTOML {
         var movePartial = PartialModifierFlags()
         var maximizePartial = PartialKeyChord(modifiers: PartialModifierFlags(), key: nil)
         var equalSplitPartial = PartialKeyChord(modifiers: PartialModifierFlags(), key: nil)
+        var entryPartials: [Int: PartialAppShortcutEntry] = [:]
 
         for rawLine in text.components(separatedBy: .newlines) {
             var line = rawLine
@@ -388,6 +422,18 @@ enum MinimalTOML {
 
             // Old schema sections are ignored entirely (no migration).
             if let section, ["spaces", "hotkeys", "arrange"].contains(section) {
+                continue
+            }
+
+            if let entryIndex = appShortcutEntryIndex(section: section) {
+                applyAppShortcutEntryField(
+                    entryIndex: entryIndex,
+                    key: key,
+                    value: value,
+                    qualifiedKey: qualifiedKey,
+                    entryPartials: &entryPartials,
+                    ignoredKeys: &ignoredKeys
+                )
                 continue
             }
 
@@ -424,7 +470,94 @@ enum MinimalTOML {
         config.windowManagement.maximize = windowResolved.maximize
         config.windowManagement.equalSplit = windowResolved.equalSplit
 
+        config.appShortcuts.entries = resolveAppShortcutEntries(entryPartials)
+
         return ConfigParseResult(config: config, ignoredKeys: ignoredKeys)
+    }
+
+    /// `app_shortcuts.entry.<n>` with `n` in 1…`maxAppShortcuts`.
+    private static func appShortcutEntryIndex(section: String?) -> Int? {
+        guard let section, section.hasPrefix("app_shortcuts.entry.") else { return nil }
+        let suffix = String(section.dropFirst("app_shortcuts.entry.".count))
+        guard let n = Int(suffix), (1...ConfigStore.maxAppShortcuts).contains(n) else { return nil }
+        return n
+    }
+
+    private static func applyAppShortcutEntryField(
+        entryIndex: Int,
+        key: String,
+        value: String,
+        qualifiedKey: String,
+        entryPartials: inout [Int: PartialAppShortcutEntry],
+        ignoredKeys: inout [String]
+    ) {
+        var partial = entryPartials[entryIndex] ?? PartialAppShortcutEntry()
+        switch key {
+        case "bundle_id":
+            if let id = parseBundleID(value) {
+                partial.bundleID = id
+            } else {
+                warnInvalid(qualifiedKey, value)
+                partial.bundleID = nil
+            }
+        case "alt":
+            assignModifier(&partial.modifiers.alt, value, qualifiedKey)
+        case "shift":
+            assignModifier(&partial.modifiers.shift, value, qualifiedKey)
+        case "ctrl":
+            assignModifier(&partial.modifiers.ctrl, value, qualifiedKey)
+        case "cmd":
+            assignModifier(&partial.modifiers.cmd, value, qualifiedKey)
+        case "key":
+            if let token = parseAppShortcutKey(value) {
+                partial.key = token
+            } else {
+                warnInvalid(qualifiedKey, value)
+                partial.key = nil
+            }
+        default:
+            ignoredKeys.append(qualifiedKey)
+            log.warning("Ignoring unknown config key \(qualifiedKey, privacy: .public)")
+            return
+        }
+        entryPartials[entryIndex] = partial
+    }
+
+    private static func resolveAppShortcutEntries(
+        _ partials: [Int: PartialAppShortcutEntry]
+    ) -> [AppShortcutEntry] {
+        let none = ModifierFlags(alt: false, shift: false, ctrl: false, cmd: false)
+        var entries: [AppShortcutEntry] = []
+        for n in partials.keys.sorted() {
+            guard entries.count < ConfigStore.maxAppShortcuts else { break }
+            guard let partial = partials[n],
+                  let bundleID = partial.bundleID, !bundleID.isEmpty,
+                  let key = partial.key
+            else {
+                continue
+            }
+            entries.append(AppShortcutEntry(
+                bundleID: bundleID,
+                chord: KeyChord(
+                    modifiers: partial.modifiers.resolved(defaults: none),
+                    key: key
+                )
+            ))
+        }
+        return entries
+    }
+
+    private static func parseBundleID(_ value: String) -> String? {
+        var text = value
+        if text.count >= 2 {
+            if text.hasPrefix("\""), text.hasSuffix("\"") {
+                text = String(text.dropFirst().dropLast())
+            } else if text.hasPrefix("'"), text.hasSuffix("'") {
+                text = String(text.dropFirst().dropLast())
+            }
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func schemaField(section: String?, key: String) -> ConfigField? {
@@ -514,6 +647,8 @@ enum MinimalTOML {
                 warnInvalid(qualifiedKey, value)
                 equalSplitPartial.key = nil
             }
+        case .appShortcutsEnabled:
+            if let bool = parseBool(value) { config.appShortcuts.enabled = bool } else { warnInvalid(qualifiedKey, value) }
         }
     }
 
@@ -534,6 +669,18 @@ enum MinimalTOML {
             return nil
         }
         return c
+    }
+
+    /// Unquoted a–z or 0–9 for App Shortcuts (case-insensitive letters). Quoted values are invalid.
+    private static func parseAppShortcutKey(_ value: String) -> Character? {
+        if value.hasPrefix("\"") || value.hasPrefix("'") {
+            return nil
+        }
+        guard value.count == 1, let c = value.lowercased().first else { return nil }
+        if ("a"..."z").contains(c) || ("0"..."9").contains(c) {
+            return c
+        }
+        return nil
     }
 
     /// Accepts true/false plus yes/no/1/0 (case-insensitive).

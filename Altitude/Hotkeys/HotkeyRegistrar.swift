@@ -12,6 +12,7 @@ enum HotkeyAction: Equatable {
     case moveTo(Int)
     case maximizeAll
     case tileColumns
+    case jumpToApp(Int)
 }
 
 /// One registered Carbon hotkey.
@@ -237,6 +238,23 @@ enum HotkeyChordMapping {
         return codes[n - 1]
     }
 
+    /// Key code for digit character `0`…`9` (ANSI).
+    static func digitCharacterKeyCode(_ key: Character) -> UInt32? {
+        switch key {
+        case "1": return UInt32(kVK_ANSI_1)
+        case "2": return UInt32(kVK_ANSI_2)
+        case "3": return UInt32(kVK_ANSI_3)
+        case "4": return UInt32(kVK_ANSI_4)
+        case "5": return UInt32(kVK_ANSI_5)
+        case "6": return UInt32(kVK_ANSI_6)
+        case "7": return UInt32(kVK_ANSI_7)
+        case "8": return UInt32(kVK_ANSI_8)
+        case "9": return UInt32(kVK_ANSI_9)
+        case "0": return UInt32(kVK_ANSI_0)
+        default: return nil
+        }
+    }
+
     /// Key code for a lowercase a–z letter on the active layout (via `resolver`).
     static func letterKeyCode(
         _ key: Character,
@@ -244,5 +262,16 @@ enum HotkeyChordMapping {
     ) -> UInt32? {
         guard ("a"..."z").contains(key) else { return nil }
         return resolver.keyCode(for: key)
+    }
+
+    /// Letter (layout) or digit (ANSI) key code for App Shortcuts / shared chords.
+    static func chordKeyCode(
+        _ key: Character,
+        resolver: LetterKeyResolving = LayoutLetterKeyResolver()
+    ) -> UInt32? {
+        if ("a"..."z").contains(key) {
+            return letterKeyCode(key, resolver: resolver)
+        }
+        return digitCharacterKeyCode(key)
     }
 }

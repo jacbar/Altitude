@@ -42,4 +42,21 @@ final class HotkeyChordMappingTests: XCTestCase {
         XCTAssertNil(HotkeyChordMapping.letterKeyCode("A", resolver: resolver))
         XCTAssertNil(HotkeyChordMapping.letterKeyCode("1", resolver: resolver))
     }
+
+    func testChordKeyCodeDigitsAndLetters() {
+        XCTAssertEqual(HotkeyChordMapping.digitCharacterKeyCode("0"), UInt32(kVK_ANSI_0))
+        XCTAssertEqual(HotkeyChordMapping.digitCharacterKeyCode("1"), UInt32(kVK_ANSI_1))
+        XCTAssertEqual(HotkeyChordMapping.chordKeyCode("1"), UInt32(kVK_ANSI_1))
+        XCTAssertNil(HotkeyChordMapping.chordKeyCode("!"))
+
+        struct FakeResolver: LetterKeyResolving {
+            func keyCode(for letter: Character) -> UInt32? {
+                letter == "s" ? UInt32(kVK_ANSI_S) : nil
+            }
+        }
+        XCTAssertEqual(
+            HotkeyChordMapping.chordKeyCode("s", resolver: FakeResolver()),
+            UInt32(kVK_ANSI_S)
+        )
+    }
 }

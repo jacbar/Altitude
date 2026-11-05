@@ -6,6 +6,8 @@ final class ShortcutRecorderControl: NSButton {
     enum Mode {
         /// Windows chords: modifiers + letter (a–z).
         case letterChord
+        /// App Shortcuts: modifiers + letter (a–z) or digit (0–9).
+        case letterOrDigitChord
         /// Desktop switch/move: modifiers only (⌥, ⌥⇧, …).
         case modifiersOnly
     }
@@ -74,7 +76,7 @@ final class ShortcutRecorderControl: NSButton {
             }
         } else {
             switch mode {
-            case .letterChord:
+            case .letterChord, .letterOrDigitChord:
                 title = shortcutSymbols(modifiers: modifiers, key: key)
             case .modifiersOnly:
                 title = shortcutSymbols(modifiers: modifiers, key: nil)
@@ -99,7 +101,12 @@ final class ShortcutRecorderControl: NSButton {
         switch mode {
         case .letterChord:
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handleLetterKey(event)
+                self?.handleLetterKey(event, allowDigits: false)
+                return nil
+            }
+        case .letterOrDigitChord:
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                self?.handleLetterKey(event, allowDigits: true)
                 return nil
             }
         case .modifiersOnly:
@@ -144,14 +151,20 @@ final class ShortcutRecorderControl: NSButton {
         }
     }
 
-    private func handleLetterKey(_ event: NSEvent) {
+    private func handleLetterKey(_ event: NSEvent, allowDigits: Bool) {
         if event.keyCode == UInt16(kVK_Escape) {
             cancelRecording()
             return
         }
 
         let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
-        guard chars.count == 1, let letter = chars.first, ("a"..."z").contains(letter) else {
+        guard chars.count == 1, let key = chars.first else {
+            NSSound.beep()
+            return
+        }
+        let isLetter = ("a"..."z").contains(key)
+        let isDigit = ("0"..."9").contains(key)
+        guard isLetter || (allowDigits && isDigit) else {
             NSSound.beep()
             return
         }
@@ -164,7 +177,7 @@ final class ShortcutRecorderControl: NSButton {
 
         isRecording = false
         stopMonitoring()
-        onRecord?(KeyChord(modifiers: proposed, key: letter))
+        onRecord?(KeyChord(modifiers: proposed, key: key))
     }
 
     private func pollModifierFlags() {

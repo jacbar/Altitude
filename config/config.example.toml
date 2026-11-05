@@ -62,3 +62,20 @@ shift = false
 ctrl = true
 cmd = false
 key = a
+
+[app_shortcuts]
+# When false, no app-jump hotkeys are registered. When true, each
+# [app_shortcuts.entry.N] maps a letter or digit chord to an app by bundle ID.
+# On press: already frontmost → no-op; not running → launch then focus;
+# otherwise instant Space hop to that app's active window, then focus.
+# Add as many entry.N blocks as you need (capped at 32); N is sorted ascending.
+enabled = false
+
+# Example (disabled by default — uncomment and set enabled = true):
+# [app_shortcuts.entry.1]
+# bundle_id = com.apple.Safari
+# alt = true
+# shift = false
+# ctrl = true
+# cmd = false
+# key = s

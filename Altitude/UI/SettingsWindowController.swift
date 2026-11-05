@@ -8,6 +8,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         case desktop = "Desktop"
         case commandTab = "Command-Tab"
         case windows = "Windows"
+        case appShortcuts = "App Shortcuts"
 
         var icon: String {
             switch self {
@@ -15,6 +16,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             case .desktop: return "rectangle.3.group"
             case .commandTab: return "command"
             case .windows: return "rectangle.split.3x1"
+            case .appShortcuts: return "app.badge.checkmark"
             }
         }
     }
@@ -27,6 +29,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
 
     private let container = NSView()
     private var panes: [Tab: NSView] = [:]
+    private let appShortcutsPane = AppShortcutsSettingsPane()
 
     // General
     private let launchAtLoginSwitch = NSSwitch()
@@ -75,6 +78,9 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         window.isReleasedWhenClosed = false
         super.init(window: window)
         window.delegate = self
+
+        appShortcutsPane.menuBar = menuBar
+        appShortcutsPane.isSuppressing = { [weak self] in self?.suppressActions ?? false }
 
         buildPanes()
         installToolbar()
@@ -197,6 +203,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         clearConflict(maximizeConflictLabel)
         clearConflict(equalSplitConflictLabel)
         setEnabled(config.windowManagement.enabled, controls: windowsDependentControls)
+
+        appShortcutsPane.display(config)
     }
 
     // MARK: - Build
@@ -226,6 +234,7 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         panes[.desktop] = makeDesktopPane()
         panes[.commandTab] = makeCommandTabPane()
         panes[.windows] = makeWindowsPane()
+        panes[.appShortcuts] = appShortcutsPane.rootView
 
         // Size to the Desktop pane (largest). Cap width: horizontal stacks use a
         // flexible spacer whose fittingSize can match the full display width.
@@ -252,6 +261,15 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
             pane.topAnchor.constraint(equalTo: container.topAnchor, constant: 16),
             pane.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -16),
         ])
+        // Scroll document layout is wrong while this pane is off-screen; rebuild when shown,
+        // then again after the next layout pass so the clip width is non-zero.
+        if tab == .appShortcuts, let menuBar {
+            appShortcutsPane.display(menuBar.currentConfig)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let menuBar = self.menuBar else { return }
+                self.appShortcutsPane.display(menuBar.currentConfig)
+            }
+        }
     }
 
     private func makeGeneralPane() -> NSView {
@@ -496,6 +514,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         maximizeDefaultButton.action = #selector(useMaximizeDefault)
         equalSplitDefaultButton.target = self
         equalSplitDefaultButton.action = #selector(useEqualSplitDefault)
+
+        appShortcutsPane.wireActions()
     }
 
     @objc private func launchAtLoginChanged() {
@@ -597,7 +617,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         var config = menuBar.currentConfig
         switch validatedWindowChord(
             other: config.windowManagement.equalSplit,
-            proposed: proposed
+            proposed: proposed,
+            additionalConflicts: config.appShortcuts.entries.map(\.chord)
         ) {
         case .accepted(let value):
             clearConflict(maximizeConflictLabel)
@@ -618,7 +639,8 @@ final class SettingsWindowController: NSWindowController, NSToolbarDelegate, NSW
         var config = menuBar.currentConfig
         switch validatedWindowChord(
             other: config.windowManagement.maximize,
-            proposed: proposed
+            proposed: proposed,
+            additionalConflicts: config.appShortcuts.entries.map(\.chord)
         ) {
         case .accepted(let value):
             clearConflict(equalSplitConflictLabel)
