@@ -608,7 +608,9 @@ extension SystemMotionSuppressor {
             appName: appName,
             isOnActiveSpace: isOnActiveSpace
         )
-        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
+        // Mail (and similar) leave same-size weak AX twins after merge; collapse those next.
+        let twinsCollapsed = WindowCatalog.dedupe(merged, appName: appName)
+        return WindowCatalog.collapseRedundantWeakWindows(twinsCollapsed, appName: appName)
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
@@ -626,7 +628,7 @@ extension SystemMotionSuppressor {
             let role = element.axString(kAXRoleAttribute as String)
             guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
             let subrole = element.axString(kAXSubroleAttribute as String)
-            if subrole == "AXUnknown" || subrole == "AXSystemDialog" { return nil }
+            guard WindowCatalog.acceptsSwitchSubrole(subrole) else { return nil }
             guard let size = element.axSize() else { return nil }
             guard size.width >= 160, size.height >= 100 else { return nil }
             let title = element.axString(kAXTitleAttribute as String)

@@ -125,7 +125,9 @@ final class AppShortcutJumper {
             appName: appName,
             isOnActiveSpace: isOnActiveSpace
         )
-        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
+        // Same post-merge twin collapse as Command-Tab (Mail CG/AX duplicates).
+        let twinsCollapsed = WindowCatalog.dedupe(merged, appName: appName)
+        return WindowCatalog.collapseRedundantWeakWindows(twinsCollapsed, appName: appName)
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
@@ -141,7 +143,7 @@ final class AppShortcutJumper {
             let role = element.axString(kAXRoleAttribute as String)
             guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
             let subrole = element.axString(kAXSubroleAttribute as String)
-            if subrole == "AXUnknown" || subrole == "AXSystemDialog" { return nil }
+            guard WindowCatalog.acceptsSwitchSubrole(subrole) else { return nil }
             guard let size = element.axSize() else { return nil }
             guard size.width >= 160, size.height >= 100 else { return nil }
             let title = element.axString(kAXTitleAttribute as String)
