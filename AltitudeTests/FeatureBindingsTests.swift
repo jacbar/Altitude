@@ -64,6 +64,24 @@ final class FeatureBindingsTests: XCTestCase {
         XCTAssertEqual(bindings.map(\.action), [.jumpToApp(0), .jumpToApp(2)])
     }
 
+    func testAppShortcutsBindingsAcceptDigitChord() {
+        var config = AppConfig.default
+        config.appShortcuts.enabled = true
+        config.appShortcuts.entries = [
+            AppShortcutEntry(
+                bundleID: "com.apple.Safari",
+                chord: KeyChord(
+                    modifiers: ModifierFlags(alt: false, shift: false, ctrl: true, cmd: false),
+                    key: "1"
+                )
+            ),
+        ]
+        let bindings = AppShortcutsFeature.bindings(config: config)
+        XCTAssertEqual(bindings.count, 1)
+        XCTAssertEqual(bindings[0].keyCode, HotkeyChordMapping.digitCharacterKeyCode("1"))
+        XCTAssertEqual(bindings[0].action, .jumpToApp(0))
+    }
+
     func testCommandTabMotionMode() {
         let off = CommandTabFeature.motionMode(config: .default)
         XCTAssertEqual(off, .off)

@@ -52,20 +52,27 @@ func validatedWindowChord(
     return .accepted(normalized)
 }
 
-/// Accepts a…z with modifiers that do not collide with window or sibling app-shortcut chords.
-/// Desktop digit bindings cannot collide with letter chords.
+/// Accepts a…z or 0…9 with modifiers that do not collide with window, sibling, or Desktop digit chords.
 func validatedAppShortcutChord(
     proposed: KeyChord,
-    conflicting: [KeyChord]
+    conflicting: [KeyChord],
+    desktopSwitch: ModifierFlags = .optionOnly,
+    desktopMove: ModifierFlags = .optionShift
 ) -> ShortcutValidationResult<KeyChord> {
-    guard let lower = proposed.key.lowercased().first,
-          ("a"..."z").contains(lower),
+    guard let raw = proposed.key.lowercased().first,
+          (("a"..."z").contains(raw) || ("0"..."9").contains(raw)),
           proposed.modifiers.hasAny
     else {
         return .invalid
     }
-    let normalized = KeyChord(modifiers: proposed.modifiers, key: lower)
+    let normalized = KeyChord(modifiers: proposed.modifiers, key: raw)
     if conflicting.contains(normalized) {
+        return .conflict
+    }
+    // Desktop registers switch/move + digits 1…9; same modifiers + digit is a Carbon conflict.
+    if ("1"..."9").contains(raw),
+       normalized.modifiers == desktopSwitch || normalized.modifiers == desktopMove
+    {
         return .conflict
     }
     return .accepted(normalized)

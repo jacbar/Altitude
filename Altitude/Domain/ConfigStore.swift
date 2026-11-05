@@ -509,8 +509,8 @@ enum MinimalTOML {
         case "cmd":
             assignModifier(&partial.modifiers.cmd, value, qualifiedKey)
         case "key":
-            if let letter = parseKeyLetter(value) {
-                partial.key = letter
+            if let token = parseAppShortcutKey(value) {
+                partial.key = token
             } else {
                 warnInvalid(qualifiedKey, value)
                 partial.key = nil
@@ -669,6 +669,18 @@ enum MinimalTOML {
             return nil
         }
         return c
+    }
+
+    /// Unquoted a–z or 0–9 for App Shortcuts (case-insensitive letters). Quoted values are invalid.
+    private static func parseAppShortcutKey(_ value: String) -> Character? {
+        if value.hasPrefix("\"") || value.hasPrefix("'") {
+            return nil
+        }
+        guard value.count == 1, let c = value.lowercased().first else { return nil }
+        if ("a"..."z").contains(c) || ("0"..."9").contains(c) {
+            return c
+        }
+        return nil
     }
 
     /// Accepts true/false plus yes/no/1/0 (case-insensitive).

@@ -4,7 +4,7 @@
   <img src="docs/branding/altitude-full.png" alt="Altitude" width="560" />
 </p>
 
-Opinionated macOS automation inspired by [Space Rabbit](https://space-rabbit.app) and [Spaceman](https://github.com/Jaysce/Spaceman). Altitude is a modular menu-bar agent: desktops, Command-Tab, window management, and app shortcuts. Turn a module off and it does nothing; the status item stays either way.
+Opinionated macOS automation inspired by [Space Rabbit](https://space-rabbit.app), [Spaceman](https://github.com/Jaysce/Spaceman), [Reef](https://github.com/gouwsxander/Reef), and [AltTab](https://github.com/lwouis/alt-tab-macos). Altitude is a modular menu-bar agent: desktops, Command-Tab, window management, and app shortcuts. Turn a module off and it does nothing; the status item stays either way.
 
 **Version:** 0.1.0 · **License:** MIT
 
@@ -33,11 +33,11 @@ Arrange windows on the desktop under the pointer.
 
 ### App Shortcuts
 
-Off by default. Map letter chords to apps by bundle ID (as many entries as you configure, capped at 32). On press: if the app is already frontmost, do nothing; if it is not running, launch it then focus; otherwise hop instantly (no Mission Control slide, including other displays/desktops) to that app's currently active window and focus it. Does not cycle windows, hide-on-refocus, move windows onto the current Space, or replace Command-Tab / Dock / Spotlight. Hops use `switchInstantly` independently of `desktop.disable_motion`.
+Off by default. Map letter or digit chords to apps by bundle ID (as many entries as you configure, capped at 32). On press: if the app is already frontmost, do nothing; if it is not running, launch it then focus; otherwise hop instantly (no Mission Control slide, including other displays/desktops) to that app's currently active window and focus it. Does not cycle windows, hide-on-refocus, move windows onto the current Space, or replace Command-Tab / Dock / Spotlight. Hops use `switchInstantly` independently of `desktop.disable_motion`. Digit chords that reuse Desktop Switch/Move modifiers (e.g. default `⌥1`) conflict and will not save.
 
 ## Always on
 
-- **Settings…** — Cmd+comma; General / Desktop / Command-Tab / Windows / App Shortcuts; writes `config.toml` immediately. Desktop Switch/Move and Windows Maximize/Equal Split use press-to-record (plus **Use Default**); App Shortcuts rows use bundle ID + press-to-record; same-tab / cross-module letter-chord conflicts show a red **already in use** message and do not save
+- **Settings…** — Cmd+comma; General / Desktop / Command-Tab / Windows / App Shortcuts; writes `config.toml` immediately. Desktop Switch/Move and Windows Maximize/Equal Split use press-to-record (plus **Use Default**); App Shortcuts rows pick an app from `/Applications` + press-to-record; same-tab / cross-module letter-chord conflicts show a red **already in use** message and do not save
 - **Menu** — Settings…; Reload Config; Open Config…; Launch at Login; open Accessibility settings
 - **Launch at Login** — menu item and General switch (and `[app] launch_at_login`) via `SMAppService`; reload/relaunch reconciles to config
 - **Accessibility** — prompts once; later launches use the menu if permission is missing
@@ -170,7 +170,7 @@ enabled = false
 - A missing or empty shortcut uses the default chord; a missing modifier flag keeps that flag's default
 - If either desktop modifier set has no modifiers, or the two sets are equal, both defaults are used (`⌥` / `⌥⇧`)
 - A missing, empty, or invalid window key uses that chord's default key; if the two resolved window chords are equal, both defaults are used (`⌃⌥F` / `⌃⌥A`)
-- `[app_shortcuts.entry.N]` blocks are discovered dynamically, sorted by `N`, and capped at 32; an entry needs a non-empty `bundle_id` and a valid letter `key` (missing modifier flags default to false)
+- `[app_shortcuts.entry.N]` blocks are discovered dynamically, sorted by `N`, and capped at 32; an entry needs a non-empty `bundle_id` and a valid letter or digit `key` (missing modifier flags default to false)
 - Unquoted key letters are case-insensitive; a quoted key is invalid. The stored letter is resolved through the active keyboard layout when the hotkey is registered; if that layout has no such key, the chord stays unregistered until the next apply
 - Invalid bools/ints keep the field default; unknown keys are ignored
 - Old `[spaces]`, `[hotkeys]`, and `[arrange]` sections are ignored
@@ -182,8 +182,8 @@ enabled = false
 - While a load has failed, Settings and Launch at Login saves stay locked (beep and redisplay) until a successful **Reload Config**
 - **Desktop** tab — Switch/Move record modifiers only (digits 1–9 stay fixed); **Use Default** restores `⌥` / `⌥⇧`
 - **Windows** tab — Maximize/Equal Split record a letter chord; **Use Default** restores `⌃⌥F` / `⌃⌥A`
-- **App Shortcuts** tab — enable toggle; Add/Remove rows with bundle ID + letter chord; empty bundle IDs are kept in config but do not register hotkeys
-- Same-tab sibling conflicts (and App Shortcuts vs Windows letter chords) beep, revert the control, and show a red **already in use** message (clears on a successful change or when the window redisplays). Desktop digit bindings cannot collide with letter chords.
+- **App Shortcuts** tab — enable toggle; Add opens an application picker (starts in `/Applications`) and records that app's bundle ID; each row can re-choose the app and record a letter or digit chord; config may still list empty `bundle_id` values from hand edits, which do not register hotkeys
+- Same-tab sibling conflicts (App Shortcuts vs Windows letter chords, and App Shortcut digit chords vs Desktop Switch/Move modifiers) beep, revert the control, and show a red **already in use** message (clears on a successful change or when the window redisplays)
 - **Open Config…** / **Reload Config** for hand edits; Reload refreshes an open Settings window from disk. A failed Reload keeps memory, shows **Config was not loaded**, and does not reconcile Launch at Login
 - **Launch at Login** (menu or General) writes `launch_at_login` immediately; a failed write beeps, leaves the file unchanged, and restores the Login Item
 - Reload and relaunch reconcile the Login Item to config (pending approval stays while true, removed when false) except after a failed load

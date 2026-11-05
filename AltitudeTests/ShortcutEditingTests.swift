@@ -114,4 +114,33 @@ final class ShortcutEditingTests: XCTestCase {
             .accepted(KeyChord(modifiers: .controlOption, key: "s"))
         )
     }
+
+    func testValidatedAppShortcutChordAcceptsDigit() {
+        let proposed = KeyChord(
+            modifiers: ModifierFlags(alt: false, shift: false, ctrl: true, cmd: false),
+            key: "1"
+        )
+        XCTAssertEqual(
+            validatedAppShortcutChord(
+                proposed: proposed,
+                conflicting: [.maximizeDefault, .equalSplitDefault],
+                desktopSwitch: .optionOnly,
+                desktopMove: .optionShift
+            ),
+            .accepted(proposed)
+        )
+    }
+
+    func testValidatedAppShortcutChordConflictsWithDesktopDigit() {
+        let proposed = KeyChord(modifiers: .optionOnly, key: "1")
+        XCTAssertEqual(
+            validatedAppShortcutChord(
+                proposed: proposed,
+                conflicting: [],
+                desktopSwitch: .optionOnly,
+                desktopMove: .optionShift
+            ),
+            .conflict
+        )
+    }
 }

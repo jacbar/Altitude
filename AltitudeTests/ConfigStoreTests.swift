@@ -510,6 +510,24 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(MinimalTOML.parseAltitudeConfig(rendered).appShortcuts, config.appShortcuts)
     }
 
+    func testAppShortcutsParseDigitKey() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [app_shortcuts]
+        enabled = true
+
+        [app_shortcuts.entry.1]
+        bundle_id = com.apple.Safari
+        alt = false
+        shift = false
+        ctrl = true
+        cmd = false
+        key = 1
+        """)
+        XCTAssertEqual(config.appShortcuts.entries.count, 1)
+        XCTAssertEqual(config.appShortcuts.entries[0].chord.key, "1")
+        XCTAssertTrue(config.appShortcuts.entries[0].chord.modifiers.ctrl)
+    }
+
     func testAppShortcutsDefaultOffAndCap() {
         XCTAssertFalse(AppConfig.default.appShortcuts.enabled)
         XCTAssertTrue(AppConfig.default.appShortcuts.entries.isEmpty)

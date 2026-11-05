@@ -31,10 +31,10 @@ struct PartialModifierFlags: Equatable, Sendable {
     }
 }
 
-/// A letter key plus modifiers (window-management chords).
+/// A key plus modifiers (window-management letters; App Shortcuts also allow digits).
 struct KeyChord: Equatable, Hashable, Sendable {
     var modifiers: ModifierFlags
-    /// Lowercase ASCII letter `a`…`z`.
+    /// Lowercase ASCII letter `a`…`z`, or digit `0`…`9` (App Shortcuts).
     var key: Character
 
     static let maximizeDefault = KeyChord(modifiers: .controlOption, key: "f")

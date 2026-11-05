@@ -40,6 +40,8 @@ final class AppShortcutJumper {
 
     private func hopAndActivate(_ app: NSRunningApplication) {
         guard let target = preferredTarget(for: app) else {
+            // No window to locate — activate may let macOS slide; still best-effort focus.
+            log.info("No window for \(app.bundleIdentifier ?? "?", privacy: .public); activating without hop")
             focuser.activate(SwitchTarget(
                 app: app,
                 windowID: nil,
@@ -49,21 +51,43 @@ final class AppShortcutJumper {
             ))
             return
         }
+
         let spaces = target.windowID.map { CGSPrivate.spaceIDs(forWindow: $0) } ?? []
+        // Empty candidates make switchInstantly report `.alreadyThere`, and a bare
+        // activate() then triggers the Mission Control slide. Refuse that path.
+        guard !spaces.isEmpty else {
+            log.error("Window \(target.windowID ?? 0) has no Space IDs; refusing activate-driven slide")
+            NSSound.beep()
+            return
+        }
+
         switch spaceService.switchInstantly(toPreferredSpaceAmong: spaces) {
         case .posted(let steps):
             let delay = Timing.instantLandingDelay(steps: steps)
             armActivation(of: target, after: delay)
-        case .alreadyThere, .otherDisplay:
+        case .alreadyThere:
+            focuser.activate(target)
+        case .otherDisplay:
+            // No managed strip owns this Space — activate without a hop (may slide).
             focuser.activate(target)
         case .unavailable:
             focuser.activate(target)
         }
     }
 
+    /// Main window if Accessibility marked one; otherwise the first listed (AX+CG merge).
     private func preferredTarget(for app: NSRunningApplication) -> SwitchTarget? {
-        let windows = preferredWindows(for: app)
-        guard let preferred = windows.first(where: \.main) ?? windows.first else { return nil }
+        let windows = userWindows(for: app)
+        // Prefer a window that has Space IDs so we can hop instead of sliding.
+        let withSpaces = windows.filter { window in
+            guard let id = window.id else { return false }
+            return !CGSPrivate.spaceIDs(forWindow: id).isEmpty
+        }
+        let preferred = withSpaces.first(where: \.main)
+            ?? withSpaces.first
+            ?? windows.first(where: \.main)
+            ?? windows.first
+        guard let preferred else { return nil }
         let title = preferred.title.isEmpty ? (app.localizedName ?? "Application") : preferred.title
         return SwitchTarget(
             app: app,
@@ -74,8 +98,37 @@ final class AppShortcutJumper {
         )
     }
 
-    /// AX windows for the app: main first when marked, otherwise list order.
-    private func preferredWindows(for app: NSRunningApplication) -> [ListedWindow] {
+    /// Same AX+CG merge idea as SystemMotionSuppressor: AX for the current Space,
+    /// CG for off-Space windows so Space IDs resolve for instant hops.
+    private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
+        let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let activeSpaceID = CGSPrivate.activeSpaceID()
+        let cgRows: [[String: Any]]
+        if let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            let pid = app.processIdentifier
+            cgRows = info.filter { dict in
+                guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber else { return false }
+                return owner.int32Value == pid
+            }
+        } else {
+            cgRows = []
+        }
+
+        let ax = accessibilityWindows(for: app)
+        let cg = WindowCatalog.dedupe(cgWindows(appName: appName, rows: cgRows), appName: appName)
+        let isOnActiveSpace: ((CGWindowID) -> Bool)? = ax.isEmpty ? nil : { id in
+            CGSPrivate.spaceIDs(forWindow: id).contains(activeSpaceID)
+        }
+        let merged = WindowCatalog.mergeWindows(
+            ax: ax,
+            cg: cg,
+            appName: appName,
+            isOnActiveSpace: isOnActiveSpace
+        )
+        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
+    }
+
+    private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
         guard AXIsProcessTrusted() else { return [] }
         let axApp = focuser.axApplication(pid: app.processIdentifier)
         var value: CFTypeRef?
@@ -102,6 +155,47 @@ final class AppShortcutJumper {
             )
         }
         .sorted { $0.main && !$1.main }
+    }
+
+    private func cgWindows(appName: String, rows: [[String: Any]]) -> [ListedWindow] {
+        var seen = Set<CGWindowID>()
+        let candidates: [(ListedWindow, Bool)] = rows.compactMap { dict in
+            let layer = (dict[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
+            guard layer == 0 else { return nil }
+            let alpha = (dict[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1
+            guard alpha > 0.01 else { return nil }
+            guard let number = dict[kCGWindowNumber as String] as? NSNumber else { return nil }
+            let windowID = number.uint32Value
+            guard seen.insert(windowID).inserted else { return nil }
+            let bounds = dict[kCGWindowBounds as String] as? [String: Any]
+            let width = (bounds?["Width"] as? NSNumber)?.doubleValue ?? 0
+            let height = (bounds?["Height"] as? NSNumber)?.doubleValue ?? 0
+            guard width >= 160, height >= 100 else { return nil }
+            let title = ((dict[kCGWindowName as String] as? String) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let onscreen = (dict[kCGWindowIsOnscreen as String] as? Bool) ?? false
+            if WindowCatalog.isHiddenHelper(
+                width: width,
+                height: height,
+                title: title,
+                onscreen: onscreen,
+                appName: appName
+            ) {
+                return nil
+            }
+            if !appName.isEmpty, title == "\(appName) Settings" { return nil }
+            if WindowCatalog.isWeakTitle(title, appName: appName), width < 480 || height < 320 {
+                return nil
+            }
+            return (ListedWindow(id: windowID, title: title, width: width, height: height, main: onscreen), onscreen)
+        }
+        let hasOnscreen = candidates.contains(where: \.1)
+        return candidates.compactMap { window, onscreen in
+            if hasOnscreen, !onscreen, WindowCatalog.isWeakTitle(window.title, appName: appName) {
+                return nil
+            }
+            return window
+        }
     }
 
     // MARK: - Launch

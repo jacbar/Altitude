@@ -1,14 +1,14 @@
 import Foundation
 
 enum AppShortcutsFeature {
-    /// Letter-chord bindings for configured app jumps; empty when the module is off.
+    /// Letter/digit-chord bindings for configured app jumps; empty when the module is off.
     static func bindings(config: AppConfig) -> [HotkeyBinding] {
         guard config.appShortcuts.enabled else { return [] }
 
         var result: [HotkeyBinding] = []
         for (index, entry) in config.appShortcuts.entries.enumerated() {
             guard !entry.bundleID.isEmpty,
-                  let keyCode = HotkeyChordMapping.letterKeyCode(entry.chord.key)
+                  let keyCode = HotkeyChordMapping.chordKeyCode(entry.chord.key)
             else {
                 continue
             }
