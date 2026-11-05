@@ -40,6 +40,7 @@ sources = [
     "Altitude/UI/AppMenu.swift",
     "Altitude/UI/ShortcutRecorderControl.swift",
     "Altitude/UI/SettingsWindowController.swift",
+    "Altitude/UI/AppShortcutsSettingsPane.swift",
     "Altitude/Domain/WindowCatalog.swift",
     "Altitude/Domain/SystemMotionMode.swift",
     "Altitude/Domain/CommandTabKeys.swift",
