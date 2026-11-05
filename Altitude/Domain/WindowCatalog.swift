@@ -59,6 +59,28 @@ enum WindowCatalog {
         return nil
     }
 
+    /// Whether two Command-Tab slots refer to the same window. Non-zero window IDs win when both sides have them.
+    static func sameSwitchInstance(
+        pid: pid_t,
+        windowID: CGWindowID?,
+        title: String,
+        width: Double,
+        height: Double,
+        otherPID: pid_t,
+        otherWindowID: CGWindowID?,
+        otherTitle: String,
+        otherWidth: Double,
+        otherHeight: Double
+    ) -> Bool {
+        guard pid == otherPID else { return false }
+        if let left = windowID, let right = otherWindowID, left != 0, right != 0 {
+            return left == right
+        }
+        return title == otherTitle
+            && abs(width - otherWidth) < 2
+            && abs(height - otherHeight) < 2
+    }
+
     static func sameListedSize(_ a: ListedWindow, _ b: ListedWindow) -> Bool {
         abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
     }

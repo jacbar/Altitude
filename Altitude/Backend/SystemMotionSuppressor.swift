@@ -608,7 +608,9 @@ extension SystemMotionSuppressor {
             appName: appName,
             isOnActiveSpace: isOnActiveSpace
         )
-        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
+        // Mail (and similar) leave same-size weak AX twins after merge; collapse those next.
+        let twinsCollapsed = WindowCatalog.dedupe(merged, appName: appName)
+        return WindowCatalog.collapseRedundantWeakWindows(twinsCollapsed, appName: appName)
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {

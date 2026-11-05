@@ -125,7 +125,9 @@ final class AppShortcutJumper {
             appName: appName,
             isOnActiveSpace: isOnActiveSpace
         )
-        return WindowCatalog.collapseRedundantWeakWindows(merged, appName: appName)
+        // Same post-merge twin collapse as Command-Tab (Mail CG/AX duplicates).
+        let twinsCollapsed = WindowCatalog.dedupe(merged, appName: appName)
+        return WindowCatalog.collapseRedundantWeakWindows(twinsCollapsed, appName: appName)
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
