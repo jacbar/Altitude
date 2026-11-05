@@ -32,6 +32,10 @@ final class WindowFocuser {
         focus(target)
         let donor = NSWorkspace.shared.frontmostApplication ?? .current
         _ = target.app.activate(from: donor, options: [])
+        // Next runloop raise — activation often steals focus to AX main immediately.
+        DispatchQueue.main.async { [weak self] in
+            self?.focus(target)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryShort) { [weak self] in
             self?.focus(target)
         }
@@ -39,6 +43,10 @@ final class WindowFocuser {
             self?.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong) { [weak self] in
+            self?.focus(target)
+        }
+        // Slightly after the long retry so a late main-window steal still loses.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong + 0.08) { [weak self] in
             self?.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.activationGuard, execute: guardWork)
@@ -81,10 +89,16 @@ final class WindowFocuser {
             return nil
         }
         let described = windows.map { element in
-            (element: element, title: element.axString(kAXTitleAttribute as String), size: element.axSize())
+            (
+                element: element,
+                title: element.axString(kAXTitleAttribute as String),
+                size: element.axSize(),
+                main: element.axBool(kAXMainAttribute as String),
+                windowID: element.axWindowID()
+            )
         }
         if let windowID = target.windowID, windowID != 0 {
-            if let match = described.first(where: { $0.element.axWindowID() == windowID }) {
+            if let match = described.first(where: { $0.windowID == windowID }) {
                 return match.element
             }
         }
@@ -102,6 +116,30 @@ final class WindowFocuser {
         }
         if let exact = titled.first(where: { $0.title == target.title }) {
             return exact.element
+        }
+        guard !titled.isEmpty else { return nil }
+        if titled.count == 1 { return titled[0].element }
+
+        // Ambiguous weak titles: if the target is not the app's current main, prefer non-main.
+        let axMain = described.first(where: \.main)
+        let targetIsMain: Bool = {
+            if let windowID = target.windowID, windowID != 0 {
+                // Id present but did not bind above — only "main" when it equals AX main's id.
+                guard let mainID = axMain?.windowID, mainID != 0 else { return false }
+                return windowID == mainID
+            }
+            guard let main = axMain, let size = main.size else { return false }
+            let sizeMatches = abs(size.width - target.width) < 4 && abs(size.height - target.height) < 4
+            guard sizeMatches else { return false }
+            // Without an id, only a strong title match identifies the main window.
+            return !WindowCatalog.isWeakTitle(target.title, appName: appName)
+                && target.title == main.title
+        }()
+        if !targetIsMain, let nonMain = titled.first(where: { !$0.main }) {
+            return nonMain.element
+        }
+        if let mainMatch = titled.first(where: \.main) {
+            return mainMatch.element
         }
         return titled.first?.element
     }
