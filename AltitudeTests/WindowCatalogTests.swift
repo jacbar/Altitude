@@ -1,6 +1,15 @@
 import XCTest
 
 final class WindowCatalogTests: XCTestCase {
+    func testAcceptsSwitchSubroleDropsDialogsAndFloaters() {
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole(""))
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole("AXStandardWindow"))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXDialog"))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXFloatingWindow"))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXSystemDialog"))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXUnknown"))
+    }
+
     func testChatGPTStyleTripleCollapsesToLargest() {
         let windows = [
             ListedWindow(id: 1, title: "", width: 2040, height: 1273),

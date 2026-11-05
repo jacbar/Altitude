@@ -16,6 +16,17 @@ enum WindowCatalog {
         return !appName.isEmpty && title == appName
     }
 
+    /// Command-Tab / App Shortcuts AX listing: keep standard windows; drop dialogs and floaters.
+    /// Empty subrole is allowed (some apps omit it). Does not require `AXStandardWindow`.
+    static func acceptsSwitchSubrole(_ subrole: String) -> Bool {
+        switch subrole {
+        case "AXUnknown", "AXSystemDialog", "AXDialog", "AXFloatingWindow":
+            return false
+        default:
+            return true
+        }
+    }
+
     /// Drop weak-title surfaces clearly smaller than the largest real window (under ~95% area).
     /// Strong titles always survive. Near-tie weaks are kept. A lone weak with no strong is unchanged.
     static func collapseRedundantWeakWindows(

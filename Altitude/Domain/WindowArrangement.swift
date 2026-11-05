@@ -59,7 +59,8 @@ enum WindowArrangement {
         role.isEmpty || role == "AXWindow"
     }
 
-    /// AX subrole for arrange inclusion. Matches Command-Tab AX: reject unknown / system dialog only.
+    /// AX subrole for arrange inclusion. Looser than Command-Tab (`WindowCatalog.acceptsSwitchSubrole`):
+    /// reject unknown / system dialog only so floating panels can still be arranged.
     /// Does not require `AXStandardWindow`, so Electron-style standard windows are kept.
     static func acceptsArrangeSubrole(_ subrole: String) -> Bool {
         subrole != "AXUnknown" && subrole != "AXSystemDialog"
