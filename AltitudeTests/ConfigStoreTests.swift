@@ -183,6 +183,40 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertEqual(config.windowManagement.equalSplit, .equalSplitDefault)
     }
 
+    func testEmptyWindowModifiersFallBack() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [window_management.maximize]
+        alt = false
+        shift = false
+        ctrl = false
+        cmd = false
+        key = f
+
+        [window_management.equal_split]
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
+        key = a
+        """)
+        XCTAssertEqual(config.windowManagement.maximize, .maximizeDefault)
+        XCTAssertEqual(config.windowManagement.equalSplit, .equalSplitDefault)
+
+        let resolved = resolveWindowChords(
+            maximize: PartialKeyChord(
+                modifiers: PartialModifierFlags(alt: false, shift: false, ctrl: false, cmd: false),
+                key: "x"
+            ),
+            equalSplit: PartialKeyChord(
+                modifiers: PartialModifierFlags(alt: true, shift: false, ctrl: false, cmd: false),
+                key: "y"
+            )
+        )
+        XCTAssertTrue(resolved.usedFallback)
+        XCTAssertEqual(resolved.maximize, .maximizeDefault)
+        XCTAssertEqual(resolved.equalSplit, .equalSplitDefault)
+    }
+
     func testMaxSpaceAndMarginClamps() {
         XCTAssertEqual(parseMaxSpace(0), 1)
         XCTAssertEqual(parseMaxSpace(9), 9)
@@ -532,20 +566,109 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertFalse(AppConfig.default.appShortcuts.enabled)
         XCTAssertTrue(AppConfig.default.appShortcuts.entries.isEmpty)
 
+        let keys = Array("abcdefghijklmnopqrstuvwxyz0123456789")
         var blocks = ["[app_shortcuts]", "enabled = true"]
         for n in 1...40 {
+            let key = keys[(n - 1) % keys.count]
             blocks.append("""
             [app_shortcuts.entry.\(n)]
             bundle_id = com.example.app\(n)
-            alt = true
+            alt = false
             shift = false
-            ctrl = false
+            ctrl = true
             cmd = false
-            key = a
+            key = \(key)
             """)
         }
         let config = MinimalTOML.parseAltitudeConfig(blocks.joined(separator: "\n"))
         XCTAssertEqual(config.appShortcuts.entries.count, ConfigStore.maxAppShortcuts)
+    }
+
+    func testAppShortcutsSkipInvalidEmptyModifiers() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [app_shortcuts]
+        enabled = true
+
+        [app_shortcuts.entry.1]
+        bundle_id = com.apple.Safari
+        alt = false
+        shift = false
+        ctrl = false
+        cmd = false
+        key = s
+
+        [app_shortcuts.entry.2]
+        bundle_id = com.apple.Terminal
+        alt = false
+        shift = false
+        ctrl = true
+        cmd = false
+        key = t
+        """)
+        XCTAssertEqual(config.appShortcuts.entries.count, 1)
+        XCTAssertEqual(config.appShortcuts.entries[0].bundleID, "com.apple.Terminal")
+        XCTAssertEqual(config.appShortcuts.entries[0].chord.key, "t")
+    }
+
+    func testAppShortcutsSkipDuplicatesAndWindowConflicts() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [app_shortcuts]
+        enabled = true
+
+        [app_shortcuts.entry.1]
+        bundle_id = com.apple.Safari
+        alt = true
+        shift = false
+        ctrl = true
+        cmd = false
+        key = f
+
+        [app_shortcuts.entry.2]
+        bundle_id = com.apple.Terminal
+        alt = false
+        shift = false
+        ctrl = true
+        cmd = false
+        key = t
+
+        [app_shortcuts.entry.3]
+        bundle_id = com.apple.Notes
+        alt = false
+        shift = false
+        ctrl = true
+        cmd = false
+        key = t
+        """)
+        // entry.1 conflicts with default maximize ⌃⌥F; entry.3 duplicates entry.2.
+        XCTAssertEqual(config.appShortcuts.entries.count, 1)
+        XCTAssertEqual(config.appShortcuts.entries[0].bundleID, "com.apple.Terminal")
+    }
+
+    func testAppShortcutsSkipDesktopDigitConflicts() {
+        let config = MinimalTOML.parseAltitudeConfig("""
+        [app_shortcuts]
+        enabled = true
+
+        [app_shortcuts.entry.1]
+        bundle_id = com.apple.Safari
+        alt = true
+        shift = false
+        ctrl = false
+        cmd = false
+        key = 1
+
+        [app_shortcuts.entry.2]
+        bundle_id = com.apple.Terminal
+        alt = false
+        shift = false
+        ctrl = true
+        cmd = false
+        key = 1
+        """)
+        // ⌥1 conflicts with Desktop Switch; ⌃1 is fine.
+        XCTAssertEqual(config.appShortcuts.entries.count, 1)
+        XCTAssertEqual(config.appShortcuts.entries[0].bundleID, "com.apple.Terminal")
+        XCTAssertEqual(config.appShortcuts.entries[0].chord.key, "1")
     }
 
     private func makeTempStore() throws -> (home: URL, store: ConfigStore) {

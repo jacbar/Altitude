@@ -59,6 +59,8 @@ func preferredSpaceRoute(
     }
 
     // Same-display nearest when the active display owns any candidate.
+    // Only commit when the route is actionable; `.otherDisplay` (e.g. currentID
+    // missing from the strip) falls through so other displays can still hop.
     if let activeDisplayIdentifier,
        let active = displays.first(where: { $0.identifier == activeDisplayIdentifier }),
        candidateIDs.contains(where: { active.spaceIDs.contains($0) })
@@ -68,7 +70,12 @@ func preferredSpaceRoute(
             displaySpaceIDs: active.spaceIDs,
             currentID: active.currentID
         )
-        return (active.identifier, route)
+        switch route {
+        case .posted, .alreadyThere:
+            return (active.identifier, route)
+        case .otherDisplay:
+            break
+        }
     }
 
     // Window already visible on some managed display's current Space.

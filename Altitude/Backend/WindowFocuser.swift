@@ -11,6 +11,28 @@ final class WindowFocuser {
     private(set) var isActivatingInternally = false
     private(set) var activatingPID: pid_t?
     private var activationGuard: DispatchWorkItem?
+    /// App Shortcut / Command-Tab hops arm this before `activate` so external activation
+    /// does not race into `hopForExternalActivation` while landing is still pending.
+    private var pendingHopCount = 0
+    /// Bumped on each `activate` / `reset` so in-flight focus retries no-op.
+    private var focusGeneration = 0
+
+    /// True while an activate is in progress or a Space-hop landing is armed.
+    var isActivationInFlight: Bool {
+        isActivatingInternally || pendingHopCount > 0
+    }
+
+    /// Call when arming a post-hop activation; pair with `endPendingHop`.
+    func beginPendingHop() {
+        pendingHopCount += 1
+    }
+
+    /// Call when clearing a post-hop activation (promote, cancel, or stop).
+    func endPendingHop() {
+        if pendingHopCount > 0 {
+            pendingHopCount -= 1
+        }
+    }
 
     /// Raise first, then again after activate(). Activation focuses the app's main
     /// window on its own, which is why an Outlook message was opening the inbox.
@@ -22,6 +44,8 @@ final class WindowFocuser {
         isActivatingInternally = true
         activatingPID = pid
         activationGuard?.cancel()
+        focusGeneration += 1
+        let generation = focusGeneration
         let guardWork = DispatchWorkItem { [weak self] in
             guard let self, self.activatingPID == pid else { return }
             self.isActivatingInternally = false
@@ -34,20 +58,25 @@ final class WindowFocuser {
         _ = target.app.activate(from: donor, options: [])
         // Next runloop raise — activation often steals focus to AX main immediately.
         DispatchQueue.main.async { [weak self] in
-            self?.focus(target)
+            guard let self, self.focusGeneration == generation else { return }
+            self.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryShort) { [weak self] in
-            self?.focus(target)
+            guard let self, self.focusGeneration == generation else { return }
+            self.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryMid) { [weak self] in
-            self?.focus(target)
+            guard let self, self.focusGeneration == generation else { return }
+            self.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong) { [weak self] in
-            self?.focus(target)
+            guard let self, self.focusGeneration == generation else { return }
+            self.focus(target)
         }
         // Slightly after the long retry so a late main-window steal still loses.
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.focusRetryLong + 0.08) { [weak self] in
-            self?.focus(target)
+            guard let self, self.focusGeneration == generation else { return }
+            self.focus(target)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + Timing.activationGuard, execute: guardWork)
     }
@@ -68,6 +97,8 @@ final class WindowFocuser {
         activationGuard = nil
         activatingPID = nil
         isActivatingInternally = false
+        pendingHopCount = 0
+        focusGeneration += 1
     }
 
     /// Raise the selected window, matching the accessibility window by id, then by title and size.

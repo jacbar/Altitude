@@ -183,6 +183,24 @@ final class SpaceLayoutTests: XCTestCase {
         )
     }
 
+    func testMultiDisplayPreferredRouteFallsThroughWhenActiveCurrentMissingFromStrip() {
+        let displays = [
+            // Active owns candidate 12, but currentID is not on the strip.
+            DisplaySpaceRouteInput(identifier: "a", spaceIDs: [10, 11, 12], currentID: 99),
+            DisplaySpaceRouteInput(identifier: "b", spaceIDs: [20, 21, 22], currentID: 20),
+        ]
+        let result = preferredSpaceRoute(
+            candidateIDs: [12, 22],
+            displays: displays,
+            activeDisplayIdentifier: "a"
+        )
+        XCTAssertEqual(result.displayIdentifier, "b")
+        XCTAssertEqual(
+            result.route,
+            .posted(steps: 2, from: 0, to: 2, destinationID: 22)
+        )
+    }
+
     func testDigitSwitchRouteSameDisplayHop() {
         let route = digitSwitchRoute(
             targetSpaceID: 30,

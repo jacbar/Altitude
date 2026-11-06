@@ -120,6 +120,7 @@ final class SystemMotionSuppressor: NSObject {
         activationFallback = nil
         activationPoll?.cancel()
         activationPoll = nil
+        // reset() clears shared pending-hop state and cancels in-flight focus retries.
         focuser.reset()
         publishDecision { $0.swipeGesture = SwipeGestureState() }
         tapHost.tearDown()
@@ -445,6 +446,9 @@ extension SystemMotionSuppressor {
     }
 
     private func armActivation(of target: SwitchTarget, after delay: TimeInterval) {
+        if pendingActivation == nil {
+            focuser.beginPendingHop()
+        }
         pendingActivation = target
         activationFallback?.cancel()
         activationPoll?.cancel()
@@ -491,6 +495,7 @@ extension SystemMotionSuppressor {
         activationFallback = nil
         activationPoll?.cancel()
         activationPoll = nil
+        focuser.endPendingHop()
         focuser.activate(pending)
     }
 
@@ -736,7 +741,8 @@ extension SystemMotionSuppressor {
         // Keep MRU while taps are running. Hop only when desktop motion is suppressed.
         guard tapHost.hasAnyTap else { return }
         guard mode.suppressDesktopMotion else { return }
-        if session != nil || focuser.isActivatingInternally || pendingActivation != nil { return }
+        // Shared focuser flag covers App Shortcut hops whose pendingActivation is local.
+        if session != nil || focuser.isActivationInFlight || pendingActivation != nil { return }
         hopForExternalActivation(of: app)
     }
 

@@ -64,7 +64,8 @@ enum CGSPrivate {
     static let connection: CGSConnectionID = mainConnectionIDFn?() ?? 0
 
     static func copyManagedDisplaySpaces() -> [[String: Any]]? {
-        guard let fn = copyManagedDisplaySpacesFn,
+        guard connection != 0,
+              let fn = copyManagedDisplaySpacesFn,
               let unmanaged = fn(connection)
         else { return nil }
         let array = unmanaged.takeRetainedValue()
@@ -72,6 +73,7 @@ enum CGSPrivate {
     }
 
     static func moveWindowsToManagedSpace(windowIDs: [CGWindowID], spaceID: CGSSpaceID) {
+        guard connection != 0 else { return }
         let windows = windowIDs.map { NSNumber(value: $0) } as NSArray
         // Prefer bridged WM operation on modern macOS; fall back to classic CGS.
         if SkyLightBridgedSPI.moveWindows(windowIDs, toSpace: spaceID) {
@@ -81,11 +83,13 @@ enum CGSPrivate {
     }
 
     static func activeSpaceID() -> CGSSpaceID {
-        getActiveSpaceFn?(connection) ?? 0
+        guard connection != 0 else { return 0 }
+        return getActiveSpaceFn?(connection) ?? 0
     }
 
     /// Spaces that contain `windowID`, including Spaces that are not visible.
     static func spaceIDs(forWindow windowID: CGWindowID) -> [CGSSpaceID] {
+        guard connection != 0 else { return [] }
         let array = [NSNumber(value: windowID)] as CFArray
         guard let fn = copySpacesForWindowsFn,
               let unmanaged = fn(connection, allSpacesMask, array)
