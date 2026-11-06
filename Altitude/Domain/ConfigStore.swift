@@ -465,12 +465,18 @@ enum MinimalTOML {
 
         let windowResolved = resolveWindowChords(maximize: maximizePartial, equalSplit: equalSplitPartial)
         if windowResolved.usedFallback {
-            log.warning("Window management chords were identical; using Control+Option+F and Control+Option+A defaults")
+            log.warning("Window management chords were empty or identical; using Control+Option+F and Control+Option+A defaults")
         }
         config.windowManagement.maximize = windowResolved.maximize
         config.windowManagement.equalSplit = windowResolved.equalSplit
 
-        config.appShortcuts.entries = resolveAppShortcutEntries(entryPartials)
+        config.appShortcuts.entries = resolveAppShortcutEntries(
+            entryPartials,
+            windowMaximize: config.windowManagement.maximize,
+            windowEqualSplit: config.windowManagement.equalSplit,
+            desktopSwitch: config.desktop.switchModifiers,
+            desktopMove: config.desktop.moveModifiers
+        )
 
         return ConfigParseResult(config: config, ignoredKeys: ignoredKeys)
     }
@@ -523,11 +529,18 @@ enum MinimalTOML {
         entryPartials[entryIndex] = partial
     }
 
+    /// Builds app-shortcut entries with the same validation Settings uses: skip empty
+    /// modifiers, sibling duplicates, window-chord collisions, and Desktop digit conflicts.
     private static func resolveAppShortcutEntries(
-        _ partials: [Int: PartialAppShortcutEntry]
+        _ partials: [Int: PartialAppShortcutEntry],
+        windowMaximize: KeyChord,
+        windowEqualSplit: KeyChord,
+        desktopSwitch: ModifierFlags,
+        desktopMove: ModifierFlags
     ) -> [AppShortcutEntry] {
         let none = ModifierFlags(alt: false, shift: false, ctrl: false, cmd: false)
         var entries: [AppShortcutEntry] = []
+        var conflicting = [windowMaximize, windowEqualSplit]
         for n in partials.keys.sorted() {
             guard entries.count < ConfigStore.maxAppShortcuts else { break }
             guard let partial = partials[n],
@@ -536,13 +549,24 @@ enum MinimalTOML {
             else {
                 continue
             }
-            entries.append(AppShortcutEntry(
-                bundleID: bundleID,
-                chord: KeyChord(
-                    modifiers: partial.modifiers.resolved(defaults: none),
-                    key: key
-                )
-            ))
+            let proposed = KeyChord(
+                modifiers: partial.modifiers.resolved(defaults: none),
+                key: key
+            )
+            switch validatedAppShortcutChord(
+                proposed: proposed,
+                conflicting: conflicting,
+                desktopSwitch: desktopSwitch,
+                desktopMove: desktopMove
+            ) {
+            case .accepted(let chord):
+                entries.append(AppShortcutEntry(bundleID: bundleID, chord: chord))
+                conflicting.append(chord)
+            case .invalid:
+                log.warning("Skipping app shortcut entry \(n): empty modifiers or invalid key")
+            case .conflict:
+                log.warning("Skipping app shortcut entry \(n): chord conflicts with another shortcut")
+            }
         }
         return entries
     }

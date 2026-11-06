@@ -1,5 +1,8 @@
 import CoreGraphics
 import Foundation
+import os.log
+
+private let log = Logger(subsystem: "com.altitude.app", category: "EventTap")
 
 /// Owns the session and HID CGEvent taps driven by a MotionTapPlan.
 /// Taps run on a dedicated thread so delivery does not wait on the main run loop.
@@ -10,6 +13,9 @@ final class EventTapHost: @unchecked Sendable {
         /// True when the plan asked for HID and that tap failed (session may still be up).
         var hidFailed: Bool
     }
+
+    /// Upper bound for sync work posted to the tap thread (install / tearDown).
+    private static let syncTimeout: DispatchTimeInterval = .seconds(2)
 
     private(set) var installedPlan: MotionTapPlan?
     private var sessionTap: CFMachPort?
@@ -31,7 +37,7 @@ final class EventTapHost: @unchecked Sendable {
     }
 
     /// Install taps for `plan`. Tears down any existing taps first.
-    /// Blocks until the tap thread has finished installing (or failed).
+    /// Blocks until the tap thread has finished installing (or failed / timed out).
     @discardableResult
     func install(
         plan: MotionTapPlan,
@@ -39,7 +45,9 @@ final class EventTapHost: @unchecked Sendable {
         userInfo: UnsafeMutableRawPointer
     ) -> InstallResult {
         ensureThread()
-        return syncOnTapThread {
+        return syncOnTapThread(
+            onTimeout: InstallResult(ok: false, hidFailed: false)
+        ) {
             self.removeTapsOnTapThread()
             guard plan.wantsAnyTap else {
                 self.installedPlan = nil
@@ -98,13 +106,19 @@ final class EventTapHost: @unchecked Sendable {
         }
     }
 
-    /// Removes taps on the tap thread and waits until that finishes.
+    /// Removes taps on the tap thread and waits until that finishes (or times out).
     func tearDown() {
-        guard thread != nil else {
-            removeTapsOnTapThread()
+        gate.lock()
+        let hasThread = thread != nil
+        let loop = runLoop
+        gate.unlock()
+
+        guard hasThread, loop != nil else {
+            // No live tap thread — do not remove sources from the caller's run loop.
+            abandonTapsWithoutRunLoop()
             return
         }
-        syncOnTapThread {
+        _ = syncOnTapThread(onTimeout: ()) {
             self.removeTapsOnTapThread()
         }
     }
@@ -113,7 +127,6 @@ final class EventTapHost: @unchecked Sendable {
     func asyncOnTapThread(_ body: @escaping () -> Void) {
         ensureThread()
         guard let runLoop else {
-            body()
             return
         }
         if CFEqual(CFRunLoopGetCurrent(), runLoop) {
@@ -195,20 +208,27 @@ final class EventTapHost: @unchecked Sendable {
         CFRunLoopWakeUp(runLoop)
 
         gate.lock()
+        let deadline = Date().addingTimeInterval(2)
         while self.runLoop != nil {
-            gate.wait()
+            let remaining = deadline.timeIntervalSinceNow
+            if remaining <= 0 { break }
+            _ = gate.wait(until: deadline)
+        }
+        if self.runLoop != nil {
+            log.error("Timed out waiting for event-tap thread to stop")
         }
         thread = nil
         gate.unlock()
     }
 
-    private func syncOnTapThread<T>(_ body: @escaping () -> T) -> T {
+    private func syncOnTapThread<T>(onTimeout: @autoclosure () -> T, _ body: @escaping () -> T) -> T {
         if isOnTapThread {
             return body()
         }
         ensureThread()
         guard let runLoop else {
-            return body()
+            log.error("Event-tap thread has no run loop; skipping sync work")
+            return onTimeout()
         }
         let done = DispatchSemaphore(value: 0)
         var result: T?
@@ -218,8 +238,30 @@ final class EventTapHost: @unchecked Sendable {
             done.signal()
         }
         CFRunLoopWakeUp(runLoop)
-        done.wait()
-        return result!
+        if done.wait(timeout: .now() + Self.syncTimeout) == .timedOut {
+            log.error("Timed out waiting for event-tap thread sync work")
+            return onTimeout()
+        }
+        guard let result else {
+            log.error("Event-tap sync completed without a result")
+            return onTimeout()
+        }
+        return result
+    }
+
+    /// Invalidate ports and drop refs when the tap run loop is already gone.
+    private func abandonTapsWithoutRunLoop() {
+        for tap in [sessionTap, hidTap] {
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: false)
+                CFMachPortInvalidate(tap)
+            }
+        }
+        sessionTap = nil
+        sessionSource = nil
+        hidTap = nil
+        hidSource = nil
+        installedPlan = nil
     }
 
     private func removeTapsOnTapThread() {

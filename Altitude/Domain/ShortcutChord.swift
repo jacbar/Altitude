@@ -91,8 +91,8 @@ func resolveDesktopShortcuts(
 
 /// Resolves window maximize / equal-split chords.
 /// A missing modifier keeps that chord's default. Missing, empty, or non-letter key
-/// becomes that chord's default key. If the two resolved chords are equal, both become
-/// Control+Option+F and Control+Option+A.
+/// becomes that chord's default key. If either resolved chord has no modifiers, or the
+/// two resolved chords are equal, both become Control+Option+F and Control+Option+A.
 func resolveWindowChords(
     maximize maximizePartial: PartialKeyChord,
     equalSplit equalSplitPartial: PartialKeyChord
@@ -109,7 +109,7 @@ func resolveWindowChords(
         key: equalSplitPartial.key ?? equalSplitDefaults.key
     )
 
-    if maximize == equalSplit {
+    if !maximize.modifiers.hasAny || !equalSplit.modifiers.hasAny || maximize == equalSplit {
         return WindowChordResolution(
             maximize: maximizeDefaults,
             equalSplit: equalSplitDefaults,

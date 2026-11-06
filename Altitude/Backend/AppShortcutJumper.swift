@@ -255,6 +255,9 @@ final class AppShortcutJumper {
     // MARK: - Landing (mirrors SystemMotionSuppressor)
 
     private func armActivation(of target: SwitchTarget, after delay: TimeInterval) {
+        if pendingActivation == nil {
+            focuser.beginPendingHop()
+        }
         pendingActivation = target
         activationFallback?.cancel()
         activationPoll?.cancel()
@@ -297,6 +300,7 @@ final class AppShortcutJumper {
         activationFallback = nil
         activationPoll?.cancel()
         activationPoll = nil
+        focuser.endPendingHop()
         focuser.activate(pending)
     }
 }

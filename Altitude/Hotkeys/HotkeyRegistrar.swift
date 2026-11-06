@@ -59,7 +59,7 @@ final class HotkeyRegistrar: HotkeyApplying, @unchecked Sendable {
         unregisterHotKeys()
         installHandlerIfNeeded()
 
-        var succeeded: [HotkeyBinding] = []
+        var succeededCount = 0
         for binding in bindings {
             if register(
                 keyCode: binding.keyCode,
@@ -67,12 +67,18 @@ final class HotkeyRegistrar: HotkeyApplying, @unchecked Sendable {
                 id: binding.id,
                 action: binding.action
             ) {
-                succeeded.append(binding)
+                succeededCount += 1
             }
         }
-        applied = succeeded
+        // Store the requested set so a partial Carbon failure does not thrash
+        // unregister/re-register on every refresh. Failed keys stay unregistered.
+        applied = bindings
 
-        log.info("Registered \(succeeded.count) hotkey(s)")
+        if succeededCount < bindings.count {
+            log.error("Registered \(succeededCount)/\(bindings.count) hotkey(s); some RegisterEventHotKey calls failed")
+        } else {
+            log.info("Registered \(succeededCount) hotkey(s)")
+        }
     }
 
     private func register(keyCode: UInt32, modifiers: UInt32, id: UInt32, action: HotkeyAction) -> Bool {
