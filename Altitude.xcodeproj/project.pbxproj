@@ -54,6 +54,7 @@
 		B20000000000000000000044 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000044 /* AXUIElementGetWindow.swift */; };
 		B20000000000000000000045 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000045 /* MenuBarDependencies.swift */; };
 		B20000000000000000000046 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000046 /* DockSwipeTiming.swift */; };
+		B20000000000000000000047 /* AppWindowCycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000047 /* AppWindowCycle.swift */; };
 		D20000000000000000000000 /* ConfigStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000000 /* ConfigStoreTests.swift */; };
 		D20000000000000000000001 /* HotkeyBoundsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* HotkeyBoundsTests.swift */; };
 		D20000000000000000000002 /* WindowArrangementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000002 /* WindowArrangementTests.swift */; };
@@ -71,6 +72,7 @@
 		D20000000000000000000014 /* DockSwipeTimingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000014 /* DockSwipeTimingTests.swift */; };
 		D20000000000000000000015 /* LaunchAtLoginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000015 /* LaunchAtLoginTests.swift */; };
 		D20000000000000000000016 /* MenuBarMutationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000016 /* MenuBarMutationTests.swift */; };
+		D20000000000000000000017 /* AppWindowCycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000017 /* AppWindowCycleTests.swift */; };
 		E20000000000000000000000 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000006 /* ConfigStore.swift */; };
 		E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000007 /* FocusedWindowResolver.swift */; };
 		E20000000000000000000002 /* SpaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000008 /* SpaceModels.swift */; };
@@ -93,11 +95,12 @@
 		E20000000000000000000019 /* AXUIElementGetWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000044 /* AXUIElementGetWindow.swift */; };
 		E20000000000000000000020 /* MenuBarDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000045 /* MenuBarDependencies.swift */; };
 		E20000000000000000000021 /* DockSwipeTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000046 /* DockSwipeTiming.swift */; };
-		E20000000000000000000022 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
-		E20000000000000000000023 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
-		E20000000000000000000024 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
-		E20000000000000000000025 /* AppShortcutsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* AppShortcutsFeature.swift */; };
-		E20000000000000000000026 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
+		E20000000000000000000022 /* AppWindowCycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000047 /* AppWindowCycle.swift */; };
+		E20000000000000000000023 /* DesktopFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000019 /* DesktopFeature.swift */; };
+		E20000000000000000000024 /* CommandTabFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000020 /* CommandTabFeature.swift */; };
+		E20000000000000000000025 /* WindowManagementFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000021 /* WindowManagementFeature.swift */; };
+		E20000000000000000000026 /* AppShortcutsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000022 /* AppShortcutsFeature.swift */; };
+		E20000000000000000000027 /* HotkeyRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000009 /* HotkeyRegistrar.swift */; };
 		A10000000000000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* Assets.xcassets */; };
 		A1000000000000000000001A /* config.example.toml in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* config.example.toml */; };
 		A10000000000000000000021 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* Carbon.framework */; };
@@ -156,6 +159,7 @@
 		B10000000000000000000044 /* AXUIElementGetWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXUIElementGetWindow.swift; sourceTree = "<group>"; };
 		B10000000000000000000045 /* MenuBarDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDependencies.swift; sourceTree = "<group>"; };
 		B10000000000000000000046 /* DockSwipeTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSwipeTiming.swift; sourceTree = "<group>"; };
+		B10000000000000000000047 /* AppWindowCycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppWindowCycle.swift; sourceTree = "<group>"; };
 		D10000000000000000000000 /* ConfigStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStoreTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000001 /* HotkeyBoundsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyBoundsTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000002 /* WindowArrangementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowArrangementTests.swift; sourceTree = "<group>"; };
@@ -173,6 +177,7 @@
 		D10000000000000000000014 /* DockSwipeTimingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockSwipeTimingTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000015 /* LaunchAtLoginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginTests.swift; sourceTree = "<group>"; };
 		D10000000000000000000016 /* MenuBarMutationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarMutationTests.swift; sourceTree = "<group>"; };
+		D10000000000000000000017 /* AppWindowCycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppWindowCycleTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000009 /* Altitude.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Altitude.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C10000000000000000000004 /* AltitudeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AltitudeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -291,6 +296,7 @@
 				B10000000000000000000044 /* AXUIElementGetWindow.swift */,
 				B10000000000000000000045 /* MenuBarDependencies.swift */,
 				B10000000000000000000046 /* DockSwipeTiming.swift */,
+				B10000000000000000000047 /* AppWindowCycle.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -389,6 +395,7 @@
 				D10000000000000000000014 /* DockSwipeTimingTests.swift */,
 				D10000000000000000000015 /* LaunchAtLoginTests.swift */,
 				D10000000000000000000016 /* MenuBarMutationTests.swift */,
+				D10000000000000000000017 /* AppWindowCycleTests.swift */,
 			);
 			path = AltitudeTests;
 			sourceTree = "<group>";
@@ -527,6 +534,7 @@
 				B20000000000000000000044 /* AXUIElementGetWindow.swift in Sources */,
 				B20000000000000000000045 /* MenuBarDependencies.swift in Sources */,
 				B20000000000000000000046 /* DockSwipeTiming.swift in Sources */,
+				B20000000000000000000047 /* AppWindowCycle.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -551,6 +559,7 @@
 				D20000000000000000000014 /* DockSwipeTimingTests.swift in Sources */,
 				D20000000000000000000015 /* LaunchAtLoginTests.swift in Sources */,
 				D20000000000000000000016 /* MenuBarMutationTests.swift in Sources */,
+				D20000000000000000000017 /* AppWindowCycleTests.swift in Sources */,
 				E20000000000000000000000 /* ConfigStore.swift in Sources */,
 				E20000000000000000000001 /* FocusedWindowResolver.swift in Sources */,
 				E20000000000000000000002 /* SpaceModels.swift in Sources */,
@@ -573,11 +582,12 @@
 				E20000000000000000000019 /* AXUIElementGetWindow.swift in Sources */,
 				E20000000000000000000020 /* MenuBarDependencies.swift in Sources */,
 				E20000000000000000000021 /* DockSwipeTiming.swift in Sources */,
-				E20000000000000000000022 /* DesktopFeature.swift in Sources */,
-				E20000000000000000000023 /* CommandTabFeature.swift in Sources */,
-				E20000000000000000000024 /* WindowManagementFeature.swift in Sources */,
-				E20000000000000000000025 /* AppShortcutsFeature.swift in Sources */,
-				E20000000000000000000026 /* HotkeyRegistrar.swift in Sources */,
+				E20000000000000000000022 /* AppWindowCycle.swift in Sources */,
+				E20000000000000000000023 /* DesktopFeature.swift in Sources */,
+				E20000000000000000000024 /* CommandTabFeature.swift in Sources */,
+				E20000000000000000000025 /* WindowManagementFeature.swift in Sources */,
+				E20000000000000000000026 /* AppShortcutsFeature.swift in Sources */,
+				E20000000000000000000027 /* HotkeyRegistrar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

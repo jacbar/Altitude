@@ -60,6 +60,7 @@ sources = [
     "Altitude/Domain/AXUIElementGetWindow.swift",
     "Altitude/Domain/MenuBarDependencies.swift",
     "Altitude/Domain/DockSwipeTiming.swift",
+    "Altitude/Domain/AppWindowCycle.swift",
 ]
 
 test_sources = [
@@ -80,6 +81,7 @@ test_sources = [
     "AltitudeTests/DockSwipeTimingTests.swift",
     "AltitudeTests/LaunchAtLoginTests.swift",
     "AltitudeTests/MenuBarMutationTests.swift",
+    "AltitudeTests/AppWindowCycleTests.swift",
 ]
 
 # Compiled into AltitudeTests (hostless) as well as the app. Separate PBXBuildFile IDs.
