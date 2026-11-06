@@ -624,14 +624,15 @@ extension SystemMotionSuppressor {
         }
         // Do not apply the Electron helper filter here: Accessibility already omits most of
         // those, and an untitled real window of 500×500 would look the same.
+        let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return windows.compactMap { element in
             let role = element.axString(kAXRoleAttribute as String)
             guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
+            let title = element.axString(kAXTitleAttribute as String)
             let subrole = element.axString(kAXSubroleAttribute as String)
-            guard WindowCatalog.acceptsSwitchSubrole(subrole) else { return nil }
+            guard WindowCatalog.acceptsSwitchSubrole(subrole, title: title, appName: appName) else { return nil }
             guard let size = element.axSize() else { return nil }
             guard size.width >= 160, size.height >= 100 else { return nil }
-            let title = element.axString(kAXTitleAttribute as String)
             let id = element.axWindowID()
             return ListedWindow(
                 id: id == 0 ? nil : id,
