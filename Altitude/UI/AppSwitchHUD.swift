@@ -8,6 +8,10 @@ final class AppSwitchHUD {
     private let effect: NSVisualEffectView
     private let nameField = NSTextField(labelWithString: "")
     private let iconHost = NSView()
+    private let highlight = NSView()
+    private var rowPIDs: [pid_t] = []
+    private var rowSide: CGFloat = 0
+    private var icons: [pid_t: NSImage] = [:]
 
     init() {
         panel = NSPanel(
@@ -82,30 +86,41 @@ final class AppSwitchHUD {
         nameField.frame = NSRect(x: paddingX, y: paddingBottom, width: width - paddingX * 2, height: nameHeight)
         nameField.stringValue = targets[index].title
 
-        iconHost.subviews.forEach { $0.removeFromSuperview() }
-        for (offset, target) in targets.enumerated() {
-            let originX = CGFloat(offset) * (iconSide + iconGap)
-            if offset == index {
-                let highlight = NSView(frame: NSRect(
-                    x: originX - 4,
-                    y: -4,
-                    width: iconSide + 8,
-                    height: iconSide + 8
-                ))
-                highlight.wantsLayer = true
-                highlight.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.28).cgColor
-                highlight.layer?.cornerRadius = 10
-                iconHost.addSubview(highlight)
-            }
-            let iconView = NSImageView(frame: NSRect(x: originX, y: 0, width: iconSide, height: iconSide))
-            iconView.imageScaling = .scaleProportionallyUpOrDown
-            let icon = target.app.icon ?? NSImage(named: NSImage.applicationIconName)
-            icon?.size = NSSize(width: iconSide, height: iconSide)
-            iconView.image = icon
-            iconHost.addSubview(iconView)
+        let pids = targets.map { $0.app.processIdentifier }
+        if pids != rowPIDs || iconSide != rowSide {
+            rebuildRow(targets: targets, iconSide: iconSide, iconGap: iconGap)
+            rowPIDs = pids
+            rowSide = iconSide
         }
+        let originX = CGFloat(index) * (iconSide + iconGap)
+        highlight.frame = NSRect(x: originX - 4, y: -4, width: iconSide + 8, height: iconSide + 8)
 
         panel.orderFrontRegardless()
+    }
+
+    private func rebuildRow(targets: [SwitchTarget], iconSide: CGFloat, iconGap: CGFloat) {
+        iconHost.subviews.forEach { $0.removeFromSuperview() }
+        highlight.wantsLayer = true
+        highlight.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.28).cgColor
+        highlight.layer?.cornerRadius = 10
+        iconHost.addSubview(highlight)
+        for (offset, target) in targets.enumerated() {
+            let originX = CGFloat(offset) * (iconSide + iconGap)
+            let iconView = NSImageView(frame: NSRect(x: originX, y: 0, width: iconSide, height: iconSide))
+            iconView.imageScaling = .scaleProportionallyUpOrDown
+            iconView.image = icon(for: target)
+            iconHost.addSubview(iconView)
+        }
+    }
+
+    private func icon(for target: SwitchTarget) -> NSImage? {
+        let pid = target.app.processIdentifier
+        if let cached = icons[pid] { return cached }
+        guard let image = (target.app.icon ?? NSImage(named: NSImage.applicationIconName))?.copy() as? NSImage else {
+            return nil
+        }
+        icons[pid] = image
+        return image
     }
 
     func hide() {

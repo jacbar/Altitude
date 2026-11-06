@@ -527,13 +527,25 @@ extension SystemMotionSuppressor {
         let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.processIdentifier, $0) })
         let windowsByPID = windowListGroupedByPID()
         let activeSpaceID = CGSPrivate.activeSpaceID()
+        let queries = apps.map { app in
+            AccessibilityWindowQuery(
+                pid: app.processIdentifier,
+                appName: (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+        let axByPID = AccessibilityWindowListing.windowsByPID(queries)
         let slots = commandTabRow(
             apps: apps.map { app in
                 let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
                 let rows = windowsByPID[app.processIdentifier] ?? []
                 return (
                     appID: Int64(app.processIdentifier),
-                    windows: userWindows(for: app, cgRows: rows, activeSpaceID: activeSpaceID, appName: appName)
+                    windows: userWindows(
+                        cgRows: rows,
+                        activeSpaceID: activeSpaceID,
+                        appName: appName,
+                        ax: axByPID[app.processIdentifier] ?? []
+                    )
                 )
             }
         )
@@ -581,23 +593,34 @@ extension SystemMotionSuppressor {
     private func userWindows(for app: NSRunningApplication) -> [ListedWindow] {
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard let info = CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return userWindows(for: app, cgRows: [], activeSpaceID: CGSPrivate.activeSpaceID(), appName: appName)
+            let ax = accessibilityWindows(for: app)
+            return userWindows(
+                cgRows: [],
+                activeSpaceID: CGSPrivate.activeSpaceID(),
+                appName: appName,
+                ax: ax
+            )
         }
         let pid = app.processIdentifier
         let rows = info.filter { dict in
             guard let owner = dict[kCGWindowOwnerPID as String] as? NSNumber else { return false }
             return owner.int32Value == pid
         }
-        return userWindows(for: app, cgRows: rows, activeSpaceID: CGSPrivate.activeSpaceID(), appName: appName)
+        let ax = accessibilityWindows(for: app)
+        return userWindows(
+            cgRows: rows,
+            activeSpaceID: CGSPrivate.activeSpaceID(),
+            appName: appName,
+            ax: ax
+        )
     }
 
     private func userWindows(
-        for app: NSRunningApplication,
         cgRows: [[String: Any]],
         activeSpaceID: CGSSpaceID,
-        appName: String
+        appName: String,
+        ax: [ListedWindow]
     ) -> [ListedWindow] {
-        let ax = accessibilityWindows(for: app)
         let cg = WindowCatalog.dedupe(cgWindows(appName: appName, rows: cgRows), appName: appName)
         let isOnActiveSpace: ((CGWindowID) -> Bool)?
         if ax.isEmpty {
@@ -619,35 +642,8 @@ extension SystemMotionSuppressor {
     }
 
     private func accessibilityWindows(for app: NSRunningApplication) -> [ListedWindow] {
-        guard AXIsProcessTrusted() else { return [] }
-        let axApp = focuser.axApplication(pid: app.processIdentifier)
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
-              let windows = value as? [AXUIElement]
-        else {
-            return []
-        }
-        // Do not apply the Electron helper filter here: Accessibility already omits most of
-        // those, and an untitled real window of 500×500 would look the same.
         let appName = (app.localizedName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return windows.compactMap { element in
-            let role = element.axString(kAXRoleAttribute as String)
-            guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
-            let title = element.axString(kAXTitleAttribute as String)
-            let subrole = element.axString(kAXSubroleAttribute as String)
-            guard WindowCatalog.acceptsSwitchSubrole(subrole, title: title, appName: appName) else { return nil }
-            guard let size = element.axSize() else { return nil }
-            guard size.width >= 160, size.height >= 100 else { return nil }
-            let id = element.axWindowID()
-            return ListedWindow(
-                id: id == 0 ? nil : id,
-                title: title,
-                width: size.width,
-                height: size.height,
-                main: element.axBool(kAXMainAttribute as String)
-            )
-        }
-        .sorted { $0.main && !$1.main }
+        return AccessibilityWindowListing.windows(pid: app.processIdentifier, appName: appName)
     }
 
     /// Window-server list slice for one app. Includes off-Space windows and drops Electron helpers.
@@ -751,4 +747,69 @@ extension SystemMotionSuppressor {
         didLogTapFailure = true
         log.error("\(message, privacy: .public)")
     }
+}
+
+private struct AccessibilityWindowQuery: Sendable {
+    let pid: pid_t
+    let appName: String
+}
+
+private enum AccessibilityWindowListing {
+    private static let messagingTimeout: Float = 0.1
+
+    static func windows(pid: pid_t, appName: String) -> [ListedWindow] {
+        guard AXIsProcessTrusted() else { return [] }
+        let axApp = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(axApp, messagingTimeout)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &value) == .success,
+              let windows = value as? [AXUIElement]
+        else {
+            return []
+        }
+        return windows.compactMap { element in
+            let role = element.axString(kAXRoleAttribute as String)
+            guard role.isEmpty || role == (kAXWindowRole as String) else { return nil }
+            let title = element.axString(kAXTitleAttribute as String)
+            let subrole = element.axString(kAXSubroleAttribute as String)
+            guard WindowCatalog.acceptsSwitchSubrole(subrole, title: title, appName: appName) else { return nil }
+            guard let size = element.axSize() else { return nil }
+            guard size.width >= 160, size.height >= 100 else { return nil }
+            let id = element.axWindowID()
+            return ListedWindow(
+                id: id == 0 ? nil : id,
+                title: title,
+                width: size.width,
+                height: size.height,
+                main: element.axBool(kAXMainAttribute as String)
+            )
+        }
+        .sorted { $0.main && !$1.main }
+    }
+
+    static func windowsByPID(_ queries: [AccessibilityWindowQuery]) -> [pid_t: [ListedWindow]] {
+        let box = ResultBox()
+        let group = DispatchGroup()
+        let queue = DispatchQueue.global(qos: .userInteractive)
+        for query in queries {
+            group.enter()
+            queue.async {
+                let listed = windows(pid: query.pid, appName: query.appName)
+                box.lock.lock()
+                box.map[query.pid] = listed
+                box.lock.unlock()
+                group.leave()
+            }
+        }
+        _ = group.wait(timeout: .now() + Timing.commandTabAXBudget)
+        box.lock.lock()
+        let snapshot = box.map
+        box.lock.unlock()
+        return snapshot
+    }
+}
+
+private final class ResultBox: @unchecked Sendable {
+    let lock = NSLock()
+    var map: [pid_t: [ListedWindow]] = [:]
 }
