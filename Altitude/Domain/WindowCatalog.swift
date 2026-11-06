@@ -16,12 +16,16 @@ enum WindowCatalog {
         return !appName.isEmpty && title == appName
     }
 
-    /// Command-Tab / App Shortcuts AX listing: keep standard windows; drop dialogs and floaters.
+    /// Command-Tab / App Shortcuts AX listing: keep standard windows; drop unknown / system dialogs.
+    /// `AXDialog` / `AXFloatingWindow` are kept only when the title is strong (not empty / app name),
+    /// so Outlook meeting reminders appear while Mail-style untitled floaters stay omitted.
     /// Empty subrole is allowed (some apps omit it). Does not require `AXStandardWindow`.
-    static func acceptsSwitchSubrole(_ subrole: String) -> Bool {
+    static func acceptsSwitchSubrole(_ subrole: String, title: String, appName: String) -> Bool {
         switch subrole {
-        case "AXUnknown", "AXSystemDialog", "AXDialog", "AXFloatingWindow":
+        case "AXUnknown", "AXSystemDialog":
             return false
+        case "AXDialog", "AXFloatingWindow":
+            return !isWeakTitle(title, appName: appName)
         default:
             return true
         }

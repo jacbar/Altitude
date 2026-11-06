@@ -2,12 +2,54 @@ import XCTest
 
 final class WindowCatalogTests: XCTestCase {
     func testAcceptsSwitchSubroleDropsDialogsAndFloaters() {
-        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole(""))
-        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole("AXStandardWindow"))
-        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXDialog"))
-        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXFloatingWindow"))
-        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXSystemDialog"))
-        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole("AXUnknown"))
+        let outlook = "Microsoft Outlook"
+        let mail = "Mail"
+
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole("", title: "", appName: mail))
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole("AXStandardWindow", title: "", appName: mail))
+
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole(
+            "AXFloatingWindow",
+            title: "Meeting Reminder",
+            appName: outlook
+        ))
+        XCTAssertTrue(WindowCatalog.acceptsSwitchSubrole(
+            "AXDialog",
+            title: "Meeting Reminder",
+            appName: outlook
+        ))
+
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXFloatingWindow",
+            title: "",
+            appName: mail
+        ))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXFloatingWindow",
+            title: mail,
+            appName: mail
+        ))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXDialog",
+            title: "",
+            appName: mail
+        ))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXDialog",
+            title: mail,
+            appName: mail
+        ))
+
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXSystemDialog",
+            title: "Meeting Reminder",
+            appName: outlook
+        ))
+        XCTAssertFalse(WindowCatalog.acceptsSwitchSubrole(
+            "AXUnknown",
+            title: "Meeting Reminder",
+            appName: outlook
+        ))
     }
 
     func testChatGPTStyleTripleCollapsesToLargest() {
