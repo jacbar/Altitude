@@ -15,6 +15,15 @@ final class AppShortcutJumper {
     private var activationFallback: DispatchWorkItem?
     private var activationPoll: DispatchWorkItem?
     private var launchPoll: DispatchWorkItem?
+    /// Stable window order for the shortcut's app so a raise does not bounce the front two.
+    private var cycleState: AppCycleState?
+
+    private struct AppCycleState {
+        var bundleID: String
+        var order: [ListedWindow]
+        var pending: ListedWindow?
+        var pendingUntil: Date?
+    }
 
     init(spaceService: SpaceService, focuser: WindowFocuser) {
         self.spaceService = spaceService
@@ -27,19 +36,73 @@ final class AppShortcutJumper {
 
         if let app = runningApp(bundleID: trimmed) {
             if app.isActive {
+                cycleWindows(of: app, bundleID: trimmed)
                 return
             }
+            cycleState = nil
             hopAndActivate(app)
             return
         }
 
+        cycleState = nil
         launchThenFocus(bundleID: trimmed)
+    }
+
+    /// Already frontmost: each press focuses the next window of this app, then wraps.
+    private func cycleWindows(of app: NSRunningApplication, bundleID: String) {
+        let latest = cycleCandidates(for: app)
+        let previous = cycleState?.bundleID == bundleID ? cycleState?.order : nil
+        let order = AppWindowCycle.stabilizedOrder(previous: previous, latest: latest)
+        guard let next = AppWindowCycle.next(
+            order: order,
+            focusedID: focusedWindowID(of: app),
+            pending: pendingCycleWindow(bundleID: bundleID)
+        ) else {
+            cycleState = AppCycleState(bundleID: bundleID, order: order, pending: nil, pendingUntil: nil)
+            return
+        }
+        log.info("Cycling \(bundleID, privacy: .public) to \(next.title, privacy: .public)")
+        cycleState = AppCycleState(
+            bundleID: bundleID,
+            order: order,
+            pending: next,
+            pendingUntil: Date().addingTimeInterval(Timing.activationGuard)
+        )
+        hopAndActivate(app, preferring: next)
+    }
+
+    private func pendingCycleWindow(bundleID: String) -> ListedWindow? {
+        guard let state = cycleState, state.bundleID == bundleID,
+              let until = state.pendingUntil, Date() < until
+        else { return nil }
+        return state.pending
+    }
+
+    /// Windows we can hop to. Same Space-ID filter as the first jump, in listed order.
+    private func cycleCandidates(for app: NSRunningApplication) -> [ListedWindow] {
+        userWindows(for: app).filter { window in
+            guard let id = window.id, id != 0 else { return false }
+            return !CGSPrivate.spaceIDs(forWindow: id).isEmpty
+        }
+    }
+
+    private func focusedWindowID(of app: NSRunningApplication) -> CGWindowID? {
+        guard AXIsProcessTrusted() else { return nil }
+        let axApp = focuser.axApplication(pid: app.processIdentifier)
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &value) == .success,
+              let value,
+              CFGetTypeID(value) == AXUIElementGetTypeID()
+        else { return nil }
+        let element = unsafeBitCast(value, to: AXUIElement.self)
+        let id = element.axWindowID()
+        return id == 0 ? nil : id
     }
 
     // MARK: - Running
 
-    private func hopAndActivate(_ app: NSRunningApplication) {
-        guard let target = preferredTarget(for: app) else {
+    private func hopAndActivate(_ app: NSRunningApplication, preferring window: ListedWindow? = nil) {
+        guard let target = resolvedTarget(for: app, preferring: window) else {
             // No window to locate — activate may let macOS slide; still best-effort focus.
             log.info("No window for \(app.bundleIdentifier ?? "?", privacy: .public); activating without hop")
             focuser.activate(SwitchTarget(
@@ -75,6 +138,13 @@ final class AppShortcutJumper {
         }
     }
 
+    private func resolvedTarget(for app: NSRunningApplication, preferring window: ListedWindow?) -> SwitchTarget? {
+        if let window {
+            return switchTarget(for: app, window: window)
+        }
+        return preferredTarget(for: app)
+    }
+
     /// Main window if Accessibility marked one; otherwise the first listed (AX+CG merge).
     private func preferredTarget(for app: NSRunningApplication) -> SwitchTarget? {
         let windows = userWindows(for: app)
@@ -88,13 +158,17 @@ final class AppShortcutJumper {
             ?? windows.first(where: \.main)
             ?? windows.first
         guard let preferred else { return nil }
-        let title = preferred.title.isEmpty ? (app.localizedName ?? "Application") : preferred.title
+        return switchTarget(for: app, window: preferred)
+    }
+
+    private func switchTarget(for app: NSRunningApplication, window: ListedWindow) -> SwitchTarget {
+        let title = window.title.isEmpty ? (app.localizedName ?? "Application") : window.title
         return SwitchTarget(
             app: app,
-            windowID: preferred.id,
+            windowID: window.id,
             title: title,
-            width: preferred.width,
-            height: preferred.height
+            width: window.width,
+            height: window.height
         )
     }
 

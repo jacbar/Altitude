@@ -75,7 +75,7 @@ final class AppShortcutsSettingsPane {
         stack.addArrangedSubview(labeledSwitchRow(title: "App Shortcuts module", switchControl: enabledSwitch))
 
         let help = NSTextField(
-            labelWithString: "Jump to an app’s Space instantly. Already frontmost does nothing."
+            labelWithString: "Jump to an app’s Space instantly. Already frontmost cycles its windows."
         )
         help.textColor = .secondaryLabelColor
         help.font = NSFont.systemFont(ofSize: 11)

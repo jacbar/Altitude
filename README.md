@@ -33,7 +33,7 @@ Arrange windows on the desktop under the pointer.
 
 ### App Shortcuts
 
-Off by default. Map letter or digit chords to apps by bundle ID (as many entries as you configure, capped at 32). On press: if the app is already frontmost, do nothing; if it is not running, launch it then focus; otherwise hop instantly (no Mission Control slide, including other displays/desktops) to that app's currently active window and focus it. Does not cycle windows, hide-on-refocus, move windows onto the current Space, or replace Command-Tab / Dock / Spotlight. Hops use `switchInstantly` independently of `desktop.disable_motion`. Digit chords that reuse Desktop Switch/Move modifiers (e.g. default `⌥1`) conflict and will not save.
+Off by default. Map letter or digit chords to apps by bundle ID (as many entries as you configure, capped at 32). On press: if the app is not running, launch it then focus; if it is not frontmost, hop instantly (no Mission Control slide, including other displays/desktops) to that app's current window and focus it; if it is already frontmost, each press focuses the next window of that app and wraps, including windows on other Spaces (same instant hop). A single window stays put. Does not hide-on-refocus, move windows onto the current Space, or replace Command-Tab / Dock / Spotlight. Hops use `switchInstantly` independently of `desktop.disable_motion`. Digit chords that reuse Desktop Switch/Move modifiers (e.g. default `⌥1`) conflict and will not save.
 
 ## Always on
 
@@ -201,7 +201,7 @@ enabled = false
 - Digit Switch best-effort focuses the target display (raise a window on that Space, else warp + modifier-cleared click on the menu bar) then dock-swipes that display's Space strip; focus can still miss on an empty Space.
 - A hotkey that failed to register is tried again on the next reload or Settings save.
 - Hotkeys, window arrangement, and App Shortcuts Space hops need Accessibility.
-- App Shortcuts leave the target window on its Space (no pull onto the current desktop) and do not cycle an app's windows.
+- App Shortcuts leave the target window on its Space (no pull onto the current desktop). Repeating a shortcut while that app is already frontmost cycles its windows, including windows on other Spaces, then wraps. Coming from another app still focuses the window you were last in.
 - If a private SkyLight or Accessibility symbol is missing, Altitude skips that operation instead of crashing at launch.
 - Window arrangement affects the desktop under the pointer and skips minimized, fullscreen, and other-desktop windows.
 - Window arrangement uses the primary (menu-bar) display as the vertical origin, so a display above that screen stays aligned.
