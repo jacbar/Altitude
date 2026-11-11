@@ -30,4 +30,29 @@ final class CommandTabSessionTests: XCTestCase {
         XCTAssertFalse(session.move(by: 1, now: later))
         XCTAssertEqual(session.idleDeadline, later.addingTimeInterval(Timing.commandTabIdle))
     }
+
+    func testSelectInRangeUpdatesIndexAndIdle() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        var session = CommandTabSession.open(targets: ["a", "b", "c"], index: 0, now: now)!
+        let later = now.addingTimeInterval(4)
+        XCTAssertFalse(session.select(index: 2, now: later))
+        XCTAssertEqual(session.index, 2)
+        XCTAssertEqual(session.idleDeadline, later.addingTimeInterval(Timing.commandTabIdle))
+    }
+
+    func testSelectOutOfRangeCloses() {
+        let now = Date()
+        var session = CommandTabSession.open(targets: ["a", "b"], index: 0, now: now)!
+        XCTAssertTrue(session.select(index: -1, now: now))
+        XCTAssertTrue(session.select(index: 2, now: now))
+    }
+
+    func testSelectSameIndexRefreshesIdle() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        var session = CommandTabSession.open(targets: ["a", "b"], index: 1, now: now)!
+        let later = now.addingTimeInterval(5)
+        XCTAssertFalse(session.select(index: 1, now: later))
+        XCTAssertEqual(session.index, 1)
+        XCTAssertEqual(session.idleDeadline, later.addingTimeInterval(Timing.commandTabIdle))
+    }
 }

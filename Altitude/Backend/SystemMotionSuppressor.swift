@@ -57,6 +57,12 @@ final class SystemMotionSuppressor: NSObject {
         super.init()
         tapContext.suppressor = self
         tapContext.tapHost = tapHost
+        hud.onHoverIndex = { [weak self] index in
+            self?.selectHighlight(at: index)
+        }
+        hud.onClickIndex = { [weak self] index in
+            self?.commitHighlight(at: index)
+        }
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(appActivated(_:)),
@@ -378,6 +384,29 @@ extension SystemMotionSuppressor {
         session = current
         hud.show(targets: current.targets, selectedIndex: current.index)
         armSessionIdle()
+    }
+
+    private func selectHighlight(at index: Int) {
+        guard var current = session else { return }
+        let now = Date()
+        if current.select(index: index, now: now) {
+            cancelSession()
+            return
+        }
+        session = current
+        hud.show(targets: current.targets, selectedIndex: current.index)
+        armSessionIdle()
+    }
+
+    private func commitHighlight(at index: Int) {
+        guard var current = session else { return }
+        let now = Date()
+        if current.select(index: index, now: now) {
+            cancelSession()
+            return
+        }
+        session = current
+        commitSession()
     }
 
     private func armSessionIdle() {

@@ -36,7 +36,8 @@ cmd = false
 
 [command_tab]
 # When false, macOS keeps the system app switcher. When true, Altitude shows a
-# still row of open windows (Tab / Shift-Tab / arrows, Command-Q, Command-H, Escape).
+# still row of open windows (Tab / Shift-Tab / arrows, hover/click, Command-Q,
+# Command-H, Escape).
 enabled = false
 # When true (and Command-Tab is enabled), landing on the highlighted window skips the slide.
 disable_motion = false
