@@ -286,8 +286,45 @@ final class SpaceLayoutTests: XCTestCase {
         XCTAssertFalse(prediction.shouldExpire(activeID: 7, now: now))
         XCTAssertTrue(prediction.shouldExpire(activeID: 42, now: now))
         XCTAssertTrue(prediction.shouldExpire(activeID: 7, now: now.addingTimeInterval(3)))
+        // Focus moved to another display — drop same-strip hop prediction.
+        XCTAssertTrue(
+            prediction.shouldExpire(
+                activeID: 7,
+                now: now,
+                liveActiveDisplayIdentifier: "display-b"
+            )
+        )
+        XCTAssertFalse(
+            prediction.shouldExpire(
+                activeID: 7,
+                now: now,
+                liveActiveDisplayIdentifier: "display-a"
+            )
+        )
 
         prediction = nil
         XCTAssertTrue(prediction.shouldExpire(activeID: 7, now: now))
+    }
+
+    func testNeedsCrossDisplayFocusUsesLiveDisplayOnly() {
+        XCTAssertTrue(
+            needsCrossDisplayFocus(
+                targetDisplayIdentifier: "main",
+                liveActiveDisplayIdentifier: "external"
+            )
+        )
+        XCTAssertFalse(
+            needsCrossDisplayFocus(
+                targetDisplayIdentifier: "main",
+                liveActiveDisplayIdentifier: "main"
+            )
+        )
+        // Unknown live focus — still try to pull focus before swiping.
+        XCTAssertTrue(
+            needsCrossDisplayFocus(
+                targetDisplayIdentifier: "main",
+                liveActiveDisplayIdentifier: nil
+            )
+        )
     }
 }
