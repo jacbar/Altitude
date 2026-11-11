@@ -93,10 +93,28 @@ struct SpacePrediction: Equatable, Sendable {
     }
 }
 
+/// Dock-swipe follows keyboard/menu-bar focus, not an in-flight hop prediction.
+func needsCrossDisplayFocus(
+    targetDisplayIdentifier: String,
+    liveActiveDisplayIdentifier: String?
+) -> Bool {
+    liveActiveDisplayIdentifier != targetDisplayIdentifier
+}
+
 extension Optional where Wrapped == SpacePrediction {
-    /// True when there is no prediction, it has expired, or the system has reached it.
-    func shouldExpire(activeID: CGSSpaceID, now: Date) -> Bool {
+    /// True when there is no prediction, it has expired, the system has reached it,
+    /// or focus has moved to another display (prediction is for same-strip chaining only).
+    func shouldExpire(
+        activeID: CGSSpaceID,
+        now: Date,
+        liveActiveDisplayIdentifier: String? = nil
+    ) -> Bool {
         guard let prediction = self else { return true }
+        if let liveActiveDisplayIdentifier,
+           liveActiveDisplayIdentifier != prediction.displayIdentifier
+        {
+            return true
+        }
         return now >= prediction.expiry || prediction.spaceID == activeID
     }
 }

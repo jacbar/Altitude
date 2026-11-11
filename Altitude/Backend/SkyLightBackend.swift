@@ -44,7 +44,7 @@ final class SkyLightBackend: SpaceService {
 
         let layout = readLayout()
         let liveID = CGSPrivate.activeSpaceID()
-        expirePredictionIfNeeded(activeID: liveID)
+        expirePredictionIfNeeded(activeID: liveID, in: layout)
         let prediction = self.prediction
 
         guard let target = layout.desktops.first(where: { $0.index == index }) else {
@@ -58,12 +58,10 @@ final class SkyLightBackend: SpaceService {
             throw SpaceServiceError.spacesUnavailable
         }
 
-        // Dock-swipe follows the active display; pull focus there before hopping.
-        if let activeDisplay = activeDisplayIdentifier(in: layout, prediction: prediction),
-           activeDisplay != display.identifier
-        {
-            focusDisplayBestEffort(displayIdentifier: display.identifier, spaceID: currentID)
-        }
+        // Dock-swipe follows live keyboard focus — never trust hop prediction for this.
+        // Also run when the target Space is already current: focus still has to move.
+        ensureDisplayFocused(display, spaceID: currentID, in: layout)
+
         let route = digitSwitchRoute(
             targetSpaceID: target.id,
             displaySpaceIDs: display.spaceIDs,
@@ -89,7 +87,7 @@ final class SkyLightBackend: SpaceService {
         guard focusResolver.isAccessibilityTrusted else { return .unavailable }
         let layout = readLayout()
         let liveID = CGSPrivate.activeSpaceID()
-        expirePredictionIfNeeded(activeID: liveID)
+        expirePredictionIfNeeded(activeID: liveID, in: layout)
         let prediction = self.prediction
 
         let displays = layout.displays.compactMap { display -> DisplaySpaceRouteInput? in
@@ -118,6 +116,9 @@ final class SkyLightBackend: SpaceService {
             else {
                 return .unavailable
             }
+            if let focusSpaceID = currentSpaceID(on: display, prediction: prediction) {
+                ensureDisplayFocused(display, spaceID: focusSpaceID, in: layout)
+            }
             return apply(route, on: display, instant: instant)
         }
     }
@@ -130,7 +131,7 @@ final class SkyLightBackend: SpaceService {
         guard focusResolver.isAccessibilityTrusted else { return .unavailable }
         let layout = readLayout()
         let liveID = CGSPrivate.activeSpaceID()
-        expirePredictionIfNeeded(activeID: liveID)
+        expirePredictionIfNeeded(activeID: liveID, in: layout)
         let prediction = self.prediction
 
         guard let activeDisplayID = activeDisplayIdentifier(in: layout, prediction: prediction),
@@ -212,7 +213,8 @@ final class SkyLightBackend: SpaceService {
     func acknowledgeSystemSpaceChange() {
         // Intermediate hops of a multi-step switch also land here, so the prediction
         // survives until the system reaches it or it expires.
-        expirePredictionIfNeeded(activeID: CGSPrivate.activeSpaceID())
+        let layout = readLayout()
+        expirePredictionIfNeeded(activeID: CGSPrivate.activeSpaceID(), in: layout)
     }
 
     // MARK: - Private
@@ -221,8 +223,17 @@ final class SkyLightBackend: SpaceService {
         prediction?.live(activeID: activeID, now: now)
     }
 
-    private func expirePredictionIfNeeded(activeID: CGSSpaceID, now: Date = Date()) {
-        if prediction.shouldExpire(activeID: activeID, now: now) {
+    private func expirePredictionIfNeeded(
+        activeID: CGSSpaceID,
+        in layout: ManagedLayout,
+        now: Date = Date()
+    ) {
+        let liveDisplay = layout.displays.first { $0.spaceIDs.contains(activeID) }?.identifier
+        if prediction.shouldExpire(
+            activeID: activeID,
+            now: now,
+            liveActiveDisplayIdentifier: liveDisplay
+        ) {
             prediction = nil
         }
     }
@@ -233,6 +244,11 @@ final class SkyLightBackend: SpaceService {
             return liveID
         }
         return layout.displays.first?.currentSpaceID
+    }
+
+    private func liveActiveDisplayIdentifier(in layout: ManagedLayout) -> String? {
+        guard let activeID = liveActiveSpaceID(in: layout) else { return nil }
+        return layout.displays.first { $0.spaceIDs.contains(activeID) }?.identifier
     }
 
     /// Prefers in-flight dock-swipe prediction so multi-step hops keep routing correctly.
@@ -249,6 +265,19 @@ final class SkyLightBackend: SpaceService {
     ) -> String? {
         guard let activeID = activeSpaceID(in: layout, prediction: prediction) else { return nil }
         return layout.displays.first { $0.spaceIDs.contains(activeID) }?.identifier
+    }
+
+    /// Pull live keyboard focus onto `display` when it is not already there.
+    private func ensureDisplayFocused(
+        _ display: ManagedDisplay,
+        spaceID: CGSSpaceID,
+        in layout: ManagedLayout
+    ) {
+        guard needsCrossDisplayFocus(
+            targetDisplayIdentifier: display.identifier,
+            liveActiveDisplayIdentifier: liveActiveDisplayIdentifier(in: layout)
+        ) else { return }
+        focusDisplayBestEffort(displayIdentifier: display.identifier, spaceID: spaceID)
     }
 
     func currentSpaceID(on screen: NSScreen) -> CGSSpaceID? {
@@ -271,15 +300,17 @@ final class SkyLightBackend: SpaceService {
 
     /// Best-effort: put keyboard/menu-bar focus on the managed display so dock-swipe hits it.
     ///
-    /// Prefer raising a window on that display's current Space (same idea as Command-Tab
-    /// landing). A pointer warp alone does not move focus; a click while ⌥ is held would be
-    /// an Option-click and can hide other apps — only used as a flags-cleared fallback.
+    /// Raise a window on that display's current Space when possible, then always
+    /// flags-cleared menu-bar click. Activate alone often leaves dock-swipe on the old
+    /// display; ⌥ is usually still held for ⌥N, so the click must clear modifiers.
     private func focusDisplayBestEffort(displayIdentifier: String, spaceID: CGSSpaceID) {
         if activateAnyWindow(on: spaceID) {
             CFRunLoopRunInMode(.defaultMode, 0.05, false)
-            return
         }
+        focusDisplayViaMenuBarClick(displayIdentifier: displayIdentifier)
+    }
 
+    private func focusDisplayViaMenuBarClick(displayIdentifier: String) {
         guard let screen = nsScreen(matchingDisplayIdentifier: displayIdentifier),
               let displayID = cgDisplayID(for: screen)
         else {

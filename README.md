@@ -198,7 +198,7 @@ enabled = false
 ## Good to know
 
 - Desktops are numbered 1–9 in Mission Control order across all displays.
-- Digit Switch best-effort focuses the target display (raise a window on that Space, else warp + modifier-cleared click on the menu bar) then dock-swipes that display's Space strip; focus can still miss on an empty Space.
+- Digit Switch uses live keyboard focus (not an in-flight hop prediction) to decide when to move displays: raise a window on the target display's current Space when possible, then warp + modifier-cleared menu-bar click, then dock-swipe that display's Space strip. If the destination is already current on another display, focus still moves there; focus can still miss on an empty Space.
 - A hotkey that failed to register is tried again on the next reload or Settings save.
 - Hotkeys, window arrangement, and App Shortcuts Space hops need Accessibility.
 - App Shortcuts leave the target window on its Space (no pull onto the current desktop). Repeating a shortcut while that app is already frontmost cycles its windows, including windows on other Spaces, then wraps. Coming from another app still focuses the window you were last in.
