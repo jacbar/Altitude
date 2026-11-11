@@ -4,10 +4,13 @@ import Foundation
 /// Still row of running apps shown while Command is held. It does not fade or slide.
 @MainActor
 final class AppSwitchHUD {
+    var onHoverIndex: ((Int) -> Void)?
+    var onClickIndex: ((Int) -> Void)?
+
     private let panel: NSPanel
     private let effect: NSVisualEffectView
     private let nameField = NSTextField(labelWithString: "")
-    private let iconHost = NSView()
+    private let iconHost = IconRowView()
     private let highlight = NSView()
     private var rowPIDs: [pid_t] = []
     private var rowSide: CGFloat = 0
@@ -29,6 +32,7 @@ final class AppSwitchHUD {
         panel.hidesOnDeactivate = false
         panel.animationBehavior = .none
         panel.ignoresMouseEvents = true
+        panel.acceptsMouseMovedEvents = true
         panel.worksWhenModal = true
 
         effect = NSVisualEffectView(frame: panel.contentRect(forFrameRect: panel.frame))
@@ -41,6 +45,12 @@ final class AppSwitchHUD {
         panel.contentView = effect
 
         iconHost.wantsLayer = false
+        iconHost.onHoverIndex = { [weak self] index in
+            self?.onHoverIndex?(index)
+        }
+        iconHost.onClickIndex = { [weak self] index in
+            self?.onClickIndex?(index)
+        }
         nameField.font = .systemFont(ofSize: 13, weight: .medium)
         nameField.textColor = .labelColor
         nameField.alignment = .center
@@ -83,6 +93,9 @@ final class AppSwitchHUD {
 
         let rowX = (width - rowWidth) / 2
         iconHost.frame = NSRect(x: rowX, y: paddingBottom + nameHeight + nameGap, width: rowWidth, height: iconSide)
+        iconHost.iconSide = iconSide
+        iconHost.iconGap = iconGap
+        iconHost.iconCount = targets.count
         nameField.frame = NSRect(x: paddingX, y: paddingBottom, width: width - paddingX * 2, height: nameHeight)
         nameField.stringValue = targets[index].title
 
@@ -95,6 +108,7 @@ final class AppSwitchHUD {
         let originX = CGFloat(index) * (iconSide + iconGap)
         highlight.frame = NSRect(x: originX - 4, y: -4, width: iconSide + 8, height: iconSide + 8)
 
+        panel.ignoresMouseEvents = false
         panel.orderFrontRegardless()
     }
 
@@ -124,6 +138,64 @@ final class AppSwitchHUD {
     }
 
     func hide() {
+        panel.ignoresMouseEvents = true
         panel.orderOut(nil)
+    }
+}
+
+/// Icon row that hit-tests hover/click to a slot index. Gaps and outside the row are ignored.
+private final class IconRowView: NSView {
+    var iconSide: CGFloat = 0
+    var iconGap: CGFloat = 0
+    var iconCount: Int = 0
+    var onHoverIndex: ((Int) -> Void)?
+    var onClickIndex: ((Int) -> Void)?
+
+    private var tracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking {
+            removeTrackingArea(tracking)
+        }
+        let options: NSTrackingArea.Options = [
+            .activeAlways,
+            .mouseMoved,
+            .mouseEnteredAndExited,
+            .inVisibleRect,
+        ]
+        let area = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        reportHover(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        reportHover(at: convert(event.locationInWindow, from: nil))
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let index = index(at: convert(event.locationInWindow, from: nil)) else { return }
+        onClickIndex?(index)
+    }
+
+    private func reportHover(at point: NSPoint) {
+        // Notify even for the same index so the session idle timer refreshes while the pointer rests.
+        guard let index = index(at: point) else { return }
+        onHoverIndex?(index)
+    }
+
+    private func index(at point: NSPoint) -> Int? {
+        guard iconCount > 0, iconSide > 0 else { return nil }
+        guard point.y >= 0, point.y <= bounds.height else { return nil }
+        let stride = iconSide + iconGap
+        let i = Int(floor(point.x / stride))
+        guard i >= 0, i < iconCount else { return nil }
+        let localX = point.x - CGFloat(i) * stride
+        guard localX >= 0, localX <= iconSide else { return nil }
+        return i
     }
 }

@@ -34,4 +34,17 @@ struct CommandTabSession<Target> {
         idleDeadline = now.addingTimeInterval(idle)
         return false
     }
+
+    /// Sets the selection by absolute index, refreshes idle, and reports whether the session should close.
+    /// Out-of-range indices close; an in-range index (including the current one) keeps the session open.
+    mutating func select(
+        index newIndex: Int,
+        now: Date,
+        idle: TimeInterval = Timing.commandTabIdle
+    ) -> Bool {
+        guard targets.indices.contains(newIndex) else { return true }
+        index = newIndex
+        idleDeadline = now.addingTimeInterval(idle)
+        return false
+    }
 }
